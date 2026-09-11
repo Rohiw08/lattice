@@ -1,0 +1,38 @@
+name: lattice
+description: A powerful and customizable node-based canvas editor library for Flutter.
+version: 0.1.0
+repository: https://github.com/Rohiw08/lattice
+homepage: https://github.com/Rohiw08/lattice
+issue_tracker: https://github.com/Rohiw08/lattice/issues
+documentation: https://github.com/Rohiw08/lattice/blob/main/README.md
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.1.0
+  riverpod: ^3.1.0
+  vector_math: ^2.1.4
+  freezed_annotation: ^3.1.0
+  built_collection: ^5.1.1
+  json_serializable: ^6.11.0
+  equatable: ^2.0.7
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.7.0
+  freezed: ^3.2.0
+
+topics:
+  - flutter
+  - canvas
+  - nodes
+  - flow
+  - diagram
+

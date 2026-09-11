@@ -1,0 +1,307 @@
+import 'package:lattice/src/core/enums/enums.dart';
+import 'package:lattice/src/core/providers/providers.dart';
+import 'package:lattice/src/core/theme/components/background_theme.dart';
+import 'package:lattice/src/core/theme/components/cursor_theme.dart';
+import 'package:lattice/src/core/theme/theme_extension.dart';
+import 'package:lattice/src/core/utils/custom_stack_widget.dart';
+import 'package:lattice/src/features/background/presentation/flow_background_pattern_layer.dart';
+import 'package:lattice/src/features/canvas/flow_canvas_pointer_layer.dart';
+import 'package:lattice/src/features/edges/presentation/layer/edge_reconnect_layer.dart';
+import 'package:lattice/src/features/edges/presentation/layer/edges_layer.dart';
+import 'package:lattice/src/features/keyboard/presentation/inputs/gesture_bindings.dart';
+import 'package:lattice/src/features/nodes/domain/node_render_layer.dart';
+import 'package:lattice/src/features/nodes/presentation/flow_interaction.dart';
+import 'package:lattice/src/features/nodes/presentation/nodes_layer.dart';
+import 'package:lattice/src/features/selection/presentation/layers/selection_layer.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// Pan/zoom surface: [InteractiveViewer] + canvas-style scroll policy.
+///
+/// Hit-test chain: nothing inside the transformed child may use
+/// Flutter's default `size.contains` gate (Listener / GestureDetector /
+/// RepaintBoundary), or nodes whose flow coords lie outside the viewport-sized
+/// layout box become unclickable while still painting.
+///
+/// Paint / hit order (layered paint order with z within each band):
+/// 1. Deselect backdrop (empty canvas) — also starts Shift box-select
+/// 2. Background pattern (flow space) — moves with IV
+/// 3. Background nodes (groups) — behind edges, still hittable
+/// 4. Edge paint
+/// 5. Edge stroke hit targets
+/// 6. Middle nodes
+/// 7. Selection UI (paint only)
+class FlowCanvasInteractiveSurface extends ConsumerStatefulWidget {
+  const FlowCanvasInteractiveSurface({
+    super.key,
+    this.backgroundPatternStyle,
+  });
+
+  /// When set, dots/grid are painted in flow space under nodes.
+  final FlowBackgroundStyle? backgroundPatternStyle;
+
+  @override
+  ConsumerState<FlowCanvasInteractiveSurface> createState() =>
+      _FlowCanvasInteractiveSurfaceState();
+}
+
+class _FlowCanvasInteractiveSurfaceState
+    extends ConsumerState<FlowCanvasInteractiveSurface> {
+  /// Mirrors Lattice `selectionKeyPressed` so pan can be disabled while Shift is held.
+  bool _selectionKeyHeld = false;
+
+  /// Middle/right button pan (Lattice `panOnDrag={[1,2]}`) — IV only handles left.
+  int? _auxPanPointer;
+  Offset? _auxPanLastGlobal;
+  bool _auxPanRouteActive = false;
+
+  /// True while InteractiveViewer / aux pan is actively moving the viewport.
+  bool _viewportInteracting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
+    _selectionKeyHeld = ref
+        .read(flowOptionsProvider)
+        .keyboardOptions
+        .isSelectionKeyActive;
+  }
+
+  @override
+  void dispose() {
+    _stopAuxiliaryPan();
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
+    super.dispose();
+  }
+
+  bool _onKeyEvent(KeyEvent event) {
+    final active =
+        ref.read(flowOptionsProvider).keyboardOptions.isSelectionKeyActive;
+    if (active != _selectionKeyHeld) {
+      setState(() => _selectionKeyHeld = active);
+    }
+    return false;
+  }
+
+  void _stopAuxiliaryPan() {
+    if (_auxPanRouteActive) {
+      GestureBinding.instance.pointerRouter
+          .removeGlobalRoute(_onAuxiliaryPanRoute);
+      if (mounted) {
+        setState(() => _auxPanRouteActive = false);
+      } else {
+        _auxPanRouteActive = false;
+      }
+    }
+    _auxPanPointer = null;
+    _auxPanLastGlobal = null;
+  }
+
+  void _onAuxiliaryPanRoute(PointerEvent event) {
+    if (event.pointer != _auxPanPointer) return;
+
+    final controller = ref.read(internalControllerProvider.notifier);
+
+    if (event is PointerMoveEvent) {
+      final last = _auxPanLastGlobal;
+      if (last == null) return;
+      final delta = event.position - last;
+      _auxPanLastGlobal = event.position;
+      if (delta != Offset.zero) {
+        controller.panLiveBy(delta);
+      }
+      return;
+    }
+
+    if (event is PointerUpEvent || event is PointerCancelEvent) {
+      _stopAuxiliaryPan();
+      controller.onViewportInteractionEnd();
+    }
+  }
+
+  void _maybeStartAuxiliaryPan(PointerDownEvent event) {
+    final options = ref.read(flowOptionsProvider);
+    final v = options.viewportOptions;
+    final isLocked =
+        ref.read(internalControllerProvider).isPanZoomLocked;
+    final dragMode = ref.read(internalControllerProvider).dragMode;
+
+    if (isLocked || dragMode != DragMode.none) return;
+    if (!v.isAuxiliaryPanButton(event.buttons)) return;
+    if (FlowInteraction.blocksPan(event)) return;
+
+    final controller = ref.read(internalControllerProvider.notifier);
+    _stopAuxiliaryPan();
+    _auxPanPointer = event.pointer;
+    _auxPanLastGlobal = event.position;
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onAuxiliaryPanRoute);
+    setState(() => _auxPanRouteActive = true);
+    controller.onViewportInteractionStart();
+  }
+
+  void _onPointerSignal(PointerSignalEvent signal) {
+    if (signal is! PointerScrollEvent) return;
+    if (signal.kind != PointerDeviceKind.mouse) return;
+    if (signal.scrollDelta.dy == 0 && signal.scrollDelta.dx == 0) return;
+
+    final isLocked = ref.read(internalControllerProvider).isPanZoomLocked;
+    if (isLocked) return;
+    // Lattice `nowheel` — leave the event for scrollables under the pointer.
+    if (FlowInteraction.blocksWheel(signal)) return;
+
+    final v = ref.read(flowOptionsProvider).viewportOptions;
+    final controller = ref.read(internalControllerProvider.notifier);
+
+    if (v.zoomOnScroll) {
+      final local = controller.viewport.viewportPositionFromGlobal(
+        signal.position,
+      );
+      if (local == null) return;
+      final scaleChange = flowWheelZoomScaleChange(
+        signal,
+        scaleFactor: kDefaultMouseScrollToScaleFactor,
+      );
+      controller.viewport.zoom(
+        focalPoint: local,
+        minZoom: v.minZoom,
+        maxZoom: v.maxZoom,
+        // Controller applies (1 + zoomFactor) as the multiply factor.
+        zoomFactor: scaleChange - 1,
+      );
+      return;
+    }
+
+    if (v.panOnScroll) {
+      final delta = GestureBindings.normalizedPanOnScroll(
+        signal,
+        speed: v.panOnScrollSpeed,
+      );
+      controller.panLiveBy(-delta);
+      controller.commitLiveViewportToState();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ref.watch(internalControllerProvider.notifier);
+    final options = ref.read(flowOptionsProvider);
+    final isLocked = ref.watch(
+      internalControllerProvider.select((state) => state.isPanZoomLocked),
+    );
+    final dragMode = ref.watch(
+      internalControllerProvider.select((state) => state.dragMode),
+    );
+    final v = options.viewportOptions;
+
+    // Wheel zoom is handled in [_onPointerSignal] so [FlowNoWheel] can block it.
+    // Keep IV's built-in scroll-zoom off (same as pan-on-scroll mode).
+    const wheelZoomFactor = 1e12;
+    final trackpadScrollCausesScale = v.zoomOnScroll;
+
+    // Lattice: left pan off for marquee / selection key / active connection drag.
+    // Do NOT disable pan for [DragMode.node] — node pan wins the arena; flipping
+    // panEnabled mid-drag causes dual-motion jank.
+    final panEnabled = !isLocked &&
+        dragMode != DragMode.selection &&
+        dragMode != DragMode.connection &&
+        !_selectionKeyHeld &&
+        !v.selectionOnDrag &&
+        v.panOnDragLeft;
+
+    final cursors =
+        context.flowCanvasTheme.cursor ?? FlowCursorStyle.system(context);
+    final paneCursor = cursors.resolvePane(
+      selection: dragMode == DragMode.selection ||
+          _selectionKeyHeld ||
+          v.selectionOnDrag,
+      dragging: _viewportInteracting ||
+          _auxPanRouteActive ||
+          dragMode == DragMode.canvas,
+      panEnabled: panEnabled,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+
+        return MouseRegion(
+          cursor: paneCursor,
+          child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: isLocked ? null : _maybeStartAuxiliaryPan,
+          onPointerSignal: isLocked ? null : _onPointerSignal,
+          child: AbsorbPointer(
+            absorbing: isLocked,
+            child: InteractiveViewer(
+            key: controller.viewportKey,
+            transformationController: controller.transformationController,
+            boundaryMargin: const EdgeInsets.all(double.infinity),
+            constrained: false,
+            clipBehavior: Clip.none,
+            minScale: v.minZoom,
+            maxScale: v.maxZoom,
+            scaleFactor: wheelZoomFactor,
+            panEnabled: panEnabled,
+            scaleEnabled: !isLocked && dragMode != DragMode.selection,
+            trackpadScrollCausesScale: trackpadScrollCausesScale,
+            onInteractionStart: (_) {
+              setState(() => _viewportInteracting = true);
+              controller.onViewportInteractionStart();
+            },
+            onInteractionEnd: (_) {
+              setState(() => _viewportInteracting = false);
+              controller.onViewportInteractionEnd();
+            },
+            child: UnboundedSizedBox(
+              key: controller.canvasKey,
+              width: width,
+              height: height,
+              child: InfiniteHitTestStack(
+                clipBehavior: Clip.none,
+                children: [
+                  const UnboundedPositioned.fill(
+                    child: FlowCanvasDeselectLayer(),
+                  ),
+                  if (widget.backgroundPatternStyle != null)
+                    UnboundedPositioned.fill(
+                      child: FlowBackgroundPatternLayer(
+                        style: widget.backgroundPatternStyle!,
+                        viewportSize: Size(width, height),
+                      ),
+                    ),
+                  const UnboundedPositioned.fill(
+                    child: FlowNodesLayer(
+                      layer: NodeRenderLayer.background,
+                    ),
+                  ),
+                  const UnboundedPositioned.fill(child: FlowEdgeLayer()),
+                  const UnboundedPositioned.fill(
+                    child: FlowCanvasPointerLayer(),
+                  ),
+                  const UnboundedPositioned.fill(
+                    child: FlowNodesLayer(
+                      layer: NodeRenderLayer.middle,
+                    ),
+                  ),
+                  const UnboundedPositioned.fill(
+                    child: FlowNodesLayer(
+                      layer: NodeRenderLayer.foreground,
+                    ),
+                  ),
+                  const UnboundedPositioned.fill(child: SelectionLayer()),
+                  const UnboundedPositioned.fill(child: EdgeReconnectLayer()),
+                ],
+              ),
+            ),
+            ),
+          ),
+          ),
+        );
+      },
+    );
+  }
+}
