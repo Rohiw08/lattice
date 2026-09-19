@@ -117,7 +117,6 @@ class ConnectionPainter extends CustomPainter {
     // Get path metrics
     final metrics = path.computeMetrics().toList();
     if (metrics.isEmpty) {
-      // debugPrint('Path metrics are empty');
       return;
     }
 

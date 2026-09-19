@@ -101,3 +101,37 @@ class FlowEdgeLabel extends ConsumerWidget {
     );
   }
 }
+
+/// Simple edge text badge (Lattice `<EdgeText>`).
+///
+/// Theme-independent text with an optional background — for canvas-space
+/// labels pass to [FlowEdge.label], for interactive portal badges compose
+/// with buttons inside [FlowEdge.overlayLabel].
+class FlowEdgeText extends StatelessWidget {
+  const FlowEdgeText(
+    this.text, {
+    super.key,
+    this.style,
+    this.backgroundColor,
+    this.padding = const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+    this.borderRadius = const BorderRadius.all(Radius.circular(4.0)),
+  });
+
+  final String text;
+  final TextStyle? style;
+  final Color? backgroundColor;
+  final EdgeInsetsGeometry padding;
+  final BorderRadiusGeometry borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: borderRadius,
+      ),
+      child: Text(text, style: style),
+    );
+  }
+}

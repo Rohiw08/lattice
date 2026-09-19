@@ -60,34 +60,52 @@ class EdgeService {
   }
 
   /// Removes a single edge from the canvas state.
-  FlowCanvasState removeEdge(FlowCanvasState state, String edgeId) {
+  ///
+  /// Edges with `deletable: false` are kept. Selection entries for removed
+  /// edges are cleaned in the same commit. [edgesDeletable] is the
+  /// canvas-level default (`EdgeOptions.deletable`) for edges that don't
+  /// set the flag.
+  FlowCanvasState removeEdge(FlowCanvasState state, String edgeId,
+      {bool edgesDeletable = true}) {
     final edge = state.edges[edgeId];
-    if (edge == null) return state;
+    if (edge == null || !(edge.deletable ?? edgesDeletable)) return state;
 
     final newEdges = Map<String, FlowEdge>.from(state.edges);
     newEdges.remove(edgeId);
 
     return state.copyWith(
       edges: newEdges,
+      selectedEdges: Set<String>.from(state.selectedEdges)..remove(edgeId),
     );
   }
 
   /// Removes a list of edges efficiently.
-  FlowCanvasState removeEdges(FlowCanvasState state, List<String> edgeIds) {
+  ///
+  /// Edges with `deletable: false` are kept. Selection entries for removed
+  /// edges are cleaned in the same commit. [edgesDeletable] is the
+  /// canvas-level default for edges that don't set the flag.
+  FlowCanvasState removeEdges(FlowCanvasState state, List<String> edgeIds,
+      {bool edgesDeletable = true}) {
     if (edgeIds.isEmpty) return state;
 
     final newEdges = Map<String, FlowEdge>.from(state.edges);
+    final removed = <String>[];
     bool changed = false;
 
     for (final edgeId in edgeIds) {
       final edge = newEdges[edgeId];
-      if (edge != null) {
+      if (edge != null && (edge.deletable ?? edgesDeletable)) {
         newEdges.remove(edgeId);
+        removed.add(edgeId);
         changed = true;
       }
     }
+    if (!changed) return state;
 
-    return changed ? state.copyWith(edges: newEdges) : state;
+    return state.copyWith(
+      edges: newEdges,
+      selectedEdges: Set<String>.from(state.selectedEdges)..removeAll(removed),
+    );
   }
 
   /// Updates the data payload of a specific edge.

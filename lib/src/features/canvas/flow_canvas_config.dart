@@ -4,20 +4,22 @@ import 'package:flutter/foundation.dart';
 
 /// Bundle of the primary configuration objects for [FlowCanvas].
 ///
-/// **Uncontrolled (default):** the canvas stores [FlowCanvasState] internally. Use
-/// [FlowCanvasCallbacks] to observe changes and mirror them into your app state.
+/// **Uncontrolled (the only mode):** the canvas owns its [FlowCanvasState]
+/// internally. Drive it imperatively through [FlowCanvasController] and
+/// observe it through [FlowCanvasCallbacks] — there are no `nodes`/`edges`
+/// props that sync back and forth.
 ///
-/// **Controlled / external state:** own your graph in a `StateNotifier` or
-/// Bloc, apply updates from callbacks, and pass the result back by mutating
-/// through [FlowCanvasController] (e.g. `load`, `mutate` on the internal
-/// controller via the public API) or by rebuilding [FlowCanvas] with a new
-/// [FlowCanvasState] as `initialState` when the widget is first created.
+/// **Persistence / wholesale replace:** use `controller.toJson()` to save
+/// and `controller.load(state)` to restore (file open, template switch,
+/// session restore). Note `load` replaces the document and resets undo
+/// history — it is not a per-change mirroring tool. For per-change
+/// mirroring into app state, subscribe to the callbacks instead.
 @immutable
 class FlowCanvasConfig {
-  const FlowCanvasConfig({
-    this.options = const FlowCanvasOptions(),
+  FlowCanvasConfig({
+    FlowCanvasOptions? options,
     this.callbacks = const FlowCanvasCallbacks(),
-  });
+  }) : options = options ?? FlowCanvasOptions();
 
   final FlowCanvasOptions options;
   final FlowCanvasCallbacks callbacks;

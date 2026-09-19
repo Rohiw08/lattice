@@ -13,9 +13,11 @@ class SnapGrid {
   final double height;
 
   /// Creates a snapping grid definition.
+  ///
+  /// Defaults to 15×15 logical pixels (Lattice `snapGrid` default).
   const SnapGrid({
-    this.width = 10,
-    this.height = 10,
+    this.width = 15,
+    this.height = 15,
   });
 
   /// Creates a new grid with modified dimensions.

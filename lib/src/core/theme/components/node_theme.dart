@@ -198,25 +198,32 @@ class FlowNodeStyle extends ThemeExtension<FlowNodeStyle> with Diagnosticable {
 
   /// Creates a light theme node style.
   ///
-  /// Lattice v12: `#fff` background, 1px `#1a192b` border, 3px radius.
-  /// State changes are shadow-only: hover `0 1px 4px 1px rgba(0,0,0,0.08)`,
-  /// selected ring `0 0 0 0.5px #1a192b`.
+  /// xy-theme: `#fff` background, 1px `#ededed` border, 8px radius, soft
+  /// layered shadows. Selected keeps the white fill with a `#2196f3`
+  /// border; hover tints the border `#c5c5c5`.
   factory FlowNodeStyle.light() {
     const border = Border.fromBorderSide(
-        BorderSide(color: Color(0xFF1A192B), width: 1.0));
-    const radius = BorderRadius.all(Radius.circular(3));
-    const hoverShadow = [
+        BorderSide(color: Color(0xFFEDEDED), width: 1.0));
+    const selectedBorder = Border.fromBorderSide(
+        BorderSide(color: Color(0xFF2196F3), width: 1.0));
+    const hoverBorder = Border.fromBorderSide(
+        BorderSide(color: Color(0xFFC5C5C5), width: 1.0));
+    const radius = BorderRadius.all(Radius.circular(8));
+    const shadows = [
       BoxShadow(
-        color: Color(0x14000000), // rgba(0,0,0,0.08)
-        blurRadius: 4,
-        spreadRadius: 1,
-        offset: Offset(0, 1),
+        color: Color(0x05000000),
+        blurRadius: 4.55,
+        offset: Offset(0, 3.54),
       ),
-    ];
-    const selectedShadow = [
       BoxShadow(
-        color: Color(0xFF1A192B),
-        spreadRadius: 0.5,
+        color: Color(0x0D000000),
+        blurRadius: 4.55,
+        offset: Offset(0, 3.54),
+      ),
+      BoxShadow(
+        color: Color(0x1A000000),
+        blurRadius: 1.01,
+        offset: Offset(0, 0.51),
       ),
     ];
     return const FlowNodeStyle(
@@ -224,18 +231,19 @@ class FlowNodeStyle extends ThemeExtension<FlowNodeStyle> with Diagnosticable {
         color: Colors.white,
         border: border,
         borderRadius: radius,
+        boxShadow: shadows,
       ),
       hoverDecoration: BoxDecoration(
         color: Colors.white,
-        border: border,
+        border: hoverBorder,
         borderRadius: radius,
-        boxShadow: hoverShadow,
+        boxShadow: shadows,
       ),
       selectedDecoration: BoxDecoration(
         color: Colors.white,
-        border: border,
+        border: selectedBorder,
         borderRadius: radius,
-        boxShadow: selectedShadow,
+        boxShadow: shadows,
       ),
       disabledDecoration: BoxDecoration(
         color: Color(0xFFF5F5F5),
@@ -248,44 +256,31 @@ class FlowNodeStyle extends ThemeExtension<FlowNodeStyle> with Diagnosticable {
 
   /// Creates a dark theme node style.
   ///
-  /// Lattice v12 `.dark`: `#1e1e1e` background, 1px `#3c3c3c` border,
-  /// 3px radius. Hover `0 1px 4px 1px rgba(255,255,255,0.08)`,
-  /// selected ring `0 0 0 0.5px #999`.
+  /// xy-theme `.dark`: `#1a1b1e` background, 1px `#303238` border, 8px
+  /// radius, no shadow. Selected border `#2196f3`; hover border `#7a7d86`.
   factory FlowNodeStyle.dark() {
     const border = Border.fromBorderSide(
-        BorderSide(color: Color(0xFF3C3C3C), width: 1.0));
-    const radius = BorderRadius.all(Radius.circular(3));
-    const hoverShadow = [
-      BoxShadow(
-        color: Color(0x14FFFFFF), // rgba(255,255,255,0.08)
-        blurRadius: 4,
-        spreadRadius: 1,
-        offset: Offset(0, 1),
-      ),
-    ];
-    const selectedShadow = [
-      BoxShadow(
-        color: Color(0xFF999999),
-        spreadRadius: 0.5,
-      ),
-    ];
+        BorderSide(color: Color(0xFF303238), width: 1.0));
+    const selectedBorder = Border.fromBorderSide(
+        BorderSide(color: Color(0xFF2196F3), width: 1.0));
+    const hoverBorder = Border.fromBorderSide(
+        BorderSide(color: Color(0xFF7A7D86), width: 1.0));
+    const radius = BorderRadius.all(Radius.circular(8));
     return const FlowNodeStyle(
       decoration: BoxDecoration(
-        color: Color(0xFF1E1E1E),
+        color: Color(0xFF1A1B1E),
         border: border,
         borderRadius: radius,
       ),
       hoverDecoration: BoxDecoration(
-        color: Color(0xFF1E1E1E),
-        border: border,
+        color: Color(0xFF1A1B1E),
+        border: hoverBorder,
         borderRadius: radius,
-        boxShadow: hoverShadow,
       ),
       selectedDecoration: BoxDecoration(
-        color: Color(0xFF1E1E1E),
-        border: border,
+        color: Color(0xFF1A1B1E),
+        border: selectedBorder,
         borderRadius: radius,
-        boxShadow: selectedShadow,
       ),
       disabledDecoration: BoxDecoration(
         color: Color(0xFF1A1A1A),

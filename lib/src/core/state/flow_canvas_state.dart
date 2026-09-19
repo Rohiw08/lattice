@@ -1,7 +1,6 @@
 // ignore_for_file: invalid_annotation_target
 
 import 'package:lattice/lattice.dart';
-import 'package:lattice/src/features/viewport/domain/viewport.dart';
 import 'package:lattice/src/features/connections/domain/connection_state.dart';
 import 'package:lattice/src/features/edges/domain/edge_state.dart';
 import 'package:lattice/src/features/handles/domain/handle_state.dart';
@@ -41,6 +40,14 @@ abstract class FlowCanvasState with _$FlowCanvasState {
     @Default(FlowViewport()) FlowViewport viewport,
     @SizeConverter() Size? viewportSize,
     @Default(false) bool isPanZoomLocked, // full canvas freeze (not Lattice interactive-only)
+
+    /// Master element-interaction switch (Lattice `setInteractive` /
+    /// Controls `showInteractive`): node drag/select, edge select,
+    /// connection starts, and marquee selection. Viewport pan/zoom,
+    /// pointer observations, and programmatic APIs are unaffected.
+    @Default(true)
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    bool interactive,
 
     // Interaction state
     @Default(DragMode.none)
@@ -135,4 +142,18 @@ abstract class FlowCanvasState with _$FlowCanvasState {
         nodeStates: {},
         edgeStates: {},
       );
+
+  /// JSON for multiplayer sync: like [toJson] but strips per-client UI state.
+  ///
+  /// Selection (`selectedNodes`/`selectedEdges`) must never be shared —
+  /// every collaborator owns their own — so sync payloads exclude it.
+  /// Transient interaction state (drag mode, hover, …) is already excluded
+  /// from [toJson]. Pair with `applyRemote`: decode with [fromJson] (missing
+  /// selection defaults to empty) and apply — local selection is preserved.
+  Map<String, dynamic> toSyncJson() {
+    final json = toJson();
+    json['selectedNodes'] = const <String>[];
+    json['selectedEdges'] = const <String>[];
+    return json;
+  }
 }

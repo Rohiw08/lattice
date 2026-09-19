@@ -1,4 +1,5 @@
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
+import 'package:lattice/src/features/viewport/domain/live_viewport.dart';
 
 /// Narrow interface for reading and writing canvas state.
 ///
@@ -32,4 +33,7 @@ abstract class CanvasStateAccessor {
   /// Use when the graph was already updated via [updateStateOnly] (e.g. after
   /// a completed node drag) so the user can undo to the prior checkpoint.
   void commitHistoryCheckpoint();
+
+  /// Per-frame camera (matrix-first); leads Freezed state during gestures.
+  LiveViewport get liveViewport;
 }

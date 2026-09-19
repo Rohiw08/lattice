@@ -5,10 +5,31 @@ import 'package:flutter/painting.dart';
 /// Lattice–compatible node layout helpers.
 ///
 /// When [FlowNode.parentId] is set, [FlowNode.position] is **relative** to the
-/// parent's top-left (Lattice sub-flow default). Flow-space drawing, hit-testing,
-/// and edges always use [absolutePosition].
+/// parent's stored position (Lattice sub-flow default). [FlowNode.position]
+/// always marks the node's **anchor point** — the point inside the node at
+/// its origin (see [resolveOrigin]). Flow-space drawing, hit-testing, and
+/// edges use the visual rect from [absoluteRect], which shifts the anchor by
+/// the origin; stored positions, drag math, and snapping stay in anchor
+/// space, exactly like Lattice `XYDrag`.
 abstract final class NodeLayout {
   const NodeLayout._();
+
+  /// Resolves the origin (anchor fractions, `0..1` per axis) for [node].
+  ///
+  /// Per-node [FlowNode.origin] wins; otherwise the canvas
+  /// `NodeOptions.nodeOrigin` passed as [defaultOrigin].
+  static Offset resolveOrigin(
+    FlowNode node, [
+    Offset defaultOrigin = Offset.zero,
+  ]) =>
+      node.origin ?? defaultOrigin;
+
+  /// Pixel shift from a node's anchor to its visual top-left.
+  static Offset anchorShift(FlowNode node,
+      [Offset defaultOrigin = Offset.zero]) {
+    final o = resolveOrigin(node, defaultOrigin);
+    return Offset(o.dx * node.size.width, o.dy * node.size.height);
+  }
 
   /// Absolute top-left of [nodeId] in flow coordinates.
   ///
@@ -37,31 +58,62 @@ abstract final class NodeLayout {
   }
 
   /// Absolute bounds of [node] (uses [node.id] lookup in [nodes]).
+  ///
+  /// The visual rect: anchor chain minus this node's own origin shift.
+  /// Children anchor to the parent's stored position (not its visual
+  /// top-left), so only the node's *own* origin shifts its rect.
   static Rect absoluteRect(
     FlowNode node,
     Map<String, FlowNode> nodes, {
     Map<String, Offset>? livePositions,
+    Offset defaultOrigin = Offset.zero,
   }) {
-    final origin = absolutePosition(
+    final anchor = absolutePosition(
       node.id,
       nodes,
       livePositions: livePositions,
     );
-    return Rect.fromLTWH(origin.dx, origin.dy, node.size.width, node.size.height);
+    final shift = anchorShift(node, defaultOrigin);
+    return Rect.fromLTWH(anchor.dx - shift.dx, anchor.dy - shift.dy,
+        node.size.width, node.size.height);
   }
 
-  /// Clamp a **parent-relative** position so the child stays inside the parent
-  /// (Lattice `extent: 'parent'`).
+  /// Absolute visual top-left of [nodeId] in flow coordinates.
+  static Offset absoluteTopLeft(
+    String nodeId,
+    Map<String, FlowNode> nodes, {
+    Map<String, Offset>? livePositions,
+    Offset defaultOrigin = Offset.zero,
+  }) {
+    final node = nodes[nodeId];
+    final anchor =
+        absolutePosition(nodeId, nodes, livePositions: livePositions);
+    if (node == null) return anchor;
+    return anchor - anchorShift(node, defaultOrigin);
+  }
+
+  /// Clamp a **parent-relative anchor** so the child's *visual rect* stays
+  /// inside the parent (Lattice `extent: 'parent'`).
+  ///
+  /// [childOrigin] is the child's resolved origin; the default (`Offset.zero`)
+  /// reproduces the old top-left behavior exactly.
   static Offset clampToParent(
     Offset relative,
     Size childSize,
-    Size parentSize,
-  ) {
-    final maxX = mathMax(0.0, parentSize.width - childSize.width);
-    final maxY = mathMax(0.0, parentSize.height - childSize.height);
+    Size parentSize, {
+    Offset childOrigin = Offset.zero,
+  }) {
+    final minX = childOrigin.dx * childSize.width;
+    final minY = childOrigin.dy * childSize.height;
+    // Guard max >= min so oversized children pin instead of throwing
+    // (`double.clamp` requires min <= max).
+    final maxX = mathMax(
+        minX, parentSize.width - (1 - childOrigin.dx) * childSize.width);
+    final maxY = mathMax(
+        minY, parentSize.height - (1 - childOrigin.dy) * childSize.height);
     return Offset(
-      relative.dx.clamp(0.0, maxX),
-      relative.dy.clamp(0.0, maxY),
+      relative.dx.clamp(minX, maxX),
+      relative.dy.clamp(minY, maxY),
     );
   }
 
@@ -77,30 +129,39 @@ abstract final class NodeLayout {
     required Size parentSize,
     required Offset childPosition,
     required Size childSize,
+    Offset childOrigin = Offset.zero,
   }) {
     var parentPos = parentPosition;
     var pSize = parentSize;
     var cPos = childPosition;
     var mutated = false;
 
-    if (cPos.dx < 0) {
-      parentPos = Offset(parentPos.dx + cPos.dx, parentPos.dy);
-      pSize = Size(pSize.width - cPos.dx, pSize.height);
-      cPos = Offset(0, cPos.dy);
+    // Visual edges of the child (anchor minus origin shift).
+    final shiftX = childOrigin.dx * childSize.width;
+    final shiftY = childOrigin.dy * childSize.height;
+
+    final left = cPos.dx - shiftX;
+    if (left < 0) {
+      parentPos = Offset(parentPos.dx + left, parentPos.dy);
+      pSize = Size(pSize.width - left, pSize.height);
+      cPos = Offset(cPos.dx - left, cPos.dy);
       mutated = true;
     }
-    if (cPos.dy < 0) {
-      parentPos = Offset(parentPos.dx, parentPos.dy + cPos.dy);
-      pSize = Size(pSize.width, pSize.height - cPos.dy);
-      cPos = Offset(cPos.dx, 0);
+    final top = cPos.dy - shiftY;
+    if (top < 0) {
+      parentPos = Offset(parentPos.dx, parentPos.dy + top);
+      pSize = Size(pSize.width, pSize.height - top);
+      cPos = Offset(cPos.dx, cPos.dy - top);
       mutated = true;
     }
-    if (cPos.dx + childSize.width > pSize.width) {
-      pSize = Size(cPos.dx + childSize.width, pSize.height);
+    final right = cPos.dx + (childSize.width - shiftX);
+    if (right > pSize.width) {
+      pSize = Size(right, pSize.height);
       mutated = true;
     }
-    if (cPos.dy + childSize.height > pSize.height) {
-      pSize = Size(pSize.width, cPos.dy + childSize.height);
+    final bottom = cPos.dy + (childSize.height - shiftY);
+    if (bottom > pSize.height) {
+      pSize = Size(pSize.width, bottom);
       mutated = true;
     }
 
@@ -116,24 +177,30 @@ abstract final class NodeLayout {
   /// `nodeToChildExtent` / `childExtent`).
   ///
   /// Includes children with [FlowNodeExtent.parent] or [FlowNode.expandParent].
-  /// Coordinates match the parent's **stored** rect (parent.pos + child.pos).
+  /// [expandParentDefault] is the canvas-level default for children that
+  /// don't set the flag. Boxes are child *visual* rects in the parent's
+  /// stored frame (parent anchor + child anchor − child origin shift).
   static Rect? childExtentFloor(
     String parentId,
-    Map<String, FlowNode> nodes,
-  ) {
+    Map<String, FlowNode> nodes, {
+    Offset defaultOrigin = Offset.zero,
+    bool expandParentDefault = false,
+  }) {
     final parent = nodes[parentId];
     if (parent == null) return null;
 
     Rect? union;
     for (final child in nodes.values) {
       if (child.parentId != parentId) continue;
-      if (child.extent != FlowNodeExtent.parent && !child.expandParent) {
+      if (child.extent != FlowNodeExtent.parent &&
+          !(child.expandParent || expandParentDefault)) {
         continue;
       }
 
+      final shift = anchorShift(child, defaultOrigin);
       final box = Rect.fromLTWH(
-        parent.position.dx + child.position.dx,
-        parent.position.dy + child.position.dy,
+        parent.position.dx + child.position.dx - shift.dx,
+        parent.position.dy + child.position.dy - shift.dy,
         child.size.width,
         child.size.height,
       );

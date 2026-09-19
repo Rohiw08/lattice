@@ -9,6 +9,8 @@ part 'viewport.g.dart';
 
 @freezed
 abstract class FlowViewport with _$FlowViewport {
+  const FlowViewport._();
+
   const factory FlowViewport({
     @Default(Offset.zero)
     @OffsetConverter()
@@ -21,4 +23,10 @@ abstract class FlowViewport with _$FlowViewport {
 
   factory FlowViewport.fromJson(Map<String, dynamic> json) =>
       _$FlowViewportFromJson(json);
+
+  /// Lattice `Viewport.x` alias for [offset.dx].
+  double get x => offset.dx;
+
+  /// Lattice `Viewport.y` alias for [offset.dy].
+  double get y => offset.dy;
 }

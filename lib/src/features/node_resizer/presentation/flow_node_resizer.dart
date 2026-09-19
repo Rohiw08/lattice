@@ -1,4 +1,5 @@
 import 'package:lattice/src/core/enums/enums.dart';
+import 'package:lattice/src/core/options/components/node_options.dart';
 import 'package:lattice/src/core/providers/providers.dart';
 import 'package:lattice/src/core/theme/components/node_resizer_theme.dart';
 import 'package:lattice/src/core/theme/theme_extension.dart';
@@ -11,10 +12,18 @@ class FlowNodeResizer extends ConsumerWidget {
   final String nodeId;
   final bool isVisible;
 
+  /// Per-instance style override (Lattice `handleStyle`/`lineStyle`).
+  final FlowNodeResizerStyle? style;
+
+  /// Shorthand tint (Lattice `color`): fills handles and the outline.
+  final Color? color;
+
   const FlowNodeResizer({
     super.key,
     required this.nodeId,
     this.isVisible = true,
+    this.style,
+    this.color,
   });
 
   @override
@@ -28,11 +37,16 @@ class FlowNodeResizer extends ConsumerWidget {
     final isSelected = ref.watch(
       internalControllerProvider.select((s) => s.selectedNodes.contains(nodeId)),
     );
-    final isDisabled = node.resizable == false;
+    // Per-node flag wins; null inherits the global (default false).
+    final isDisabled = !node.isResizable(context);
 
     final theme =
         context.flowCanvasTheme.nodeResizer ??
             FlowNodeResizerStyle.system(context);
+    var resolved = theme.merge(style);
+    if (color != null) {
+      resolved = resolved.merge(FlowNodeResizerStyle.colored(color: color!));
+    }
 
     final controller = ref.read(internalControllerProvider.notifier);
 
@@ -44,27 +58,27 @@ class FlowNodeResizer extends ConsumerWidget {
           child: Container(
             width: node.size.width,
             height: node.size.height,
-            decoration: theme.lineDecoration,
+            decoration: resolved.lineDecoration,
           ),
         ),
         // Corner handles
         _buildHandle(controller, ResizeDirection.topLeft, Alignment.topLeft,
-            isSelected, isDisabled),
+            isSelected, isDisabled, resolved),
         _buildHandle(controller, ResizeDirection.topRight, Alignment.topRight,
-            isSelected, isDisabled),
+            isSelected, isDisabled, resolved),
         _buildHandle(controller, ResizeDirection.bottomLeft,
-            Alignment.bottomLeft, isSelected, isDisabled),
+            Alignment.bottomLeft, isSelected, isDisabled, resolved),
         _buildHandle(controller, ResizeDirection.bottomRight,
-            Alignment.bottomRight, isSelected, isDisabled),
+            Alignment.bottomRight, isSelected, isDisabled, resolved),
         // Side handles
         _buildHandle(controller, ResizeDirection.top, Alignment.topCenter,
-            isSelected, isDisabled),
+            isSelected, isDisabled, resolved),
         _buildHandle(controller, ResizeDirection.bottom, Alignment.bottomCenter,
-            isSelected, isDisabled),
+            isSelected, isDisabled, resolved),
         _buildHandle(controller, ResizeDirection.left, Alignment.centerLeft,
-            isSelected, isDisabled),
+            isSelected, isDisabled, resolved),
         _buildHandle(controller, ResizeDirection.right, Alignment.centerRight,
-            isSelected, isDisabled),
+            isSelected, isDisabled, resolved),
       ],
     );
   }
@@ -75,12 +89,15 @@ class FlowNodeResizer extends ConsumerWidget {
     Alignment alignment,
     bool isSelected,
     bool isDisabled,
+    FlowNodeResizerStyle style,
   ) {
     return NodeResizeHandle(
       nodeId: nodeId,
       direction: alignment,
       isSelected: isSelected,
       isDisabled: isDisabled,
+      style: style,
+      onResizeStart: () => controller.nodes.onNodeResizeStart(nodeId, direction),
       onResizeUpdate: (delta) =>
           controller.nodes.resizeNode(nodeId, direction, delta),
       onResizeEnd: () => controller.nodes.onNodeResizeEnd(),

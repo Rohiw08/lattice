@@ -1,6 +1,7 @@
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
+import 'package:lattice/src/core/theme/components/edge_theme.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show BuildContext;
+import 'package:flutter/widgets.dart' show BuildContext, Widget;
 import 'package:lattice/src/core/options/options_extensions.dart';
 
 /// Defines the behavior and interaction options for edges in the flow canvas.
@@ -94,12 +95,24 @@ class EdgeOptions with Diagnosticable {
   /// making them more prominent. This typically increases their z-index.
   final bool elevateEdgeOnSelect;
 
+  /// Global default edge style (Lattice `defaultEdgeOptions.style`).
+  ///
+  /// Merged under per-edge [FlowEdge.style]: theme → this → edge.
+  /// Covers stroke, label style, and marker styles in one place.
+  final FlowEdgeStyle? style;
+
+  /// Global default edge label widget (Lattice `defaultEdgeOptions.label`).
+  ///
+  /// Used when an edge has no [FlowEdge.label] of its own. The same
+  /// instance is shared — keep it immutable.
+  final Widget? label;
+
   /// Creates edge options with the specified behaviors.
   ///
   /// All boolean parameters default to common interactive settings:
   /// - Most interactions enabled (deletable, selectable, reconnectable, focusable)
-  /// - Visual effects disabled by default (hidden)
-  /// - Selection elevation enabled
+  /// - Visual effects disabled by default (hidden, elevateEdgeOnSelect —
+  ///   RF parity: `elevateEdgesOnSelect` defaults to false)
   const EdgeOptions({
     this.type,
     this.hidden = false,
@@ -107,7 +120,9 @@ class EdgeOptions with Diagnosticable {
     this.selectable = true,
     this.reconnectable = true,
     this.focusable = true,
-    this.elevateEdgeOnSelect = true,
+    this.elevateEdgeOnSelect = false,
+    this.style,
+    this.label,
   });
 
   /// Creates edge options for read-only/static edges.
@@ -127,6 +142,8 @@ class EdgeOptions with Diagnosticable {
   const EdgeOptions.readOnly({
     this.type,
     this.hidden = false,
+    this.style,
+    this.label,
   })  : deletable = false,
         selectable = true,
         reconnectable = false,
@@ -149,6 +166,8 @@ class EdgeOptions with Diagnosticable {
   /// ```
   const EdgeOptions.interactive({
     this.type,
+    this.style,
+    this.label,
   })  : hidden = false,
         deletable = true,
         selectable = true,
@@ -172,6 +191,8 @@ class EdgeOptions with Diagnosticable {
   /// ```
   const EdgeOptions.decorative({
     this.type,
+    this.style,
+    this.label,
   })  : hidden = false,
         deletable = false,
         selectable = false,
@@ -197,6 +218,8 @@ class EdgeOptions with Diagnosticable {
     bool? reconnectable,
     bool? focusable,
     bool? elevateEdgeOnSelect,
+    FlowEdgeStyle? style,
+    Widget? label,
   }) {
     return EdgeOptions(
       type: type ?? this.type,
@@ -206,6 +229,8 @@ class EdgeOptions with Diagnosticable {
       reconnectable: reconnectable ?? this.reconnectable,
       focusable: focusable ?? this.focusable,
       elevateEdgeOnSelect: elevateEdgeOnSelect ?? this.elevateEdgeOnSelect,
+      style: style ?? this.style,
+      label: label ?? this.label,
     );
   }
 
@@ -233,6 +258,8 @@ class EdgeOptions with Diagnosticable {
       reconnectable: other.reconnectable,
       focusable: other.focusable,
       elevateEdgeOnSelect: other.elevateEdgeOnSelect,
+      style: other.style ?? style,
+      label: other.label ?? label,
     );
   }
 
@@ -268,7 +295,9 @@ class EdgeOptions with Diagnosticable {
         other.selectable == selectable &&
         other.reconnectable == reconnectable &&
         other.focusable == focusable &&
-        other.elevateEdgeOnSelect == elevateEdgeOnSelect;
+        other.elevateEdgeOnSelect == elevateEdgeOnSelect &&
+        other.style == style &&
+        other.label == label;
   }
 
   @override
@@ -280,6 +309,8 @@ class EdgeOptions with Diagnosticable {
         reconnectable,
         focusable,
         elevateEdgeOnSelect,
+        style,
+        label,
       );
 
   @override
@@ -383,14 +414,5 @@ extension ResolvedEdgeOptions on FlowEdge {
   bool elevateOnSelect(BuildContext context) {
     final globalOptions = context.flowCanvasOptions.edgeOptions;
     return elevateEdgeOnSelect ?? globalOptions.elevateEdgeOnSelect;
-  }
-
-  /// Returns the resolved edge type identifier.
-  ///
-  /// Uses the edge's specific `edgeType` option if set, otherwise
-  /// falls back to the global default from [FlowCanvasOptions].
-  String? resolvedEdgeType(BuildContext context) {
-    // final globalOptions = context.flowCanvasOptions.edgeOptions;
-    return type.toString();
   }
 }

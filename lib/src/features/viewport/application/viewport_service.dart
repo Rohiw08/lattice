@@ -11,6 +11,23 @@ import '../../nodes/domain/models/node.dart';
 
 typedef NodeBounds = ({Rect rect, List<FlowNode> nodes});
 
+/// Bounds of [nodes] (Lattice top-level `getNodesBounds`).
+///
+/// Builds the lookup internally, so parented nodes resolve. Origin-aware
+/// via [defaultOrigin] (canvas `NodeOptions.nodeOrigin` when unset
+/// per-node).
+NodeBounds getNodesBounds(
+  List<FlowNode> nodes, {
+  bool includeHidden = false,
+  Offset defaultOrigin = Offset.zero,
+}) {
+  return ViewportService().getNodeBounds(
+    nodes: nodes,
+    includeHidden: includeHidden,
+    defaultOrigin: defaultOrigin,
+  );
+}
+
 /// Pan/zoom and **flow** ↔ **viewport** conversion ([FlowViewport]).
 ///
 /// Flow (graph) space is the only persisted coordinate system. Viewport space is
@@ -100,14 +117,17 @@ class ViewportService {
     FlowCanvasState state,
     Offset flowPosition, {
     required CoordinateExtent translateExtent,
+    double? zoom,
   }) {
     if (state.viewportSize == null) return state;
 
-    final newOffset = (flowPosition * state.viewport.zoom * -1) +
+    final resolvedZoom = zoom ?? state.viewport.zoom;
+    final newOffset = (flowPosition * resolvedZoom * -1) +
         Offset(state.viewportSize!.width / 2, state.viewportSize!.height / 2);
 
     final next = state.copyWith(
-      viewport: state.viewport.copyWith(offset: newOffset),
+      viewport:
+          state.viewport.copyWith(offset: newOffset, zoom: resolvedZoom),
     );
     return _withClampedPan(next, translateExtent);
   }
@@ -117,6 +137,7 @@ class ViewportService {
     required FlowCanvasState state,
     required ViewportOptions viewportOptions,
     required FitViewOptions fitViewOptions,
+    Offset nodeOrigin = Offset.zero,
   }) {
     final viewportSize = state.viewportSize;
     if (viewportSize == null || viewportSize.isEmpty) return state;
@@ -128,40 +149,91 @@ class ViewportService {
             .where((n) => fitViewOptions.nodes.contains(n.id))
             .toList();
     final bounds = getNodeBounds(
-        nodes: nodes, includeHidden: fitViewOptions.includeHiddenNodes);
+        nodes: nodes,
+        includeHidden: fitViewOptions.includeHiddenNodes,
+        defaultOrigin: nodeOrigin);
     if (bounds.nodes.isEmpty || bounds.rect.isEmpty) return state;
 
-    final availableWidth =
-        viewportSize.width - fitViewOptions.padding.horizontal;
-    final availableHeight =
-        viewportSize.height - fitViewOptions.padding.vertical;
+    return fitViewportToBounds(
+      state: state,
+      bounds: bounds.rect,
+      viewportOptions: viewportOptions,
+      padding: fitViewOptions.padding,
+      minZoom: fitViewOptions.minZoom,
+      maxZoom: fitViewOptions.maxZoom,
+    );
+  }
 
-    if (availableWidth <= 0 || availableHeight <= 0) return state;
+  /// Pure viewport computation behind [fitViewportToBounds] (Lattice
+  /// `getViewportForBounds`): what viewport would fit [bounds] into
+  /// [viewportSize], without touching state. Returns null when there is
+  /// nothing to fit.
+  FlowViewport? viewportForBounds({
+    required Rect bounds,
+    required Size viewportSize,
+    required ViewportOptions viewportOptions,
+    EdgeInsets padding = const EdgeInsets.all(50),
+    double? minZoom,
+    double? maxZoom,
+  }) {
+    if (viewportSize.isEmpty || bounds.isEmpty) return null;
 
-    final scaleX = availableWidth / bounds.rect.width;
-    final scaleY = availableHeight / bounds.rect.height;
+    final availableWidth = viewportSize.width - padding.horizontal;
+    final availableHeight = viewportSize.height - padding.vertical;
+
+    if (availableWidth <= 0 || availableHeight <= 0) return null;
+
+    final scaleX = availableWidth / bounds.width;
+    final scaleY = availableHeight / bounds.height;
     final idealZoom = min(scaleX, scaleY);
 
-    final effectiveMinZoom =
-        max(viewportOptions.minZoom, fitViewOptions.minZoom);
-    final effectiveMaxZoom =
-        min(viewportOptions.maxZoom, fitViewOptions.maxZoom);
+    final effectiveMinZoom = minZoom == null
+        ? viewportOptions.minZoom
+        : max(viewportOptions.minZoom, minZoom);
+    final effectiveMaxZoom = maxZoom == null
+        ? viewportOptions.maxZoom
+        : min(viewportOptions.maxZoom, maxZoom);
 
     final newZoom = idealZoom.clamp(effectiveMinZoom, effectiveMaxZoom);
 
-    final scaledContentWidth = bounds.rect.width * newZoom;
-    final scaledContentHeight = bounds.rect.height * newZoom;
+    final scaledContentWidth = bounds.width * newZoom;
+    final scaledContentHeight = bounds.height * newZoom;
 
     final newOffsetX = (viewportSize.width - scaledContentWidth) / 2 -
-        (bounds.rect.left * newZoom);
+        (bounds.left * newZoom);
     final newOffsetY = (viewportSize.height - scaledContentHeight) / 2 -
-        (bounds.rect.top * newZoom);
+        (bounds.top * newZoom);
 
-    final next = state.copyWith(
-      viewport:
-          FlowViewport(offset: Offset(newOffsetX, newOffsetY), zoom: newZoom),
+    return clampViewport(
+      FlowViewport(offset: Offset(newOffsetX, newOffsetY), zoom: newZoom),
+      viewportOptions.translateExtent,
     );
-    return _withClampedPan(next, viewportOptions.translateExtent);
+  }
+
+  /// Fits an explicit flow-space [bounds] rect (Lattice `fitBounds`).
+  ///
+  /// Shared math behind [fitView]; zoom floors/ceilings combine the viewport
+  /// limits with the optional overrides (viewport wins ties, as in fitView).
+  FlowCanvasState fitViewportToBounds({
+    required FlowCanvasState state,
+    required Rect bounds,
+    required ViewportOptions viewportOptions,
+    EdgeInsets padding = const EdgeInsets.all(50),
+    double? minZoom,
+    double? maxZoom,
+  }) {
+    final viewportSize = state.viewportSize;
+    if (viewportSize == null) return state;
+    final next = viewportForBounds(
+      bounds: bounds,
+      viewportSize: viewportSize,
+      viewportOptions: viewportOptions,
+      padding: padding,
+      minZoom: minZoom,
+      maxZoom: maxZoom,
+    );
+    if (next == null) return state;
+    return state.copyWith(viewport: next);
   }
 
   // --- UTILITY METHODS ---
@@ -169,6 +241,7 @@ class ViewportService {
   NodeBounds getNodeBounds({
     List<FlowNode> nodes = const [],
     bool includeHidden = false,
+    Offset defaultOrigin = Offset.zero,
   }) {
     final nodesToConsider = nodes.where((node) {
       final isVisible = includeHidden || !(node.hidden ?? false);
@@ -187,7 +260,8 @@ class ViewportService {
     final lookup = {for (final n in nodes) n.id: n};
 
     for (final node in nodesToConsider) {
-      final nodeRect = NodeLayout.absoluteRect(node, lookup);
+      final nodeRect = NodeLayout.absoluteRect(node, lookup,
+          defaultOrigin: defaultOrigin);
 
       minX = min(minX, nodeRect.left);
       minY = min(minY, nodeRect.top);

@@ -17,6 +17,12 @@ FlowCanvas(
 
 Use [`FlowCanvasController`](lib/src/features/canvas/flow_canvas_controller.dart) for imperative APIs (`nodes`, `edges`, `viewport`, `history`, …).
 
+## Typing
+
+Uncontrolled by default — no `applyNodeChanges` ceremony. Model payloads
+as `sealed` hierarchies, register typed builders, switch exhaustively.
+Details + runnable example: [`TYPING.md`](TYPING.md), [`example/main.dart`](example/main.dart).
+
 ## Theming
 
 ```dart
@@ -31,7 +37,8 @@ Customize with `FlowCanvasTheme.copyWith` / per-component `Flow*Style`. Details:
 
 ## Performance
 
-The canvas uses a **hybrid hot/cold** model:
+The canvas uses a **hybrid hot/cold** model. Full story + measured numbers:
+[`PERFORMANCE.md`](PERFORMANCE.md).
 
 | Path | Behavior |
 |------|----------|

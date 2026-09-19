@@ -87,23 +87,24 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
   }
 
   factory FlowNodeResizerStyle.light() {
-    // Lattice: `#3367d9` handles (4px, 1px white border) and
-    // 1px `#3367d9` lines. Lattice has no state variants.
-    const color = Color(0xFF3367D9);
+    // xy-theme: 5px handles, `#ffffff` fill, 1px `#9e86ed` border + lines.
+    // Lattice has no state variants.
+    const color = Color(0xFFFFFFFF);
+    const accent = Color(0xFF9E86ED);
     return FlowNodeResizerStyle(
       color: color,
       hoverColor: color,
       activeColor: color,
       selectedColor: color,
       disabledColor: Colors.grey.shade400,
-      size: 4.0,
+      size: 5.0,
       borderWidth: 1.0,
-      borderColor: Colors.white,
+      borderColor: accent,
       shape: BoxShape.rectangle,
       lineDecoration: BoxDecoration(
         color: Colors.transparent,
         border: Border.all(
-          color: color,
+          color: accent,
           width: 1.0,
         ),
       ),
@@ -111,22 +112,23 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
   }
 
   factory FlowNodeResizerStyle.dark() {
-    // Lattice `.dark`: same `#3367d9` (no dark override).
-    const color = Color(0xFF3367D9);
+    // xy-theme `.dark`: `#141519` fill, same `#9e86ed` accents.
+    const color = Color(0xFF141519);
+    const accent = Color(0xFF9E86ED);
     return FlowNodeResizerStyle(
       color: color,
       hoverColor: color,
       activeColor: color,
       selectedColor: color,
       disabledColor: Colors.grey.shade700,
-      size: 4.0,
+      size: 5.0,
       borderWidth: 1.0,
-      borderColor: Colors.white,
+      borderColor: accent,
       shape: BoxShape.rectangle,
       lineDecoration: BoxDecoration(
         color: Colors.transparent,
         border: Border.all(
-          color: color,
+          color: accent,
           width: 1.0,
         ),
       ),

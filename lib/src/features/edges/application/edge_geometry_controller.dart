@@ -41,7 +41,10 @@ class EdgeGeometryController {
         _spatialIndex = spatialIndex;
 
   /// Returns whether edge paths were rebuilt (layout repaint signal).
-  bool updateGeometryIfNeeded(FlowCanvasState newState) {
+  bool updateGeometryIfNeeded(
+    FlowCanvasState newState, {
+    Offset defaultOrigin = Offset.zero,
+  }) {
     final updateInfo = _shouldUpdateEdgeGeometry(newState);
 
     if (!updateInfo.needsUpdate) {
@@ -50,7 +53,8 @@ class EdgeGeometryController {
     }
 
     if (updateInfo.fullUpdate) {
-      _edgeGeometryService.updateCache(newState, newState.edges.keys);
+      _edgeGeometryService.updateCache(newState, newState.edges.keys,
+          defaultOrigin: defaultOrigin);
     } else {
       if (updateInfo.removedEdges.isNotEmpty) {
         _edgeGeometryService.removeEdges(updateInfo.removedEdges);
@@ -61,12 +65,14 @@ class EdgeGeometryController {
       };
       if (edgesToUpdate.isNotEmpty) {
         for (final edgeId in edgesToUpdate) {
-          _edgeGeometryService.updateEdge(newState, edgeId);
+          _edgeGeometryService.updateEdge(newState, edgeId,
+              defaultOrigin: defaultOrigin);
         }
       }
       if (updateInfo.specificNodes.isNotEmpty) {
         _edgeGeometryService.updateEdgesForNodes(
-            newState, updateInfo.specificNodes, _spatialIndex.edgeIndex);
+            newState, updateInfo.specificNodes, _spatialIndex.edgeIndex,
+            defaultOrigin: defaultOrigin);
       }
     }
 

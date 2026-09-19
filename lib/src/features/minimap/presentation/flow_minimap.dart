@@ -31,7 +31,7 @@ typedef MiniMapNodeColorFunc = Color? Function(FlowNode node);
 typedef MiniMapNodeBuilder = Path Function(FlowNode node);
 typedef MiniMapNodeOnClick = void Function(FlowNode node);
 
-class FlowMiniMap extends ConsumerWidget {
+class FlowMiniMap extends ConsumerStatefulWidget {
   final bool pannable;
   final bool zoomable;
   final bool inversePan;
@@ -47,12 +47,29 @@ class FlowMiniMap extends ConsumerWidget {
   final MiniMapNodeBuilder? nodeBuilder;
   final MiniMapNodeOnClick? onClickNode;
 
+  /// Fired when empty minimap space is tapped, with the flow position
+  /// (Lattice `onClick`). The viewport still centers there first.
+  final void Function(Offset flowPosition)? onClick;
+
+  /// Screen-reader label for the minimap (≈ Lattice `ariaLabel`).
+  ///
+  /// Null (default) falls back to
+  /// `A11yOptions.labels.minimapLabel` (≈ Lattice `minimap.ariaLabel`).
+  /// Set [includeInSemantics] false to exclude the minimap from the
+  /// semantics tree.
+  final String? semanticLabel;
+
+  /// Whether the minimap appears in the semantics tree (default true).
+  final bool includeInSemantics;
+
   const FlowMiniMap({
     super.key,
     this.size = const Size(200, 150),
     this.alignment = Alignment.bottomRight,
     this.margin = const EdgeInsets.all(20),
     this.minimapStyle,
+    this.semanticLabel,
+    this.includeInSemantics = true,
     this.pannable = true,
     this.zoomable = true,
     this.inversePan = false,
@@ -62,10 +79,25 @@ class FlowMiniMap extends ConsumerWidget {
     this.nodeBorderRadius,
     this.nodeBuilder,
     this.onClickNode,
+    this.onClick,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FlowMiniMap> createState() => _FlowMiniMapState();
+}
+
+class _FlowMiniMapState extends ConsumerState<FlowMiniMap> {
+  /// Absolute-mapping pan session (same dead-zone semantics as node drag /
+  /// resize): the committed offset is anchored at pan start, every update's
+  /// delta accumulates into travel, and `anchor + travel` is written through
+  /// the clamped viewport path. Dragging the viewport box into
+  /// `translateExtent` and coming back dead-zones instead of keeping a
+  /// permanent gap.
+  Offset? _panAnchor;
+  Offset _panTravel = Offset.zero;
+
+  @override
+  Widget build(BuildContext context) {
     final controller = ref.read(internalControllerProvider.notifier);
     final isLocked = ref.watch(
       internalControllerProvider.select((s) => s.isPanZoomLocked),
@@ -83,17 +115,29 @@ class FlowMiniMap extends ConsumerWidget {
 
     final baseTheme =
         context.flowCanvasTheme.minimap ?? FlowMinimapStyle.system(context);
-    final theme = baseTheme.merge(minimapStyle);
+    final theme = baseTheme.merge(widget.minimapStyle);
     final committedList = graph.nodes.values.toList(growable: false);
-    final canPan = pannable && !isLocked;
-    final canZoom = zoomable && !isLocked;
+    final canPan = widget.pannable && !isLocked;
+    final canZoom = widget.zoomable && !isLocked;
+    final semanticLabel = widget.includeInSemantics
+        ? (widget.semanticLabel ??
+            ref
+                .read(flowOptionsProvider)
+                .a11yOptions
+                .labels
+                .minimapLabel)
+        : null;
 
-    return Align(
-      alignment: alignment,
+    return Semantics(
+      label: semanticLabel,
+      container: true,
+      excludeSemantics: semanticLabel == null,
+      child: Align(
+      alignment: widget.alignment,
       child: Container(
-        margin: margin,
-        width: size.width,
-        height: size.height,
+        margin: widget.margin,
+        width: widget.size.width,
+        height: widget.size.height,
         decoration: BoxDecoration(
           color: theme.backgroundColor,
           borderRadius: theme.borderRadius,
@@ -118,12 +162,17 @@ class FlowMiniMap extends ConsumerWidget {
                 live,
               );
               final viewportRect = Rect.fromPoints(topLeft, bottomRight);
+              final defaultOrigin = ref
+                  .read(flowOptionsProvider)
+                  .nodeOptions
+                  .nodeOrigin;
               // Keep fit-bounds from committed positions so the minimap
               // does not refit mid-drag; draw nodes at live drag positions.
               final bounds = MiniMapPainter.getCombinedBounds(
-                  committedList, viewportRect);
+                  committedList, viewportRect,
+                  defaultOrigin: defaultOrigin);
               final transform =
-                  MiniMapPainter.calculateTransform(bounds, size, theme);
+                  MiniMapPainter.calculateTransform(bounds, widget.size, theme);
               final session = controller.interactionSession;
               final livePositions = session.livePositions;
 
@@ -135,12 +184,17 @@ class FlowMiniMap extends ConsumerWidget {
                   behavior: HitTestBehavior.opaque,
                   onTapUp: canPan
                       ? (details) => _onTapUp(details, committedList,
-                          livePositions, transform, controller)
+                          livePositions, transform, controller,
+                          defaultOrigin: defaultOrigin)
+                      : null,
+                  onPanStart: canPan
+                      ? (_) => _onPanStart(controller)
                       : null,
                   onPanUpdate: canPan
                       ? (details) => _onPanUpdate(
                           details, transform, controller, live.zoom)
                       : null,
+                  onPanEnd: canPan ? (_) => _onPanEnd() : null,
                   child: RepaintBoundary(
                     child: CustomPaint(
                       painter: MiniMapPainter(
@@ -148,15 +202,20 @@ class FlowMiniMap extends ConsumerWidget {
                         viewport: viewportRect,
                         theme: theme,
                         selectedNodeIds: graph.selectedNodeIds,
-                        nodeColor: nodeColor,
-                        nodeStrokeColor: nodeStrokeColor,
-                        nodeStrokeWidth: nodeStrokeWidth,
-                        nodeBorderRadius: nodeBorderRadius,
-                        nodeBuilder: nodeBuilder,
+                        nodeColor: widget.nodeColor,
+                        nodeStrokeColor: widget.nodeStrokeColor,
+                        nodeStrokeWidth: widget.nodeStrokeWidth,
+                        nodeBorderRadius: widget.nodeBorderRadius,
+                        nodeBuilder: widget.nodeBuilder,
                         livePositions: livePositions,
                         liveStamp: session.liveStamp,
+                        defaultOrigin: defaultOrigin,
+                        nodesSelectable: ref
+                            .read(flowOptionsProvider)
+                            .nodeOptions
+                            .selectable,
                       ),
-                      size: size,
+                      size: widget.size,
                     ),
                   ),
                 ),
@@ -165,7 +224,7 @@ class FlowMiniMap extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   void _onTapUp(
@@ -173,29 +232,36 @@ class FlowMiniMap extends ConsumerWidget {
     List<FlowNode> nodes,
     Map<String, Offset> livePositions,
     MiniMapTransform transform,
-    FlowCanvasInternalController controller,
-  ) {
+    FlowCanvasInternalController controller, {
+    Offset defaultOrigin = Offset.zero,
+  }) {
     if (transform.scale <= 0) return;
 
     final cartesianPosition = MiniMapPainter.fromMiniMapToCanvas(
-        details.localPosition, transform, size);
+        details.localPosition, transform, widget.size);
 
     final byId = {for (final n in nodes) n.id: n};
     FlowNode? clickedNode;
     for (final node in nodes.reversed) {
       final visualRect = NodeLayout.absoluteRect(node, byId,
-          livePositions: livePositions);
+          livePositions: livePositions, defaultOrigin: defaultOrigin);
       if (visualRect.contains(cartesianPosition)) {
         clickedNode = node;
         break;
       }
     }
 
-    if (clickedNode != null && onClickNode != null) {
-      onClickNode!(clickedNode);
+    if (clickedNode != null && widget.onClickNode != null) {
+      widget.onClickNode!(clickedNode);
     } else {
+      widget.onClick?.call(cartesianPosition);
       controller.viewport.centerOnPosition(cartesianPosition);
     }
+  }
+
+  void _onPanStart(FlowCanvasInternalController controller) {
+    _panAnchor = controller.currentState.viewport.offset;
+    _panTravel = Offset.zero;
   }
 
   void _onPanUpdate(
@@ -205,8 +271,24 @@ class FlowMiniMap extends ConsumerWidget {
     double mainCanvasZoom,
   ) {
     if (transform.scale <= 0) return;
+    // Defensive anchor: updates should always follow onPanStart, but anchor
+    // lazily if the session is missing.
+    _panAnchor ??= controller.currentState.viewport.offset;
     final screenDelta = details.delta * (mainCanvasZoom / transform.scale);
-    controller.viewport.panBy(inversePan ? screenDelta : -screenDelta);
+    _panTravel += widget.inversePan ? screenDelta : -screenDelta;
+    // Absolute clamped write (ViewportController.setViewport, zero duration):
+    // identical to the old incremental panBy when unconstrained, dead-zone
+    // when translateExtent clamps.
+    controller.viewport.setViewport(
+      controller.currentState.viewport.copyWith(
+        offset: _panAnchor! + _panTravel,
+      ),
+    );
+  }
+
+  void _onPanEnd() {
+    _panAnchor = null;
+    _panTravel = Offset.zero;
   }
 
   void _onPointerSignal(PointerSignalEvent event, WidgetRef ref,

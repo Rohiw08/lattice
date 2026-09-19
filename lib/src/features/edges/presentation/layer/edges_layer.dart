@@ -2,7 +2,9 @@ import 'package:equatable/equatable.dart';
 import 'package:lattice/src/core/debug/flow_canvas_debug.dart';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/features/connections/domain/models/connection.dart';
+import 'package:lattice/src/features/dataflow/application/flow_dataflow.dart';
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
+import 'package:lattice/src/features/edges/application/edge_geometry_service.dart';
 import 'package:lattice/src/features/connections/domain/connection_state.dart';
 import 'package:lattice/src/features/edges/domain/edge_state.dart';
 import 'package:lattice/src/core/options/components/edge_options.dart';
@@ -67,15 +69,15 @@ class PainterState extends Equatable {
 
   @override
   List<Object?> get props => [
-        dragMode,
-        _edgesHash,
-        selectedEdges,
-        edgeStates,
-        connection,
-        connectionState,
-        geometryRevision,
-        hasAnimatedEdges,
-      ];
+    dragMode,
+    _edgesHash,
+    selectedEdges,
+    edgeStates,
+    connection,
+    connectionState,
+    geometryRevision,
+    hasAnimatedEdges,
+  ];
 }
 
 /// Renders edges as static (RepaintBoundary) + animated + active (drag) layers.
@@ -86,12 +88,13 @@ class FlowEdgeLayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(internalControllerProvider.notifier);
     final theme = FlowCanvasThemeProvider.of(context);
-    final defaultEdgeStyle = theme.edge ?? FlowEdgeStyle.system(context);
+    final defaultEdgeStyle = (theme.edge ?? FlowEdgeStyle.system(context))
+        .merge(EdgeOptions.resolve(context).style);
     final session = controller.interactionSession;
 
-    final paintState = ref.watch(internalControllerProvider.select(
-      (s) => PainterState.fromState(s),
-    ));
+    final paintState = ref.watch(
+      internalControllerProvider.select((s) => PainterState.fromState(s)),
+    );
 
     final precomputedPaths = controller.edgeGeometryService.precomputedPaths;
 
@@ -102,19 +105,26 @@ class FlowEdgeLayer extends ConsumerWidget {
     });
 
     final elevate = EdgeOptions.resolve(context).elevateEdgeOnSelect;
+    final globalLabel = EdgeOptions.resolve(context).label;
+    // An edge shows a label when it (or the global default) provides one.
+    bool hasLabel(MapEntry<String, FlowEdge> entry) =>
+        entry.value.label != null || globalLabel != null;
     final selected = paintState.selectedEdges;
 
     final orderedEdges = <MapEntry<String, FlowEdge>>[];
     if (elevate) {
-      orderedEdges
-          .addAll(visibleEntries.where((e) => !selected.contains(e.key)));
-      orderedEdges
-          .addAll(visibleEntries.where((e) => selected.contains(e.key)));
+      orderedEdges.addAll(
+        visibleEntries.where((e) => !selected.contains(e.key)),
+      );
+      orderedEdges.addAll(
+        visibleEntries.where((e) => selected.contains(e.key)),
+      );
     } else {
       orderedEdges.addAll(visibleEntries);
     }
 
     final vpOpts = ref.read(flowOptionsProvider).viewportOptions;
+    final connOpts = ref.read(flowOptionsProvider).connectionOptions;
     final flowState = ref.read(internalControllerProvider);
 
     List<MapEntry<String, FlowEdge>> cull(
@@ -170,9 +180,11 @@ class FlowEdgeLayer extends ConsumerWidget {
         );
 
         if (kDebugMode && FlowCanvasDebug.logEdgePaint) {
-          FlowCanvasDebug.countEdgePaint(staticOrdered.length +
-              animatedOrdered.length +
-              activeOrdered.length);
+          FlowCanvasDebug.countEdgePaint(
+            staticOrdered.length +
+                animatedOrdered.length +
+                activeOrdered.length,
+          );
         }
 
         return Stack(
@@ -181,11 +193,14 @@ class FlowEdgeLayer extends ConsumerWidget {
             RepaintBoundary(
               child: CustomPaint(
                 painter: EdgePainter(
+                  edgesSelectable: EdgeOptions.resolve(context).selectable,
                   edges: Map.fromEntries(staticOrdered),
                   edgeStates: paintState.edgeStates,
                   theme: theme,
                   defaultEdgeStyle: defaultEdgeStyle,
                   precomputedPaths: precomputedPaths,
+                  geoms: controller.edgeGeometryService.geometries,
+                  versions: controller.edgeGeometryService.edgeVersions,
                   geometryEpoch: paintState.geometryRevision,
                   liveStamp: 0,
                 ),
@@ -200,11 +215,14 @@ class FlowEdgeLayer extends ConsumerWidget {
                 theme: theme,
                 defaultEdgeStyle: defaultEdgeStyle,
                 precomputedPaths: precomputedPaths,
+                geoms: controller.edgeGeometryService.geometries,
+                versions: controller.edgeGeometryService.edgeVersions,
                 geometryEpoch: paintState.geometryRevision,
                 liveStamp: session.liveStamp,
               ),
             CustomPaint(
               painter: EdgePainter(
+                edgesSelectable: EdgeOptions.resolve(context).selectable,
                 edges: Map.fromEntries(
                   activeOrdered.where((e) => !e.value.animated),
                 ),
@@ -212,6 +230,8 @@ class FlowEdgeLayer extends ConsumerWidget {
                 theme: theme,
                 defaultEdgeStyle: defaultEdgeStyle,
                 precomputedPaths: precomputedPaths,
+                geoms: controller.edgeGeometryService.geometries,
+                versions: controller.edgeGeometryService.edgeVersions,
                 geometryEpoch: paintState.geometryRevision,
                 liveStamp: session.liveStamp,
               ),
@@ -226,66 +246,117 @@ class FlowEdgeLayer extends ConsumerWidget {
                 theme: theme,
                 defaultEdgeStyle: defaultEdgeStyle,
                 precomputedPaths: precomputedPaths,
+                geoms: controller.edgeGeometryService.geometries,
+                versions: controller.edgeGeometryService.edgeVersions,
                 geometryEpoch: paintState.geometryRevision,
                 liveStamp: session.liveStamp,
               ),
             ...staticOrdered
-                .where((entry) => entry.value.label != null)
-                .map((entry) => _buildEdgeLabel(
-                      context,
-                      entry.key,
-                      entry.value,
-                      paintState,
-                      precomputedPaths,
-                      theme,
-                    )),
+                .where((entry) => hasLabel(entry))
+                .map(
+                  (entry) => _buildEdgeLabel(
+                    context,
+                    entry.key,
+                    entry.value,
+                    paintState,
+                    precomputedPaths,
+                    theme,
+                  ),
+                ),
             ...animatedOrdered
-                .where((entry) => entry.value.label != null)
-                .map((entry) => _buildEdgeLabel(
-                      context,
-                      entry.key,
-                      entry.value,
-                      paintState,
-                      precomputedPaths,
-                      theme,
-                    )),
+                .where((entry) => hasLabel(entry))
+                .map(
+                  (entry) => _buildEdgeLabel(
+                    context,
+                    entry.key,
+                    entry.value,
+                    paintState,
+                    precomputedPaths,
+                    theme,
+                  ),
+                ),
             ...activeOrdered
-                .where((entry) => entry.value.label != null)
-                .map((entry) => _buildEdgeLabel(
-                      context,
-                      entry.key,
-                      entry.value,
-                      paintState,
-                      precomputedPaths,
-                      theme,
-                    )),
-            CustomPaint(
-              painter: ConnectionPainter(
-                connection: paintState.connection,
-                connectionState: paintState.connectionState,
-                style: () {
-                  final base = theme.connection ??
-                      FlowConnectionStyle.system(context);
-                  var resolved =
-                      base.merge(paintState.connection?.connectionStyle);
-                  final lineType = ref
-                      .read(flowOptionsProvider)
-                      .connectionOptions
-                      .connectionLineType;
-                  if (lineType != null) {
-                    resolved = resolved.copyWith(pathType: lineType);
-                  }
-                  return resolved;
-                }(),
+                .where((entry) => hasLabel(entry))
+                .map(
+                  (entry) => _buildEdgeLabel(
+                    context,
+                    entry.key,
+                    entry.value,
+                    paintState,
+                    precomputedPaths,
+                    theme,
+                  ),
+                ),
+            if (connOpts.connectionLineBuilder == null)
+              CustomPaint(
+                painter: ConnectionPainter(
+                  connection: paintState.connection,
+                  connectionState: paintState.connectionState,
+                  style: () {
+                    final base = theme.connection ??
+                        FlowConnectionStyle.system(context);
+                    var resolved = base
+                        .merge(connOpts.connectionLineStyle)
+                        .merge(paintState.connection?.connectionStyle);
+                    final lineType = connOpts.connectionLineType;
+                    if (lineType != null) {
+                      resolved = resolved.copyWith(pathType: lineType);
+                    }
+                    return resolved;
+                  }(),
+                ),
+                size: Size.infinite,
               ),
-              size: Size.infinite,
-            ),
+            if (paintState.connection != null)
+              _buildConnectionLine(
+                  context, connOpts.connectionLineBuilder, paintState),
           ],
         );
       },
     );
 
     return IgnorePointer(child: paintStack);
+  }
+
+  /// Custom connection-line widget (Lattice `connectionLineComponent`).
+  ///
+  /// Laid out in the line's flow-space bounding box (RF renders in pane
+  /// space instead) and pointer-transparent like the painted line.
+  Widget _buildConnectionLine(
+    BuildContext context,
+    FlowConnectionLineBuilder? lineBuilder,
+    PainterState paintState,
+  ) {
+    final connection = paintState.connection;
+    if (lineBuilder == null || connection == null) {
+      return const SizedBox.shrink();
+    }
+    final info = FlowConnectionInfo(
+      inProgress: true,
+      fromNodeId: connection.fromNodeId,
+      fromHandleId: connection.fromHandleId,
+      toNodeId: connection.toNodeId,
+      toHandleId: connection.toHandleId,
+      fromPoint: connection.startPoint,
+      toPoint: connection.endPoint,
+      isValid: switch (paintState.connectionState) {
+        HoveringConnectionState s => s.targetHandleKey.isNotEmpty && s.isValid,
+        ReleasedConnectionState s =>
+          (s.targetHandleKey?.isNotEmpty ?? false) && s.isValid,
+        _ => false,
+      },
+    );
+    final from = connection.startPoint;
+    final to = connection.endPoint;
+    final left = from.dx < to.dx ? from.dx : to.dx;
+    final top = from.dy < to.dy ? from.dy : to.dy;
+    return Positioned(
+      left: left,
+      top: top,
+      width: (from.dx - to.dx).abs().clamp(1.0, double.infinity),
+      height: (from.dy - to.dy).abs().clamp(1.0, double.infinity),
+      child: IgnorePointer(child: lineBuilder(context, info)),
+    );
   }
 
   Widget _buildEdgeLabel(
@@ -308,7 +379,8 @@ class FlowEdgeLayer extends ConsumerWidget {
 
     final edgeState = paintState.edgeStates[edgeId];
     final states = <FlowEdgeState>{};
-    if (edge.selectable == false) {
+    final edgeSelectable = edge.isSelectable(context);
+    if (!edgeSelectable) {
       states.add(FlowEdgeState.disabled);
     }
     if (paintState.selectedEdges.contains(edgeId)) {
@@ -318,7 +390,8 @@ class FlowEdgeLayer extends ConsumerWidget {
       states.add(FlowEdgeState.hovered);
     }
 
-    final labelStyle = edge.labelDecoration ??
+    final labelStyle =
+        edge.labelDecoration ??
         edge.style?.labelStyle ??
         theme.edge?.labelStyle ??
         theme.edgeLabel;
@@ -330,9 +403,10 @@ class FlowEdgeLayer extends ConsumerWidget {
       parentId: edgeId,
       selected: edgeState?.selected ?? false,
       hovered: edgeState?.hovered ?? false,
-      disabled: edge.selectable == false,
+      disabled: !edgeSelectable,
       style: labelStyle,
-      child: edge.label,
+      // Global default label (EdgeOptions.label) when the edge has none.
+      child: edge.label ?? EdgeOptions.resolve(context).label,
     );
   }
 }
@@ -348,6 +422,8 @@ class _AnimatedEdgesPaint extends StatefulWidget {
     required this.precomputedPaths,
     required this.geometryEpoch,
     required this.liveStamp,
+    this.geoms,
+    this.versions,
   });
 
   final Map<String, FlowEdge> edges;
@@ -355,6 +431,8 @@ class _AnimatedEdgesPaint extends StatefulWidget {
   final FlowCanvasTheme theme;
   final FlowEdgeStyle defaultEdgeStyle;
   final Map<String, Path> precomputedPaths;
+  final Map<String, EdgeGeom>? geoms;
+  final Map<String, int>? versions;
   final int geometryEpoch;
   final int liveStamp;
 
@@ -364,38 +442,71 @@ class _AnimatedEdgesPaint extends StatefulWidget {
 
 class _AnimatedEdgesPaintState extends State<_AnimatedEdgesPaint>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  AnimationController? _controller;
 
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reduced motion: never run the shared ticker while the platform asks
+    // for no animations; edges paint one static frame instead. Managed here
+    // (not just in build) so toggling the setting disposes the ticker
+    // instead of orphaning it.
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion && _controller != null) {
+      _controller!.dispose();
+      _controller = null;
+    } else if (!reduceMotion && _controller == null) {
+      _controller = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 1),
+      )..repeat();
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
+    if (controller == null) {
+      return CustomPaint(
+        painter: EdgePainter(
+          edgesSelectable: EdgeOptions.resolve(context).selectable,
+          edges: widget.edges,
+          edgeStates: widget.edgeStates,
+          theme: widget.theme,
+          defaultEdgeStyle: widget.defaultEdgeStyle,
+          precomputedPaths: widget.precomputedPaths,
+          geoms: widget.geoms,
+          versions: widget.versions,
+          geometryEpoch: widget.geometryEpoch,
+          liveStamp: widget.liveStamp,
+          animationValue: 0,
+        ),
+        size: Size.infinite,
+      );
+    }
     return AnimatedBuilder(
-      animation: _controller,
+      animation: controller,
       builder: (context, _) {
         return CustomPaint(
           painter: EdgePainter(
+            edgesSelectable: EdgeOptions.resolve(context).selectable,
             edges: widget.edges,
             edgeStates: widget.edgeStates,
             theme: widget.theme,
             defaultEdgeStyle: widget.defaultEdgeStyle,
             precomputedPaths: widget.precomputedPaths,
+            geoms: widget.geoms,
+            versions: widget.versions,
             geometryEpoch: widget.geometryEpoch,
             liveStamp: widget.liveStamp,
-            animationValue: _controller.value,
+            animationValue: controller.value,
           ),
           size: Size.infinite,
         );

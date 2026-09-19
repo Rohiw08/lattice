@@ -9,6 +9,7 @@ export 'src/features/canvas/flow_canvas.dart';
 export 'src/features/canvas/flow_canvas_callbacks.dart';
 export 'src/features/canvas/flow_canvas_config.dart';
 export 'src/features/canvas/flow_canvas_controller.dart';
+export 'src/features/canvas/flow_canvas_scope.dart';
 export 'src/core/state/flow_canvas_state.dart';
 export 'src/core/document/canvas_document.dart';
 export 'src/core/debug/flow_canvas_debug.dart';
@@ -38,12 +39,16 @@ export 'src/features/connections/domain/models/connection.dart';
 // --- Viewport Feature ---
 export 'src/features/viewport/domain/coordinate_extent.dart';
 export 'src/features/viewport/domain/snap_grid.dart';
+export 'src/features/viewport/domain/viewport.dart';
 
 // --- Background Plugin ---
 export 'src/features/background/presentation/flow_background.dart';
 
 // --- Panel Plugin (Lattice Panel) ---
 export 'src/features/panel/presentation/flow_panel.dart';
+
+// --- Viewport Portal (Lattice ViewportPortal) ---
+export 'src/features/viewport/presentation/flow_viewport_portal.dart';
 
 // --- Minimap Plugin ---
 export 'src/features/minimap/presentation/flow_minimap.dart';
@@ -54,6 +59,14 @@ export 'src/features/control_panel/presentation/control_button.dart';
 
 // --- Edge Label Widget ---
 export 'src/features/edge_labels/presentation/flow_edge_label.dart';
+export 'src/features/edge_labels/presentation/flow_edge_label_portal.dart';
+
+// --- Toolbars (Lattice NodeToolbar / EdgeToolbar) ---
+export 'src/features/toolbar/presentation/flow_toolbars.dart';
+
+// --- Node resizer (Lattice NodeResizer / NodeResizeControl) ---
+export 'src/features/node_resizer/presentation/flow_node_resizer.dart';
+export 'src/features/node_resizer/presentation/flow_node_resize_control.dart';
 
 // --- Theming ---
 export 'src/core/theme/theme_export.dart';
@@ -64,19 +77,39 @@ export 'src/core/options/components/connection_options.dart';
 export 'src/core/options/components/edge_options.dart';
 export 'src/core/options/components/fitview_options.dart';
 export 'src/core/options/components/keyboard_options.dart';
+export 'src/features/keyboard/presentation/flow_key_press.dart';
 export 'src/core/options/components/node_options.dart';
 export 'src/core/options/components/viewport_options.dart';
 
+// --- Accessibility ---
+export 'src/features/a11y/domain/a11y_options.dart';
+
 // --- Shared ---
 export 'src/core/enums/enums.dart';
+export 'src/core/types/api_aliases.dart';
 
 // --- Utility ---
 export 'src/core/utils/random_id_generator.dart';
+export 'src/core/utils/flow_guards.dart';
+export 'src/core/utils/edge_path_creator.dart';
+export 'src/core/utils/edge_collection_utils.dart';
+export 'src/core/utils/flow_layout.dart';
 export 'src/core/utils/custom_stack_widget.dart'
     show InfiniteHitTestStack, UnboundedSizedBox;
 
 // --- Coordinate conventions (flow vs viewport vs global) ---
 export 'src/core/coordinates/flow_coordinates.dart';
+export 'src/features/viewport/domain/viewport_transform.dart';
+
+// --- State selectors (useNodes / useEdges / useViewport counterparts) ---
+export 'src/core/providers/flow_selectors.dart';
+export 'src/features/viewport/application/viewport_service.dart'
+    show getNodesBounds, NodeBounds;
+
+// --- Dataflow (useNodeConnections / useNodesData / updateNodeData) ---
+export 'src/features/dataflow/domain/node_connection.dart';
+export 'src/features/dataflow/application/flow_dataflow.dart';
+export 'src/features/dataflow/presentation/flow_data_handle.dart';
 
 // --- History extension point ---
 export 'src/features/history/domain/canvas_undo_command.dart';

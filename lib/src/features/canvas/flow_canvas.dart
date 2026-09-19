@@ -1,6 +1,8 @@
 import 'package:lattice/src/features/canvas/flow_canvas_callbacks.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_controller.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
+import 'package:lattice/src/features/a11y/presentation/flow_a11y_live_region.dart';
+import 'package:lattice/src/features/canvas/flow_canvas_scope.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_viewport.dart';
 import 'package:lattice/src/core/options/flow_options.dart';
 import 'package:lattice/src/core/options/options_provider.dart';
@@ -75,7 +77,7 @@ class FlowCanvas extends StatefulWidget {
     this.callbacks = const FlowCanvasCallbacks(),
   })  : nodeRegistry = nodeRegistry ?? NodeRegistry(),
         edgeRegistry = edgeRegistry ?? EdgeRegistry(),
-        options = options ?? const FlowCanvasOptions();
+        options = options ?? FlowCanvasOptions();
 
   @override
   State<FlowCanvas> createState() => _FlowCanvasState();
@@ -165,6 +167,22 @@ class _FlowCanvasState extends State<FlowCanvas> {
         widget.callbacks != oldWidget.callbacks ||
         !identical(widget.nodeRegistry, oldWidget.nodeRegistry) ||
         !identical(widget.edgeRegistry, oldWidget.edgeRegistry)) {
+      // RF warns when nodeTypes/edgeTypes are recreated per render (usually
+      // a builder defined inside build): remounts every custom node.
+      if (!identical(widget.nodeRegistry, oldWidget.nodeRegistry) ||
+          !identical(widget.edgeRegistry, oldWidget.edgeRegistry)) {
+        final changed = [
+          if (!identical(widget.nodeRegistry, oldWidget.nodeRegistry))
+            'nodeRegistry',
+          if (!identical(widget.edgeRegistry, oldWidget.edgeRegistry))
+            'edgeRegistry',
+        ].join(' + ');
+        widget.callbacks.onError?.call(FlowCanvasError(
+          'registries-recreated',
+          'New $changed instance on rebuild — define registries once '
+          '(State field / top-level) or every custom node remounts.',
+        ));
+      }
       _providerContainer.updateOverrides([
         nodeRegistryProvider.overrideWithValue(widget.nodeRegistry),
         edgeRegistryProvider.overrideWithValue(widget.edgeRegistry),
@@ -172,6 +190,12 @@ class _FlowCanvasState extends State<FlowCanvas> {
         flowCanvasCallbacksProvider.overrideWithValue(widget.callbacks),
         _controllerOverride,
       ]);
+      // Cell placement and cached paths depend on the origin — re-index
+      // when it changes (no-op otherwise).
+      if (widget.options.nodeOptions.nodeOrigin !=
+          oldWidget.options.nodeOptions.nodeOrigin) {
+        _internalController.syncNodeOrigin();
+      }
     }
   }
 
@@ -186,14 +210,17 @@ class _FlowCanvasState extends State<FlowCanvas> {
   Widget build(BuildContext context) {
     return UncontrolledProviderScope(
       container: _providerContainer,
-      child: FlowCanvasThemeProvider(
-        theme: widget.theme,
-        child: FlowCanvasOptionsProvider(
-          options: widget.options,
-          child: _FlowCanvasCore(
-            overlays: widget.overlays,
-            centerOnInitialLoad: widget.initialState == null,
-            onDrop: widget.onDrop,
+      child: FlowCanvasScope(
+        controller: _facade,
+        child: FlowCanvasThemeProvider(
+          theme: widget.theme,
+          child: FlowCanvasOptionsProvider(
+            options: widget.options,
+            child: _FlowCanvasCore(
+              overlays: widget.overlays,
+              centerOnInitialLoad: widget.initialState == null,
+              onDrop: widget.onDrop,
+            ),
           ),
         ),
       ),
@@ -256,6 +283,11 @@ class _FlowCanvasCoreState extends ConsumerState<_FlowCanvasCore> {
                   }
                 }
                 _hasInitialized = true;
+                // Lattice onInit: live controller after first layout.
+                ref
+                    .read(flowCanvasCallbacksProvider)
+                    .onInit
+                    ?.call(FlowCanvasScope.of(context));
               }
             });
           }
@@ -284,6 +316,11 @@ class _FlowCanvasCoreState extends ConsumerState<_FlowCanvasCore> {
                     backgroundPatternStyle: patternStyle,
                   ),
                   ...foregroundOverlays,
+                  const Positioned(
+                    left: 0,
+                    top: 0,
+                    child: FlowA11yLiveRegion(),
+                  ),
                 ],
               );
             },

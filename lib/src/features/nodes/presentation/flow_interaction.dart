@@ -16,6 +16,22 @@ abstract final class FlowInteraction {
   static bool blocksPan(PointerEvent event) =>
       _pathHas<RenderFlowNoPan>(event);
 
+  /// Whether the global pointer-down position [position] is over a
+  /// [FlowDragHandle] subtree.
+  ///
+  /// Used by the node-drag gate: when [FlowNode.dragHandle] is set, a drag
+  /// may only start from a drag-handle region (Lattice `dragHandle`).
+  static bool isDragHandleAt(Offset position) {
+    final result = HitTestResult();
+    final views = GestureBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) return false;
+    GestureBinding.instance.hitTestInView(result, position, views.first.viewId);
+    for (final entry in result.path) {
+      if (entry.target is RenderFlowDragHandle) return true;
+    }
+    return false;
+  }
+
   static bool _pathHas<T extends RenderObject>(PointerEvent event) {
     final result = HitTestResult();
     GestureBinding.instance.hitTestInView(
@@ -109,6 +125,64 @@ class _FlowNoPanMarker extends SingleChildRenderObjectWidget {
 
 /// Marker in the hit-test path for [FlowInteraction.blocksPan].
 class RenderFlowNoPan extends RenderProxyBox {
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (child != null && child!.hitTest(result, position: position)) {
+      result.add(BoxHitTestEntry(this, position));
+      return true;
+    }
+    return false;
+  }
+}
+
+/// Lattice `dragHandle` — start a **node** drag only from this subtree.
+///
+/// Set [FlowNode.dragHandle] on the node, then wrap the region that should
+/// act as the grab area (a grip icon, a header bar). Presses anywhere else on
+/// the node still select it — they just don't drag it. This is the
+/// Flutter-idiomatic counterpart of RF's `dragHandle` CSS selector: instead
+/// of naming a class, you wrap the handle widget.
+///
+/// > **Hit-testing note:** like all edge-overflowing chrome, a handle that
+/// > straddles the node edge needs an ungated ancestor — root the custom
+/// > builder in [InfiniteHitTestStack], since a stock [Stack] gates hits on
+/// > `size.contains` (exclusive edges).
+///
+/// ```dart
+/// NodeRegistry()..register('mindmap', (node) => Stack(
+///   children: [
+///     Text(node.data),
+///     const Positioned(
+///       left: 0, top: 0, bottom: 0,
+///       child: FlowDragHandle(child: Icon(Icons.drag_indicator)),
+///     ),
+///   ],
+/// ));
+/// ```
+class FlowDragHandle extends StatelessWidget {
+  const FlowDragHandle({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      child: _FlowDragHandleMarker(child: child),
+    );
+  }
+}
+
+class _FlowDragHandleMarker extends SingleChildRenderObjectWidget {
+  const _FlowDragHandleMarker({required super.child});
+
+  @override
+  RenderFlowDragHandle createRenderObject(BuildContext context) =>
+      RenderFlowDragHandle();
+}
+
+/// Marker in the hit-test path for [FlowInteraction.isDragHandleAt].
+class RenderFlowDragHandle extends RenderProxyBox {
   @override
   bool hitTest(BoxHitTestResult result, {required Offset position}) {
     if (child != null && child!.hitTest(result, position: position)) {

@@ -16,6 +16,7 @@ import 'package:lattice/src/core/debug/flow_canvas_debug.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_callbacks.dart';
 import 'package:lattice/src/features/viewport/domain/coordinate_extent.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,14 +31,14 @@ class NodesController {
     required GlobalKey viewportKey,
     required InteractionSession interactionSession,
     required this.ref,
-  })  : _controller = controller,
-        _nodeService = nodeService,
-        _edgeService = edgeService,
-        _selectionController = selectionController,
-        _spatialIndex = spatialIndex,
-        _edgeGeometryService = edgeGeometryService,
-        _viewportKey = viewportKey,
-        _session = interactionSession;
+  }) : _controller = controller,
+       _nodeService = nodeService,
+       _edgeService = edgeService,
+       _selectionController = selectionController,
+       _spatialIndex = spatialIndex,
+       _edgeGeometryService = edgeGeometryService,
+       _viewportKey = viewportKey,
+       _session = interactionSession;
 
   final FlowCanvasInternalController _controller;
   final NodeService _nodeService;
@@ -54,6 +55,30 @@ class NodesController {
   Map<String, Offset> _dragStartPositions = {};
   Set<String> _nodesBeingDragged = {};
 
+  /// Accumulated pointer travel in flow units since drag start (gesture
+  /// deltas + auto-pan tick compensation). Lattice `XYDrag.updateNodes`:
+  /// RF maps pointer -> node ABSOLUTELY (`nextPosition = pointer -
+  /// distance`) instead of accumulating per-frame deltas, so pushing into a
+  /// clamp and returning the pointer leaves a dead zone — never a permanent
+  /// gap — and restores the origin. Re-adding the accumulated travel to the
+  /// drag-start positions gives the same semantics on delta-driven gestures
+  /// (every set member's parent is static mid-drag: children of a dragged
+  /// parent are excluded from the set, so start + travel is exact).
+  Offset _pointerTravel = Offset.zero;
+
+  // --- Resize session (absolute mapping, same dead-zone semantics as drag) ---
+  String? _resizeNodeId;
+  ResizeDirection? _resizeDirection;
+  Rect? _resizeBaseRect;
+  Offset _resizeTravel = Offset.zero;
+
+  void _clearResizeSession() {
+    _resizeNodeId = null;
+    _resizeDirection = null;
+    _resizeBaseRect = null;
+    _resizeTravel = Offset.zero;
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // GETTERS / READ
   // ─────────────────────────────────────────────────────────────────
@@ -66,20 +91,159 @@ class NodesController {
     return _nodeService.getNodeRuntimeState(_controller.currentState, nodeId);
   }
 
+  /// Canvas default origin (`NodeOptions.nodeOrigin`) for rect resolution.
+  ///
+  /// Per-node [FlowNode.origin] wins where set; everywhere a visual rect is
+  /// needed, resolve via `NodeLayout.absoluteRect(..., defaultOrigin:
+  /// _nodeOrigin())`.
+  Offset _nodeOrigin() => ref.read(flowOptionsProvider).nodeOptions.nodeOrigin;
+
+  /// Z-index management mode for structural bumps (add/update).
+  ZIndexMode _zMode() => ref.read(flowOptionsProvider).zIndexMode;
+
+  /// Returns nodes whose absolute bounds intersect [nodeId]'s bounds.
+  ///
+  /// Lattice `getIntersectingNodes` counterpart. The spatial grid prefilters
+  /// candidates (sub-linear) before the precise rect test, so this stays
+  /// cheap on large graphs — no full node scan.
+  ///
+  /// - [partially]: `true` (default) matches any overlap; `false` matches
+  ///   only nodes fully contained in [nodeId]'s bounds.
+  /// - Hidden nodes are skipped (they are not interactive).
+  /// - Results are sorted by id for deterministic output.
+  List<FlowNode> getIntersectingNodes(String nodeId, {bool partially = true}) {
+    final state = _controller.currentState;
+    final node = state.nodes[nodeId];
+    if (node == null) return const [];
+    final defaultOrigin = _nodeOrigin();
+    final rect = NodeLayout.absoluteRect(
+      node,
+      state.nodes,
+      defaultOrigin: defaultOrigin,
+    );
+    final out = <FlowNode>[];
+    for (final id in _spatialIndex.nodeIndex.queryNodesInRect(rect)) {
+      if (id == nodeId) continue;
+      final other = state.nodes[id];
+      if (other == null || (other.hidden ?? false)) continue;
+      final otherRect = NodeLayout.absoluteRect(
+        other,
+        state.nodes,
+        defaultOrigin: defaultOrigin,
+      );
+      final hits = partially
+          ? rect.overlaps(otherRect)
+          : (otherRect.left >= rect.left &&
+                otherRect.top >= rect.top &&
+                otherRect.right <= rect.right &&
+                otherRect.bottom <= rect.bottom);
+      if (hits) out.add(other);
+    }
+    out.sort((a, b) => a.id.compareTo(b.id));
+    return out;
+  }
+
+  /// Whether the absolute bounds of [aId] and [bId] overlap.
+  ///
+  /// Lattice `isNodeIntersecting` counterpart for node pairs. Returns false
+  /// when either node is missing.
+  bool isNodeIntersecting(String aId, String bId) {
+    final state = _controller.currentState;
+    final a = state.nodes[aId];
+    final b = state.nodes[bId];
+    if (a == null || b == null) return false;
+    final defaultOrigin = _nodeOrigin();
+    return NodeLayout.absoluteRect(
+      a,
+      state.nodes,
+      defaultOrigin: defaultOrigin,
+    ).overlaps(
+      NodeLayout.absoluteRect(b, state.nodes, defaultOrigin: defaultOrigin),
+    );
+  }
+
+  /// Nodes whose absolute bounds intersect [rect] (Lattice
+  /// `getIntersectingNodes` rect form).
+  ///
+  /// Spatial-prefiltered, hidden nodes skipped, sorted by id.
+  List<FlowNode> queryNodesInRect(Rect rect) {
+    final state = _controller.currentState;
+    final out = <FlowNode>[];
+    for (final id in _spatialIndex.nodeIndex.queryNodesInRect(rect)) {
+      final node = state.nodes[id];
+      if (node == null || (node.hidden ?? false)) continue;
+      out.add(node);
+    }
+    out.sort((a, b) => a.id.compareTo(b.id));
+    return out;
+  }
+
   /// Lattice `multiSelectionActive` — Meta/Ctrl (or configured keys) held.
   bool _isMultiSelectionActive() {
     return ref.read(flowOptionsProvider).keyboardOptions.isMultiSelectionActive;
+  }
+
+  String? _lastTapNodeId;
+  DateTime? _lastTapTime;
+
+  /// True while a multi-node drag is live (drives onSelectionDrag*).
+  bool _selectionDragActive = false;
+
+  /// Position changes for [ids] (drag-set shape shared by onNodeDrag* and
+  /// onSelectionDrag*). Live positions win; committed positions fill gaps.
+  List<NodeChange> _dragSetChanges(Set<String> ids, {required bool dragging}) {
+    final state = _controller.currentState;
+    final live = _session.livePositions;
+    return [
+      for (final id in ids)
+        if (state.nodes[id] != null)
+          NodePositionChange(
+            id: id,
+            position: live[id] ?? state.nodes[id]!.position,
+            dragging: dragging,
+          ),
+    ];
   }
 
   // ─────────────────────────────────────────────────────────────────
   // ADD / REMOVE / UPDATE NODES
   // ─────────────────────────────────────────────────────────────────
 
+  /// Warns once per misconfigured node through `onError` (never throws).
+  ///
+  /// Checked at mutation points — not per rebuild — so a mistake warns
+  /// once instead of spamming every frame like render-time warnings do.
+  void _warnNodeMisuse(FlowNode node) {
+    final onError = ref.read(flowCanvasCallbacksProvider).onError;
+    if (onError == null) return;
+    if (node.extent == FlowNodeExtent.parent && node.parentId == null) {
+      onError(
+        FlowCanvasError(
+          'extent-without-parent',
+          'Node "${node.id}" uses extent=parent without a parentId; '
+              'the extent is ignored. Set parentId or remove the extent.',
+        ),
+      );
+    }
+    if (!ref.read(nodeRegistryProvider).isRegistered(node.type)) {
+      onError(
+        FlowCanvasError(
+          'unregistered-node-type',
+          'Node "${node.id}" has unregistered type "${node.type}" and falls '
+              'back to the default look. Register it to silence this warning.',
+        ),
+      );
+    }
+  }
+
   void addNode(FlowNode node) {
     if (_controller.currentState.nodes.containsKey(node.id)) {
       throw ArgumentError('Node with id ${node.id} already exists');
     }
-    _controller.mutate((s) => _nodeService.addNode(s, node));
+    _warnNodeMisuse(node);
+    _controller.mutate(
+      (s) => _nodeService.addNode(s, node, zIndexMode: _zMode()),
+    );
 
     // Sync using the node from the NEW state so that zIndex and any
     // service-level assignments are captured in the spatial index.
@@ -100,7 +264,12 @@ class NodesController {
         throw ArgumentError('Node with id ${node.id} already exists');
       }
     }
-    _controller.mutate((s) => _nodeService.addNodes(s, nodes));
+    for (final node in nodes) {
+      _warnNodeMisuse(node);
+    }
+    _controller.mutate(
+      (s) => _nodeService.addNodes(s, nodes, zIndexMode: _zMode()),
+    );
 
     for (final node in nodes) {
       final finalNode = _controller.currentState.nodes[node.id];
@@ -136,8 +305,10 @@ class NodesController {
 
     // The service skips `deletable: false` nodes (Lattice); edges must only be
     // removed for the nodes that actually go away.
-    final stateWithoutNodes =
-        _nodeService.removeNodes(oldState, allRemoved.toList());
+    final stateWithoutNodes = _nodeService.removeNodes(
+      oldState,
+      allRemoved.toList(),
+    );
     final removedIds = <String>[
       for (final id in allRemoved)
         if (oldState.nodes.containsKey(id) &&
@@ -170,14 +341,17 @@ class NodesController {
     }
     if (cbR.onNodesChange != null && removedIds.isNotEmpty) {
       cbR.onNodesChange!(
-          removedIds.map((id) => NodeRemoveChange(id: id)).toList());
+        removedIds.map((id) => NodeRemoveChange(id: id)).toList(),
+      );
     }
   }
 
   void updateNode(FlowNode node) {
     final oldNode = _nodeService.getNode(_controller.currentState, node.id);
     if (oldNode == null || oldNode == node) return;
-    _controller.mutate((s) => _nodeService.updateNode(s, node));
+    _controller.mutate(
+      (s) => _nodeService.updateNode(s, node, zIndexMode: _zMode()),
+    );
     _spatialIndex.nodeIndex.updateNode(oldNode, node);
     _controller.bumpSpatialVersion();
   }
@@ -196,10 +370,129 @@ class NodesController {
     updateNode(oldNode.copyWith(data: data));
   }
 
+  /// Function-updater variant of [updateNodeData].
+  ///
+  /// React Flow's `updateNodeData(id, fn)` counterpart. [updater] receives
+  /// the current `data` and returns the next one; a no-change (`==`) result
+  /// is skipped. Use this for transforms (`ColorPreview -> Lightness`) where
+  /// the next value derives from the previous one.
+  ///
+  /// ```dart
+  /// controller.nodes.updateNodeDataWith('color', (old) => {...});
+  /// ```
+  void updateNodeDataWith(
+    String nodeId,
+    Object? Function(Object? old) updater,
+  ) {
+    final oldNode = getNode(nodeId);
+    if (oldNode == null) return;
+    updateNodeData(nodeId, updater(oldNode.data));
+  }
+
+  /// Merges [patch] into `Map` node data (React Flow's default merge).
+  ///
+  /// In React Flow `updateNodeData` shallow-merges (`{...old, ...patch}`)
+  /// because JS data is always an object. In Dart only `Map` payloads can
+  /// merge: when the current data is a `Map<String, dynamic>` the patch is
+  /// merged over a copy; when it is null the patch becomes the data;
+  /// otherwise this asserts in debug (replace instead via [updateNodeData]).
+  ///
+  /// Pass `replace: true` to mirror RF's `{ replace: true }` option.
+  void patchNodeData(
+    String nodeId,
+    Map<String, dynamic> patch, {
+    bool replace = false,
+  }) {
+    final oldNode = getNode(nodeId);
+    if (oldNode == null) return;
+    final old = oldNode.data;
+    if (replace || old == null) {
+      updateNodeData(nodeId, Map<String, dynamic>.from(patch));
+      return;
+    }
+    assert(
+      old is Map,
+      'patchNodeData needs Map data (got ${old.runtimeType}); '
+      'use updateNodeData to replace custom data objects.',
+    );
+    if (old is! Map) {
+      updateNodeData(nodeId, Map<String, dynamic>.from(patch));
+      return;
+    }
+    final merged = Map<String, dynamic>.from(old);
+    merged.addAll(patch);
+    updateNodeData(nodeId, merged);
+  }
+
+  /// Recomputes derived caches for [nodeId]'s subtree without touching the
+  /// model or history.
+  ///
+  /// Lattice `updateNodeInternals` counterpart. Call after a custom node's
+  /// *rendered* geometry changed without a model write (e.g. a handle
+  /// builder that positions handles from measured widget size): re-registers
+  /// spatial cells, refreshes attached edge paths, and bumps the edge
+  /// revision so edges repaint. No-op for missing ids.
+  void updateNodeInternals(String nodeId) {
+    final state = _controller.currentState;
+    if (!state.nodes.containsKey(nodeId)) return;
+    final affected = _nodeService.getDescendants(state, {nodeId});
+    for (final id in affected) {
+      final n = state.nodes[id];
+      if (n == null) continue;
+      // NOTE: index.updateNode(old, new) skips equal instances by design,
+      // so force re-registration explicitly.
+      _spatialIndex.nodeIndex.removeNode(n);
+      _spatialIndex.nodeIndex.addNode(n);
+    }
+    _edgeGeometryService.updateEdgesForNodes(
+      state,
+      affected,
+      _spatialIndex.edgeIndex,
+      defaultOrigin: _nodeOrigin(),
+    );
+    _controller.bumpSpatialVersion();
+    // Transient revision touch (no history): wakes edge painters so the
+    // refreshed paths actually repaint.
+    _controller.updateStateOnly(
+      state.copyWith(geometryRevision: state.geometryRevision + 1),
+    );
+  }
+
+  /// Anchors a resize gesture: the base rect is captured at activation (the
+  /// framework absorbs touch slop before the first update, so travel starts
+  /// at zero from here) and every update's delta accumulates into travel.
+  /// The service maps `base + travel` absolutely, so pushing an edge into
+  /// the child-extent floor or min-size clamp and coming back dead-zones
+  /// instead of keeping a gap (same semantics as node drag).
+  void onNodeResizeStart(String nodeId, ResizeDirection direction) {
+    final node = getNode(nodeId);
+    if (node == null) {
+      _clearResizeSession();
+      return;
+    }
+    _resizeNodeId = nodeId;
+    _resizeDirection = direction;
+    _resizeBaseRect = node.rect;
+    _resizeTravel = Offset.zero;
+    ref.read(flowCanvasCallbacksProvider).onNodeResizeStart?.call(node);
+  }
+
   void resizeNode(String nodeId, ResizeDirection direction, Offset delta) {
     final oldState = _controller.currentState;
     final oldNode = _nodeService.getNode(oldState, nodeId);
     if (oldNode == null) return;
+
+    // Defensive anchor: updates should always follow onNodeResizeStart, but
+    // re-anchor if the session is missing or targets something else.
+    if (_resizeNodeId != nodeId ||
+        _resizeDirection != direction ||
+        _resizeBaseRect == null) {
+      _resizeNodeId = nodeId;
+      _resizeDirection = direction;
+      _resizeBaseRect = oldNode.rect;
+      _resizeTravel = Offset.zero;
+    }
+    _resizeTravel += delta;
 
     final options = ref.read(flowOptionsProvider);
     final minSize = options.viewportOptions.minNodeSize ?? const Size(50, 50);
@@ -208,8 +501,11 @@ class NodesController {
       oldState,
       nodeId,
       direction,
-      delta,
+      _resizeTravel,
       minSize: minSize,
+      baseRect: _resizeBaseRect,
+      defaultOrigin: options.nodeOptions.nodeOrigin,
+      expandParentDefault: options.nodeOptions.expandParent,
     );
 
     final newNode = newState.nodes[nodeId];
@@ -234,6 +530,7 @@ class NodesController {
       _controller.currentState,
       affected,
       _spatialIndex.edgeIndex,
+      defaultOrigin: _nodeOrigin(),
     );
     _controller.bumpSpatialVersion();
 
@@ -242,11 +539,18 @@ class NodesController {
         NodeDimensionsChange(id: nodeId, size: newNode.size),
       ]);
     }
+    ref.read(flowCanvasCallbacksProvider).onNodeResize?.call(newNode);
   }
 
   void onNodeResizeEnd() {
     // Commit the final state to history
+    final nodeId = _resizeNodeId;
     _controller.mutate((s) => s);
+    _clearResizeSession();
+    final node = nodeId == null ? null : getNode(nodeId);
+    if (node != null) {
+      ref.read(flowCanvasCallbacksProvider).onNodeResizeEnd?.call(node);
+    }
   }
 
   void updateNodeRuntimeState(String nodeId, NodeRuntimeState nodeState) {
@@ -254,7 +558,8 @@ class NodesController {
     final oldNodeState = _nodeService.getNodeRuntimeState(oldState, nodeId);
     if (oldNodeState == null || oldNodeState == nodeState) return;
     _controller.updateStateOnly(
-        _nodeService.updateNodeRuntimeState(oldState, nodeId, nodeState));
+      _nodeService.updateNodeRuntimeState(oldState, nodeId, nodeState),
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -262,14 +567,46 @@ class NodesController {
   // ─────────────────────────────────────────────────────────────────
 
   /// Selection on tap-down. Child [FlowNoDrag] / buttons still win the arena.
+  ///
+  /// Skipped while the pan-activation key is held (space+click pans instead;
+  /// keyboard Space on a focused node still selects via [FlowFocusableNode]).
   void onNodeTap(String nodeId, TapDownDetails details, bool isSelectable) {
     if (!isSelectable) return;
+    if (ref.read(flowOptionsProvider).keyboardOptions.isPanActivationHeld) {
+      return;
+    }
     final state = _controller.currentState;
     final node = state.nodes[nodeId];
-    if (node != null && !(node.selectable ?? true)) return;
+    final nodeOpts = ref.read(flowOptionsProvider).nodeOptions;
+    if (node != null && !(node.selectable ?? nodeOpts.selectable)) return;
     final multi = _isMultiSelectionActive();
-    if (multi || !state.selectedNodes.contains(nodeId)) {
+    // Non-interactive: taps still observe (onNodeClick below) but select
+    // nothing — Lattice `setInteractive(false)` parity.
+    if (state.interactive && (multi || !state.selectedNodes.contains(nodeId))) {
       _selectionController.selectNode(nodeId, addToSelection: multi);
+    }
+    if (node == null) return;
+    final flowPos = _controller.viewport.flowPositionFromGlobal(
+      details.globalPosition,
+    );
+    if (flowPos == null) return;
+    final cbs = ref.read(flowCanvasCallbacksProvider);
+    cbs.onNodeClick?.call(node, flowPos);
+    // Manual double-tap (a second recognizer would delay single-tap
+    // selection): second tap-down on the same node within the platform
+    // double-tap timeout also fires onNodeDoubleClick.
+    final now = DateTime.now();
+    final lastId = _lastTapNodeId;
+    final lastTime = _lastTapTime;
+    if (lastId == nodeId &&
+        lastTime != null &&
+        now.difference(lastTime) <= kDoubleTapTimeout) {
+      cbs.onNodeDoubleClick?.call(node, flowPos);
+      _lastTapNodeId = null;
+      _lastTapTime = null;
+    } else {
+      _lastTapNodeId = nodeId;
+      _lastTapTime = now;
     }
   }
 
@@ -297,10 +634,20 @@ class NodesController {
 
   /// Called when a genuine drag starts (pointer has moved enough to count).
   void onNodeDragStart(
-      String nodeId, DragStartDetails details, bool isSelectable) {
+    String nodeId,
+    DragStartDetails details,
+    bool isSelectable,
+  ) {
     // Handle connect-drag arms [DragMode.connection] first; don't steal it.
     if (_controller.currentState.dragMode == DragMode.connection ||
         _controller.currentState.activeConnection != null) {
+      return;
+    }
+
+    // Space-pan owns the pointer (the recognizer usually yields already;
+    // this covers programmatic drag starts).
+    if (ref.read(flowOptionsProvider).keyboardOptions.isPanActivationHeld) {
+      _ensureDragModeReset();
       return;
     }
 
@@ -308,7 +655,10 @@ class NodesController {
     if (_isDragActive) _resetDragState();
 
     final node = getNode(nodeId);
-    if (node == null || !(node.draggable ?? true)) {
+    final nodeOpts = ref.read(flowOptionsProvider).nodeOptions;
+    if (node == null ||
+        !(node.draggable ?? nodeOpts.draggable) ||
+        !_controller.currentState.interactive) {
       _ensureDragModeReset();
       return;
     }
@@ -317,8 +667,15 @@ class NodesController {
     final isAlreadySelected = initialState.selectedNodes.contains(nodeId);
 
     // Prefer selecting on tap-down. Select here only if pan started without it.
+    // Lattice `selectNodesOnDrag: false` drags unselected nodes without
+    // selecting (and clears the existing selection first).
     FlowCanvasState stateAfterSelection = initialState;
-    if (isSelectable && !isAlreadySelected) {
+    if (!nodeOpts.selectNodesOnDrag &&
+        !isAlreadySelected &&
+        !_isMultiSelectionActive()) {
+      _selectionController.deselectAll();
+      stateAfterSelection = _controller.currentState;
+    } else if (isSelectable && !isAlreadySelected) {
       final multi = _isMultiSelectionActive();
       _selectionController.selectNode(nodeId, addToSelection: multi);
       stateAfterSelection = _controller.currentState;
@@ -333,15 +690,18 @@ class NodesController {
     // drag set are excluded — they already move with the parent through
     // relative positions; dragging them directly would double-move them.
     dragSet.removeWhere(
-        (id) => _hasAncestorInDragSet(stateAfterSelection, id, dragSet));
+      (id) => _hasAncestorInDragSet(stateAfterSelection, id, dragSet),
+    );
 
     _nodesBeingDragged = dragSet;
 
-    // Record start positions only for draggable nodes.
+    // Record start positions only for draggable nodes (per-node or global).
     _dragStartPositions = {};
+    _pointerTravel = Offset.zero;
+    final interactive = _controller.currentState.interactive;
     for (final id in _nodesBeingDragged) {
       final n = stateAfterSelection.nodes[id];
-      if (n != null && (n.draggable ?? true)) {
+      if (n != null && (n.draggable ?? nodeOpts.draggable) && interactive) {
         _dragStartPositions[id] = n.position;
       }
     }
@@ -357,7 +717,8 @@ class NodesController {
     // drag. dragMode.node is still set as a session flag (geometry / cull).
     if (_controller.currentState.dragMode != DragMode.node) {
       _controller.updateStateOnly(
-          _controller.currentState.copyWith(dragMode: DragMode.node));
+        _controller.currentState.copyWith(dragMode: DragMode.node),
+      );
     }
 
     _isDragActive = true;
@@ -376,7 +737,18 @@ class NodesController {
       nodeIds: _nodesBeingDragged,
       startPositions: Map<String, Offset>.from(_dragStartPositions),
       edgeIds: activeEdges,
+      affectedNodeIds: affected,
     );
+
+    // Drag lifecycle around onNodeDrag (Lattice onNodeDragStart). Multi-node
+    // drags additionally open the selection-drag lifecycle.
+    _selectionDragActive = _nodesBeingDragged.length > 1;
+    final startChanges = _dragSetChanges(_nodesBeingDragged, dragging: true);
+    final cbs = ref.read(flowCanvasCallbacksProvider);
+    cbs.onNodeDragStart?.call(startChanges);
+    if (_selectionDragActive) {
+      cbs.onSelectionDragStart?.call(startChanges);
+    }
 
     if (kDebugMode && FlowCanvasDebug.logInteraction) {
       FlowCanvasDebug.interaction(
@@ -393,7 +765,8 @@ class NodesController {
 
     if (_controller.currentState.dragMode != DragMode.node) {
       _controller.updateStateOnly(
-          _controller.currentState.copyWith(dragMode: DragMode.node));
+        _controller.currentState.copyWith(dragMode: DragMode.node),
+      );
     }
 
     _moveNodesBy(details.delta, _nodesBeingDragged);
@@ -436,6 +809,8 @@ class NodesController {
     var next = before;
 
     final vo = ref.read(flowOptionsProvider).viewportOptions;
+    final expandParentDefault =
+        ref.read(flowOptionsProvider).nodeOptions.expandParent;
 
     // Lattice `calculateSnapOffset`: multi-drags share one snap offset so the
     // selection moves as a unit; single nodes snap individually.
@@ -475,28 +850,45 @@ class NodesController {
         // (Lattice skips the clamp while expandParent is set).
         if (n.extent == FlowNodeExtent.parent &&
             n.parentId != null &&
-            !n.expandParent) {
+            !(n.expandParent || expandParentDefault)) {
           final parent = next.nodes[n.parentId!];
           if (parent != null) {
-            finalPos =
-                NodeLayout.clampToParent(finalPos, n.size, parent.size);
+            finalPos = NodeLayout.clampToParent(
+              finalPos,
+              n.size,
+              parent.size,
+              childOrigin: NodeLayout.resolveOrigin(n, _nodeOrigin()),
+            );
           }
         }
         if (finalPos != n.position) {
-          next = _nodeService.updateNode(next, n.copyWith(position: finalPos));
+          next = _nodeService.updateNode(
+            next,
+            n.copyWith(position: finalPos),
+            zIndexMode: _zMode(),
+          );
         }
       }
 
       final size = liveSizes[id];
       if (size != null && size != n.size) {
         final current = next.nodes[id] ?? n;
-        next = _nodeService.updateNode(next, current.copyWith(size: size));
+        next = _nodeService.updateNode(
+          next,
+          current.copyWith(size: size),
+          zIndexMode: _zMode(),
+        );
       }
     }
 
     // expandParent final pass (Lattice `handleExpandParent` runs after the snapped
     // positions): grows parents and shifts siblings from committed state.
-    next = _nodeService.applyExpandParent(next, draggedIds);
+    next = _nodeService.applyExpandParent(
+      next,
+      draggedIds,
+      defaultOrigin: _nodeOrigin(),
+      expandParentDefault: expandParentDefault,
+    );
 
     if (next != before) {
       _controller.updateStateOnly(next);
@@ -520,6 +912,7 @@ class NodesController {
         _controller.currentState,
         affected,
         _spatialIndex.edgeIndex,
+        defaultOrigin: _nodeOrigin(),
       );
       if (kDebugMode) FlowCanvasDebug.countDragCommit();
     }
@@ -550,11 +943,9 @@ class NodesController {
         if (n == null) continue;
         final start = _dragStartPositions[id];
         if (start == null || n.position != start) {
-          changes.add(NodePositionChange(
-            id: id,
-            position: n.position,
-            dragging: false,
-          ));
+          changes.add(
+            NodePositionChange(id: id, position: n.position, dragging: false),
+          );
         }
         if (liveSizes[id] != null && liveSizes[id] != n.size) {
           changes.add(NodeDimensionsChange(id: id, size: n.size));
@@ -562,6 +953,18 @@ class NodesController {
       }
       if (changes.isNotEmpty) {
         cbDragEnd.onNodesChange!(changes);
+      }
+    }
+
+    // Drag-stop lifecycle (Lattice onNodeDragStop). Committed positions of
+    // the dragged set; multi-drags close the selection-drag lifecycle too.
+    final wasSelectionDrag = _selectionDragActive;
+    _selectionDragActive = false;
+    if (changedFromStart) {
+      final stopChanges = _dragSetChanges(draggedIds, dragging: false);
+      cbDragEnd.onNodeDragStop?.call(stopChanges);
+      if (wasSelectionDrag) {
+        cbDragEnd.onSelectionDragStop?.call(stopChanges);
       }
     }
 
@@ -575,6 +978,7 @@ class NodesController {
     }
 
     _dragStartPositions = {};
+    _pointerTravel = Offset.zero;
     _nodesBeingDragged.clear();
   }
 
@@ -588,25 +992,77 @@ class NodesController {
     // receives hover once the node is on top).
     var next = state;
     if (state.hoveredEdgeId.isNotEmpty) {
+      final oldEdge = state.edges[state.hoveredEdgeId];
       next = next.copyWith(hoveredEdgeId: '');
+      if (oldEdge != null) {
+        final leavePos = _controller.viewport.flowPositionFromGlobal(
+          details.position,
+        );
+        if (leavePos != null) {
+          ref
+              .read(flowCanvasCallbacksProvider)
+              .onEdgeMouseLeave
+              ?.call(oldEdge, leavePos);
+        }
+      }
     }
     final nodeState = _nodeService.getNodeRuntimeState(next, nodeId);
     if (nodeState == null) {
       if (!identical(next, state)) _controller.updateStateOnly(next);
       return;
     }
-    _controller.updateStateOnly(_nodeService.updateNodeRuntimeState(
-        next, nodeId, nodeState.copyWith(hovered: true)));
+    _controller.updateStateOnly(
+      _nodeService.updateNodeRuntimeState(
+        next,
+        nodeId,
+        nodeState.copyWith(hovered: true),
+      ),
+    );
+    final node = _controller.currentState.nodes[nodeId];
+    final flowPos = _controller.viewport.flowPositionFromGlobal(
+      details.position,
+    );
+    if (node != null && flowPos != null) {
+      ref
+          .read(flowCanvasCallbacksProvider)
+          .onNodeMouseEnter
+          ?.call(node, flowPos);
+    }
   }
 
-  void onNodeMouseMove(String nodeId, PointerEvent details) {}
+  void onNodeMouseMove(String nodeId, PointerEvent details) {
+    final node = _controller.currentState.nodes[nodeId];
+    if (node == null) return;
+    final flowPos = _controller.viewport.flowPositionFromGlobal(
+      details.position,
+    );
+    if (flowPos == null) return;
+    ref.read(flowCanvasCallbacksProvider).onNodeMouseMove?.call(node, flowPos);
+  }
 
   void onNodeMouseLeave(String nodeId, PointerEvent details) {
-    final nodeState =
-        _nodeService.getNodeRuntimeState(_controller.currentState, nodeId);
+    final nodeState = _nodeService.getNodeRuntimeState(
+      _controller.currentState,
+      nodeId,
+    );
     if (nodeState == null) return;
-    _controller.updateStateOnly(_nodeService.updateNodeRuntimeState(
-        _controller.currentState, nodeId, nodeState.copyWith(hovered: false)));
+    _controller.updateStateOnly(
+      _nodeService.updateNodeRuntimeState(
+        _controller.currentState,
+        nodeId,
+        nodeState.copyWith(hovered: false),
+      ),
+    );
+    final node = _controller.currentState.nodes[nodeId];
+    final flowPos = _controller.viewport.flowPositionFromGlobal(
+      details.position,
+    );
+    if (node != null && flowPos != null) {
+      ref
+          .read(flowCanvasCallbacksProvider)
+          .onNodeMouseLeave
+          ?.call(node, flowPos);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -618,7 +1074,9 @@ class NodesController {
     _stopAutoPan();
     _controller.commitLiveViewportToState();
     _isDragActive = false;
+    _selectionDragActive = false;
     _dragStartPositions = {};
+    _pointerTravel = Offset.zero;
     _nodesBeingDragged.clear();
     if (_session.isActive) _session.endDrag();
     _ensureDragModeReset();
@@ -634,19 +1092,18 @@ class NodesController {
   }
 
   void _emitNodeDragLivePositions(Set<String> ids) {
-    final handler = ref.read(flowCanvasCallbacksProvider).onNodeDrag;
-    if (handler == null) return;
+    final cbs = ref.read(flowCanvasCallbacksProvider);
+    if (cbs.onNodeDrag == null &&
+        !(_selectionDragActive && cbs.onSelectionDrag != null)) {
+      return;
+    }
     final list = <NodeChange>[];
     final emitted = <String>{};
     final state = _controller.currentState;
     for (final id in ids) {
       final pos = _session.livePositions[id];
       if (pos != null) {
-        list.add(NodePositionChange(
-          id: id,
-          position: pos,
-          dragging: true,
-        ));
+        list.add(NodePositionChange(id: id, position: pos, dragging: true));
         emitted.add(id);
       }
     }
@@ -656,14 +1113,10 @@ class NodesController {
       final node = state.nodes[entry.key];
       if (node == null) continue;
       final pos = _session.livePositions[entry.key];
-      if (pos != null &&
-          pos != node.position &&
-          emitted.add(entry.key)) {
-        list.add(NodePositionChange(
-          id: entry.key,
-          position: pos,
-          dragging: true,
-        ));
+      if (pos != null && pos != node.position && emitted.add(entry.key)) {
+        list.add(
+          NodePositionChange(id: entry.key, position: pos, dragging: true),
+        );
       }
       if (entry.value != node.size) {
         list.add(NodeDimensionsChange(id: entry.key, size: entry.value));
@@ -674,16 +1127,32 @@ class NodesController {
       final node = state.nodes[entry.key];
       if (node == null) continue;
       if (entry.value != node.position) {
-        list.add(NodePositionChange(
-          id: entry.key,
-          position: entry.value,
-          dragging: true,
-        ));
+        list.add(
+          NodePositionChange(
+            id: entry.key,
+            position: entry.value,
+            dragging: true,
+          ),
+        );
         emitted.add(entry.key);
       }
     }
     if (list.isNotEmpty) {
-      handler(list);
+      cbs.onNodeDrag?.call(list);
+      // Selection-drag mirrors the dragged set only (Lattice
+      // onSelectionDrag), not expandParent side effects.
+      final selectionHandler = _selectionDragActive
+          ? ref.read(flowCanvasCallbacksProvider).onSelectionDrag
+          : null;
+      if (selectionHandler != null) {
+        bool inDragSet(NodeChange c) => switch (c) {
+          NodePositionChange(id: final id) => ids.contains(id),
+          NodeDimensionsChange(id: final id) => ids.contains(id),
+          _ => false,
+        };
+        final selectionList = list.where(inDragSet).toList();
+        if (selectionList.isNotEmpty) selectionHandler(selectionList);
+      }
     }
   }
 
@@ -704,9 +1173,18 @@ class NodesController {
     if (nodesToMove.isEmpty) return;
     if (canvasDelta == Offset.zero) return;
 
+    // Absolute mapping (Lattice `XYDrag.updateNodes`): the target is the
+    // drag-start position plus total pointer travel — never last-frame-live
+    // plus delta. Clamping that absolute target keeps the RF dead zone:
+    // clamped-away travel is forgotten, so coming back pins until the
+    // pointer leaves the clamped region and restores the origin exactly.
+    _pointerTravel += canvasDelta;
+
     final state = _controller.currentState;
-    final vo = ref.read(flowOptionsProvider).viewportOptions;
+    final opts = ref.read(flowOptionsProvider);
+    final vo = opts.viewportOptions;
     final nodeExtent = vo.nodeExtent;
+    final defaultOrigin = opts.nodeOptions.nodeOrigin;
     final isMultiDrag = nodesToMove.length > 1;
     final snapToGrid = vo.snapToGrid;
     final snapGrid = vo.snapGrid;
@@ -714,13 +1192,15 @@ class NodesController {
     final next = <String, Offset>{};
     Offset? multiSnapOffset;
     for (final id in nodesToMove) {
-      final current = _session.livePositions[id];
       final node = state.nodes[id];
-      if (current == null || node == null) continue;
+      if (node == null) continue;
+      final start = _dragStartPositions[id];
+      final current = _session.livePositions[id];
+      if (start == null && current == null) continue;
       // Lattice `XYDrag.updateNodes`: snap every frame while dragging — single
       // nodes snap to the grid, multi-drags share one offset computed from
       // the first drag item so the selection moves as a unit.
-      var raw = current + canvasDelta;
+      var raw = start != null ? start + _pointerTravel : current! + canvasDelta;
       if (snapToGrid) {
         if (!isMultiDrag) {
           raw = snapGrid.snap(raw);
@@ -743,6 +1223,8 @@ class NodesController {
         nodeExtent,
         isMultiDrag: isMultiDrag,
         nodesToMove: nodesToMove,
+        defaultOrigin: defaultOrigin,
+        expandParentDefault: opts.nodeOptions.expandParent,
       );
     }
     _session.setLivePositions(next);
@@ -753,7 +1235,9 @@ class NodesController {
     // stay put. Sizes stay live until drag end (parent grows on screen).
     for (final id in nodesToMove) {
       final node = state.nodes[id];
-      if (node == null || !node.expandParent || node.parentId == null) {
+      if (node == null ||
+          !(node.expandParent || opts.nodeOptions.expandParent) ||
+          node.parentId == null) {
         continue;
       }
       final parent = state.nodes[node.parentId!];
@@ -769,6 +1253,7 @@ class NodesController {
         parentSize: parentSize,
         childPosition: childPos,
         childSize: node.size,
+        childOrigin: NodeLayout.resolveOrigin(node, defaultOrigin),
       );
       if (fit == null) continue;
 
@@ -780,24 +1265,22 @@ class NodesController {
 
       final originDelta = fit.parentPosition - parentPos;
       for (final sibling in state.nodes.values) {
-        if (sibling.parentId != parent.id ||
-            nodesToMove.contains(sibling.id)) {
+        if (sibling.parentId != parent.id || nodesToMove.contains(sibling.id)) {
           continue;
         }
-        _session.setLivePositions(
-            {sibling.id: sibling.position - originDelta});
+        _session.setLivePositions({sibling.id: sibling.position - originDelta});
       }
     }
 
-    final affected =
-        _nodeService.getDescendants(state, nodesToMove)
-          ..addAll(_session.livePositions.keys)
-          ..addAll(_session.liveSizes.keys);
+    final affected = _nodeService.getDescendants(state, nodesToMove)
+      ..addAll(_session.livePositions.keys)
+      ..addAll(_session.liveSizes.keys);
     _edgeGeometryService.updateEdgesForNodes(
       state,
       affected,
       _spatialIndex.edgeIndex,
       livePositions: _session.livePositions,
+      defaultOrigin: defaultOrigin,
     );
     _emitNodeDragLivePositions(nodesToMove);
   }
@@ -809,7 +1292,7 @@ class NodesController {
   /// - [CoordinateExtent] (global `nodeExtent`) clamps in **absolute** flow
   ///   space, including for children; multi-drags use Lattice's per-node adjusted
   ///   extents so the whole selection stays inside the extent.
-Offset _clampNodeLivePosition(
+  Offset _clampNodeLivePosition(
     FlowCanvasState state,
     String id,
     FlowNode node,
@@ -818,11 +1301,21 @@ Offset _clampNodeLivePosition(
     CoordinateExtent? nodeExtent, {
     required bool isMultiDrag,
     required Set<String> nodesToMove,
+    required Offset defaultOrigin,
+    bool expandParentDefault = false,
   }) {
+    final origin = NodeLayout.resolveOrigin(node, defaultOrigin);
     if (node.extent == FlowNodeExtent.parent) {
       final parent = node.parentId != null ? state.nodes[node.parentId!] : null;
-      if (parent == null || node.expandParent) return raw;
-      return NodeLayout.clampToParent(raw, node.size, parent.size);
+      if (parent == null || node.expandParent || expandParentDefault) {
+        return raw;
+      }
+      return NodeLayout.clampToParent(
+        raw,
+        node.size,
+        parent.size,
+        childOrigin: origin,
+      );
     }
 
     if (nodeExtent == null || nodeExtent.isInfinite) return raw;
@@ -835,38 +1328,53 @@ Offset _clampNodeLivePosition(
           )
         : Offset.zero;
 
-    final absRaw = raw + parentAbs;
+    // Clamp in visual-topLeft space: the anchor→visual shift is constant
+    // per node, so this is exactly the old math shifted (identical when the
+    // origin is top-left). Keeps the RF dead zone with centered origins.
+    final shift = Offset(
+      origin.dx * node.size.width,
+      origin.dy * node.size.height,
+    );
+    final absVisual = raw + parentAbs - shift;
 
     var extent = nodeExtent;
     if (isMultiDrag) {
-      final box = _dragSetBounds(state, nodesToMove);
+      final box = _dragSetBounds(state, nodesToMove, defaultOrigin);
       if (box != null) {
-        final currentAbs = parentAbs + (raw - canvasDelta);
+        final currentVisual = parentAbs + (raw - canvasDelta) - shift;
         extent = CoordinateExtent(
-          minX: currentAbs.dx - box.left + nodeExtent.minX,
-          minY: currentAbs.dy - box.top + nodeExtent.minY,
-          maxX: currentAbs.dx + node.size.width - box.right + nodeExtent.maxX,
-          maxY: currentAbs.dy + node.size.height - box.bottom + nodeExtent.maxY,
+          minX: currentVisual.dx - box.left + nodeExtent.minX,
+          minY: currentVisual.dy - box.top + nodeExtent.minY,
+          maxX:
+              currentVisual.dx + node.size.width - box.right + nodeExtent.maxX,
+          maxY:
+              currentVisual.dy +
+              node.size.height -
+              box.bottom +
+              nodeExtent.maxY,
         );
       }
     }
-    final clampedAbs = _clampLivePosition(absRaw, node.size, extent);
-    return clampedAbs - parentAbs;
+    final clampedVisual = _clampLivePosition(absVisual, node.size, extent);
+    return clampedVisual + shift - parentAbs;
   }
 
-  /// Union of the drag set's absolute rects (live positions).
-  Rect? _dragSetBounds(FlowCanvasState state, Set<String> ids) {
+  /// Union of the drag set's absolute *visual* rects (live positions).
+  Rect? _dragSetBounds(
+    FlowCanvasState state,
+    Set<String> ids,
+    Offset defaultOrigin,
+  ) {
     Rect? union;
     for (final id in ids) {
       final node = state.nodes[id];
       if (node == null) continue;
-      final abs = NodeLayout.absolutePosition(
-        id,
+      final rect = NodeLayout.absoluteRect(
+        node,
         state.nodes,
         livePositions: _session.livePositions,
+        defaultOrigin: defaultOrigin,
       );
-      final rect = Rect.fromLTWH(
-          abs.dx, abs.dy, node.size.width, node.size.height);
       union = union == null ? rect : union.expandToInclude(rect);
     }
     return union;
@@ -874,7 +1382,10 @@ Offset _clampNodeLivePosition(
 
   /// Lattice `isParentSelected`: true when any ancestor of [id] is in [dragSet].
   bool _hasAncestorInDragSet(
-      FlowCanvasState state, String id, Set<String> dragSet) {
+    FlowCanvasState state,
+    String id,
+    Set<String> dragSet,
+  ) {
     var parentId = state.nodes[id]?.parentId;
     final seen = <String>{id};
     while (parentId != null && seen.add(parentId)) {

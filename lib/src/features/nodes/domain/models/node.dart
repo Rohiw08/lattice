@@ -12,6 +12,31 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'node.freezed.dart';
 part 'node.g.dart';
 
+/// Proposal passed to [FlowNode.shouldResize] before a resize commits.
+///
+/// Return false to veto the resize (the gesture keeps its absolute anchor,
+/// so releasing the veto resumes cleanly with no gap).
+@immutable
+class FlowResizeProposal {
+  const FlowResizeProposal({
+    required this.nodeId,
+    required this.direction,
+    required this.position,
+    required this.size,
+  });
+
+  final String nodeId;
+  final ResizeDirection direction;
+
+  /// Proposed stored-space top-left.
+  final Offset position;
+
+  final Size size;
+}
+
+/// Veto/allow callback for node resizes (Lattice `shouldResize`).
+typedef FlowShouldResize = bool Function(FlowResizeProposal proposal);
+
 @Freezed(genericArgumentFactories: true)
 abstract class FlowNode<T> with _$FlowNode<T> {
   const FlowNode._();
@@ -32,7 +57,21 @@ abstract class FlowNode<T> with _$FlowNode<T> {
     /// When [parentId] is null this is absolute (graph space).
     /// When [parentId] is set this is **relative to the parent’s top-left**,
     /// matching Lattice sub-flows (`{ x: 0, y: 0 }` = parent origin).
+    ///
+    /// [position] marks the node's **anchor point**: the point inside the
+    /// node at [origin] (canvas `nodeOrigin` by default). With the default
+    /// top-left origin this is the top-left corner; with a center origin
+    /// (`Offset(0.5, 0.5)`, like Lattice `nodeOrigin: [0.5, 0.5]`) it is the
+    /// node's center. Dragging, snapping, and stored JSON all use the anchor;
+    /// rendering, hit-testing, and bounds resolve the visual rect via
+    /// `NodeLayout.absoluteRect`.
     @OffsetConverter() required Offset position,
+
+    /// Per-node origin override (fractions of [size], `0..1` per axis).
+    ///
+    /// `null` (default) falls back to the canvas `NodeOptions.nodeOrigin`
+    /// (top-left when unset). Serialized with the node.
+    @OffsetConverter() Offset? origin,
 
     /// Custom data attached to this node.
     ///
@@ -51,28 +90,80 @@ abstract class FlowNode<T> with _$FlowNode<T> {
     @Default({}) Map<String, FlowHandle> handles,
 
     /// Whether this node should be hidden from view.
-    @Default(false) bool? hidden,
+    ///
+    /// Null (default) inherits [NodeOptions.hidden].
+    bool? hidden,
 
     /// Whether this node can be dragged by the user.
-    @Default(true) bool? draggable,
+    ///
+    /// Null (default) inherits [NodeOptions.draggable].
+    bool? draggable,
 
     /// Whether this node can be selected by the user.
-    @Default(true) bool? selectable,
+    ///
+    /// Null (default) inherits [NodeOptions.selectable].
+    bool? selectable,
 
     /// Whether this node can be hovered by the user.
-    @Default(true) bool? hoverable,
+    ///
+    /// Null (default) inherits [NodeOptions.hoverable].
+    bool? hoverable,
 
     /// Whether edges can be connected to/from this node.
-    @Default(true) bool? connectable,
+    ///
+    /// Null (default) inherits [NodeOptions.connectable].
+    bool? connectable,
 
     /// Whether this node can be deleted by the user.
-    @Default(true) bool? deletable,
+    ///
+    /// Null (default) inherits [NodeOptions.deletable].
+    bool? deletable,
 
     /// Whether this node can be resized by the user.
-    @Default(true) bool? resizable,
+    ///
+    /// Null (default) inherits [NodeOptions.resizable] (false: resizing
+    /// stays opt-in, RF parity — resize UI never renders ambiently).
+    bool? resizable,
+
+    /// Minimum size enforced by resize gestures (Lattice `minWidth/minHeight`).
+    ///
+    /// Null (default) falls back to the canvas minimum. Serialized.
+    @SizeConverter() Size? minSize,
+
+    /// Maximum size enforced by resize gestures (Lattice `maxWidth/maxHeight`).
+    ///
+    /// Null (default) = unbounded. Serialized.
+    @SizeConverter() Size? maxSize,
+
+    /// Lock the width/height ratio while resizing (Lattice `keepAspectRatio`).
+    ///
+    /// The ratio is taken from the size at resize start. Serialized.
+    @Default(false) bool keepAspectRatio,
+
+    /// Veto callback for resize gestures (Lattice `shouldResize`).
+    ///
+    /// Called with the proposed rect before each commit; return false to
+    /// block it. Not serialized.
+    @JsonKey(ignore: true) FlowShouldResize? shouldResize,
 
     /// Whether this node can receive keyboard focus.
-    @Default(true) bool? focusable,
+    ///
+    /// Null (default) inherits [NodeOptions.focusable].
+    bool? focusable,
+
+    /// Restrict drag starts to [FlowDragHandle] regions (Lattice `dragHandle`).
+    ///
+    /// When true, a node drag may only start from inside a [FlowDragHandle]
+    /// widget in the node's subtree; presses elsewhere still select the
+    /// node but never drag it. Defaults to false (whole node drags).
+    /// Serialized with the node.
+    @Default(false) bool? dragHandle,
+
+    /// Screen-reader label for this node.
+    ///
+    /// Falls back to [data] when it is a [String], then to [id].
+    /// Serialized with the node.
+    String? semanticsLabel,
 
     /// Grow the parent when this node is dragged past its edge (Lattice default: false).
     @Default(false) bool expandParent,
@@ -97,6 +188,7 @@ abstract class FlowNode<T> with _$FlowNode<T> {
     String? parentId,
     required String type,
     required Offset position,
+    Offset? origin,
     T? data,
     Size size = const Size(160, 44),
     int zIndex = 0,
@@ -108,7 +200,13 @@ abstract class FlowNode<T> with _$FlowNode<T> {
     bool? connectable,
     bool? deletable,
     bool? resizable,
+    Size? minSize,
+    Size? maxSize,
+    bool keepAspectRatio = false,
+    FlowShouldResize? shouldResize,
     bool? focusable,
+    bool? dragHandle,
+    String? semanticsLabel,
     bool expandParent = false,
     FlowNodeExtent? extent,
     FlowNodeStyle? style,
@@ -117,6 +215,7 @@ abstract class FlowNode<T> with _$FlowNode<T> {
       id: id,
       type: type,
       position: position,
+      origin: origin,
       size: size,
       parentId: parentId,
       data: data,
@@ -129,7 +228,13 @@ abstract class FlowNode<T> with _$FlowNode<T> {
       connectable: connectable,
       deletable: deletable,
       resizable: resizable,
+      minSize: minSize,
+      maxSize: maxSize,
+      keepAspectRatio: keepAspectRatio,
+      shouldResize: shouldResize,
       focusable: focusable,
+      dragHandle: dragHandle,
+      semanticsLabel: semanticsLabel,
       expandParent: expandParent,
       extent: extent,
       style: style,

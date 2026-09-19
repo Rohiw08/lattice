@@ -25,11 +25,9 @@ import '../../enums/enums.dart';
 ///
 /// ## Usage
 ///
-/// Default keyboard handling:
+/// Keyboard shortcuts are on by default (platform-aware):
 /// ```
-/// FlowCanvas(
-///   keyboardOptions: KeyboardOptions.withDefaults(),
-/// )
+/// FlowCanvas() // arrows, delete, select-all, undo/redo, zoom, duplicate
 /// ```
 ///
 /// Disabled keyboard:
@@ -39,7 +37,7 @@ import '../../enums/enums.dart';
 /// )
 /// ```
 ///
-/// Custom shortcuts:
+/// Custom shortcuts (replaces the defaults entirely):
 /// ```
 /// FlowCanvas(
 ///   keyboardOptions: KeyboardOptions(
@@ -94,17 +92,17 @@ class KeyboardOptions with Diagnosticable {
 
   /// Custom keyboard shortcuts mapping keys to actions.
   ///
-  /// Maps [ShortcutActivator] (key combinations) to [KeyboardAction].
-  /// Use [KeyboardOptions.withDefaults] to get platform-aware defaults,
-  /// or provide your own custom mappings.
+  /// Defaults to the platform-aware set from [_getDefaultShortcuts] (same as
+  /// [KeyboardOptions.withDefaults]). Pass an explicit map to replace the
+  /// defaults entirely, or [KeyboardOptions.disabled] for no keyboard input.
   ///
   /// Example:
   /// ```
   /// shortcuts: {
   ///   SingleActivator(LogicalKeyboardKey.keyF):
-  ///     KeyboardAction.fitView,
-  ///   SingleActivator(LogicalKeyboardKey.keyH):
-  ///     KeyboardAction.centerView,
+  ///     KeyboardAction.duplicateSelection,
+  ///   SingleActivator(LogicalKeyboardKey.keyG):
+  ///     KeyboardAction.zoomIn,
   /// }
   /// ```
   final Map<ShortcutActivator, KeyboardAction> shortcuts;
@@ -127,21 +125,75 @@ class KeyboardOptions with Diagnosticable {
   /// - empty set → key-gated box select disabled (use [ViewportOptions.selectionOnDrag])
   final Set<LogicalKeyboardKey>? selectionKeys;
 
+  /// Keys that turn pointer drags into viewport pans (Lattice
+  /// `panActivationKeyCode`).
+  ///
+  /// While held, left-drag pans the viewport instead of dragging nodes,
+  /// drawing marquees, or (dis)connecting — Figma-style space-pan. A plain
+  /// tap still selects, and keyboard Space on a focused node still selects
+  /// (only drags are rerouted).
+  ///
+  /// - `null` → [defaultPanActivationKeys] (Space)
+  /// - empty set → space-pan disabled
+  final Set<LogicalKeyboardKey>? panActivationKeys;
+
+  /// Keys that gate mouse-wheel zoom (Lattice `zoomActivationKeyCode`).
+  ///
+  /// - `null` (default) → platform default (Meta on macOS, Control
+  ///   elsewhere), matching React Flow: wheel zooms only while held,
+  ///   otherwise the wheel falls back to [ViewportOptions.panOnScroll]
+  ///   behavior or is ignored
+  /// - non-empty → wheel zooms only while one of these is held
+  /// - empty set → wheel zoom disabled entirely
+  final Set<LogicalKeyboardKey>? zoomActivationKeys;
+
   /// Creates keyboard options with the specified parameters.
   ///
   /// The [enabled] flag controls whether keyboard interactions work at all.
-  /// Use an empty [shortcuts] map to disable shortcuts while keeping
-  /// basic keyboard navigation.
-  const KeyboardOptions({
+  /// [shortcuts] defaults to the platform-aware set; pass an explicit
+  /// (possibly empty) map to override it.
+  const KeyboardOptions._withShortcuts({
     this.enabled = true,
     this.arrowKeyMoveSpeed = 10.0,
     this.zoomStep = 0.1,
-    this.shortcuts = const {},
+    required this.shortcuts,
     this.multiSelectionKeys,
     this.selectionKeys,
+    this.panActivationKeys,
+    this.zoomActivationKeys,
   })  : assert(arrowKeyMoveSpeed > 0, 'arrowKeyMoveSpeed must be positive'),
         assert(zoomStep > 0 && zoomStep <= 1.0,
             'zoomStep must be between 0.0 and 1.0');
+
+  /// Creates keyboard options with platform-aware default shortcuts.
+  ///
+  /// This is also what the default constructor does — use this factory to
+  /// state the intent explicitly or to tweak speed/zoom while keeping the
+  /// default bindings.
+  factory KeyboardOptions({
+    bool enabled = true,
+    double arrowKeyMoveSpeed = 10.0,
+    double zoomStep = 0.1,
+    Map<ShortcutActivator, KeyboardAction>? shortcuts,
+    Set<LogicalKeyboardKey>? multiSelectionKeys,
+    Set<LogicalKeyboardKey>? selectionKeys,
+    Set<LogicalKeyboardKey>? panActivationKeys,
+    Set<LogicalKeyboardKey>? zoomActivationKeys,
+  }) {
+    assert(arrowKeyMoveSpeed > 0, 'arrowKeyMoveSpeed must be positive');
+    assert(
+        zoomStep > 0 && zoomStep <= 1.0, 'zoomStep must be between 0.0 and 1.0');
+    return KeyboardOptions._withShortcuts(
+      enabled: enabled,
+      arrowKeyMoveSpeed: arrowKeyMoveSpeed,
+      zoomStep: zoomStep,
+      shortcuts: shortcuts ?? _getDefaultShortcuts(),
+      multiSelectionKeys: multiSelectionKeys,
+      selectionKeys: selectionKeys,
+      panActivationKeys: panActivationKeys,
+      zoomActivationKeys: zoomActivationKeys,
+    );
+  }
 
   /// Platform default for [multiSelectionKeys] (Lattice: Meta on macOS, Control else).
   static Set<LogicalKeyboardKey> defaultMultiSelectionKeys() {
@@ -153,6 +205,18 @@ class KeyboardOptions with Diagnosticable {
   /// Default for [selectionKeys] (Lattice: Shift).
   static Set<LogicalKeyboardKey> defaultSelectionKeys() =>
       {LogicalKeyboardKey.shift};
+
+  /// Default for [panActivationKeys] (Lattice: Space).
+  static Set<LogicalKeyboardKey> defaultPanActivationKeys() =>
+      {LogicalKeyboardKey.space};
+
+  /// Platform default for [zoomActivationKeys] (Lattice
+  /// `zoomActivationKeyCode`: Meta on macOS, Control elsewhere).
+  static Set<LogicalKeyboardKey> defaultZoomActivationKeys() {
+    return defaultTargetPlatform == TargetPlatform.macOS
+        ? {LogicalKeyboardKey.meta}
+        : {LogicalKeyboardKey.control};
+  }
 
   /// Resolved multi-select keys (`null` option → [defaultMultiSelectionKeys]).
   Set<LogicalKeyboardKey> get effectiveMultiSelectionKeys =>
@@ -169,6 +233,31 @@ class KeyboardOptions with Diagnosticable {
   /// Whether the box-selection key is held (Lattice `selectionKeyPressed`).
   bool get isSelectionKeyActive =>
       isAnyMultiSelectionKeyPressed(effectiveSelectionKeys);
+
+  /// Resolved pan-activation keys (`null` option → [defaultPanActivationKeys]).
+  Set<LogicalKeyboardKey> get effectivePanActivationKeys =>
+      panActivationKeys ?? defaultPanActivationKeys();
+
+  /// Whether a pan-activation key is held. Read live (no rebuild needed).
+  bool get isPanActivationKeyActive =>
+      isAnyMultiSelectionKeyPressed(effectivePanActivationKeys);
+
+  /// Whether pointer drags are currently rerouted to viewport pan: keyboard
+  /// on and a pan-activation key held. Single check shared by gesture
+  /// routing (recognizers, tap/marquee guards, viewer pan).
+  bool get isPanActivationHeld =>
+      enabled && isPanActivationKeyActive;
+
+  /// Whether mouse-wheel zoom is currently allowed (Lattice
+  /// `zoomActivationKeyCode`). Null option means the platform default;
+  /// an empty set never allows it. Read live (no rebuild needed), like
+  /// the other key checks.
+  bool get isZoomActivationHeld =>
+      isAnyMultiSelectionKeyPressed(effectiveZoomActivationKeys);
+
+  /// Resolved zoom-activation keys (`null` option → platform default).
+  Set<LogicalKeyboardKey> get effectiveZoomActivationKeys =>
+      zoomActivationKeys ?? defaultZoomActivationKeys();
 
   /// Returns true if any key in [keys] is pressed on [HardwareKeyboard.instance].
   ///
@@ -214,6 +303,9 @@ class KeyboardOptions with Diagnosticable {
 
   /// Creates keyboard options with platform-aware default shortcuts.
   ///
+  /// Identical to the default constructor — use it to state the intent
+  /// explicitly or to tweak speed/zoom while keeping the default bindings.
+  ///
   /// Automatically uses:
   /// - Cmd key for macOS (detected via [defaultTargetPlatform])
   /// - Ctrl key for other platforms
@@ -239,6 +331,8 @@ class KeyboardOptions with Diagnosticable {
     double zoomStep = 0.1,
     Set<LogicalKeyboardKey>? multiSelectionKeys,
     Set<LogicalKeyboardKey>? selectionKeys,
+    Set<LogicalKeyboardKey>? panActivationKeys,
+    Set<LogicalKeyboardKey>? zoomActivationKeys,
   }) {
     return KeyboardOptions(
       enabled: enabled,
@@ -247,6 +341,8 @@ class KeyboardOptions with Diagnosticable {
       shortcuts: _getDefaultShortcuts(),
       multiSelectionKeys: multiSelectionKeys,
       selectionKeys: selectionKeys,
+      panActivationKeys: panActivationKeys,
+      zoomActivationKeys: zoomActivationKeys,
     );
   }
 
@@ -268,7 +364,11 @@ class KeyboardOptions with Diagnosticable {
         zoomStep = 0.1,
         shortcuts = const {},
         multiSelectionKeys = null,
-        selectionKeys = null;
+        selectionKeys = null,
+        // Empty (not null): space-pan must stay dead when keyboard is off.
+        panActivationKeys = const {},
+        // Null (not empty): wheel zoom is not a keyboard shortcut.
+        zoomActivationKeys = null;
 
   /// Creates keyboard options with only basic navigation.
   ///
@@ -281,6 +381,8 @@ class KeyboardOptions with Diagnosticable {
     double zoomStep = 0.1,
     Set<LogicalKeyboardKey>? multiSelectionKeys,
     Set<LogicalKeyboardKey>? selectionKeys,
+    Set<LogicalKeyboardKey>? panActivationKeys,
+    Set<LogicalKeyboardKey>? zoomActivationKeys,
   }) {
     final isMac = defaultTargetPlatform == TargetPlatform.macOS;
 
@@ -290,6 +392,8 @@ class KeyboardOptions with Diagnosticable {
       zoomStep: zoomStep,
       multiSelectionKeys: multiSelectionKeys,
       selectionKeys: selectionKeys,
+      panActivationKeys: panActivationKeys,
+      zoomActivationKeys: zoomActivationKeys,
       shortcuts: {
         // Selection only
         SingleActivator(LogicalKeyboardKey.keyA, control: !isMac, meta: isMac):
@@ -297,7 +401,8 @@ class KeyboardOptions with Diagnosticable {
         const SingleActivator(LogicalKeyboardKey.escape):
             KeyboardAction.deselectAll,
 
-        // Navigation
+        // Navigation (plain arrows; Shift variants move 5x — see
+        // KeyboardController.shiftMoveBoost).
         const SingleActivator(LogicalKeyboardKey.arrowUp):
             KeyboardAction.moveUp,
         const SingleActivator(LogicalKeyboardKey.arrowDown):
@@ -305,6 +410,14 @@ class KeyboardOptions with Diagnosticable {
         const SingleActivator(LogicalKeyboardKey.arrowLeft):
             KeyboardAction.moveLeft,
         const SingleActivator(LogicalKeyboardKey.arrowRight):
+            KeyboardAction.moveRight,
+        const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true):
+            KeyboardAction.moveUp,
+        const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true):
+            KeyboardAction.moveDown,
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true):
+            KeyboardAction.moveLeft,
+        const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true):
             KeyboardAction.moveRight,
 
         // Zoom
@@ -335,13 +448,22 @@ class KeyboardOptions with Diagnosticable {
       const SingleActivator(LogicalKeyboardKey.backspace):
           KeyboardAction.deleteSelection,
 
-      // Navigation
+      // Navigation (plain arrows; Shift variants move 5x — see
+      // KeyboardController.shiftMoveBoost).
       const SingleActivator(LogicalKeyboardKey.arrowUp): KeyboardAction.moveUp,
       const SingleActivator(LogicalKeyboardKey.arrowDown):
           KeyboardAction.moveDown,
       const SingleActivator(LogicalKeyboardKey.arrowLeft):
           KeyboardAction.moveLeft,
       const SingleActivator(LogicalKeyboardKey.arrowRight):
+          KeyboardAction.moveRight,
+      const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true):
+          KeyboardAction.moveUp,
+      const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true):
+          KeyboardAction.moveDown,
+      const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true):
+          KeyboardAction.moveLeft,
+      const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true):
           KeyboardAction.moveRight,
 
       // Zoom
@@ -387,6 +509,10 @@ class KeyboardOptions with Diagnosticable {
     bool clearMultiSelectionKeys = false,
     Set<LogicalKeyboardKey>? selectionKeys,
     bool clearSelectionKeys = false,
+    Set<LogicalKeyboardKey>? panActivationKeys,
+    bool clearPanActivationKeys = false,
+    Set<LogicalKeyboardKey>? zoomActivationKeys,
+    bool clearZoomActivationKeys = false,
   }) {
     return KeyboardOptions(
       enabled: enabled ?? this.enabled,
@@ -399,6 +525,12 @@ class KeyboardOptions with Diagnosticable {
       selectionKeys: clearSelectionKeys
           ? null
           : (selectionKeys ?? this.selectionKeys),
+      panActivationKeys: clearPanActivationKeys
+          ? null
+          : (panActivationKeys ?? this.panActivationKeys),
+      zoomActivationKeys: clearZoomActivationKeys
+          ? null
+          : (zoomActivationKeys ?? this.zoomActivationKeys),
     );
   }
 
@@ -412,7 +544,9 @@ class KeyboardOptions with Diagnosticable {
         other.zoomStep == zoomStep &&
         mapEquals(other.shortcuts, shortcuts) &&
         setEquals(other.multiSelectionKeys, multiSelectionKeys) &&
-        setEquals(other.selectionKeys, selectionKeys);
+        setEquals(other.selectionKeys, selectionKeys) &&
+        setEquals(other.panActivationKeys, panActivationKeys) &&
+        setEquals(other.zoomActivationKeys, zoomActivationKeys);
   }
 
   @override
@@ -429,6 +563,12 @@ class KeyboardOptions with Diagnosticable {
         selectionKeys == null
             ? null
             : Object.hashAllUnordered(selectionKeys!),
+        panActivationKeys == null
+            ? null
+            : Object.hashAllUnordered(panActivationKeys!),
+        zoomActivationKeys == null
+            ? null
+            : Object.hashAllUnordered(zoomActivationKeys!),
       );
 
   @override
@@ -450,6 +590,21 @@ class KeyboardOptions with Diagnosticable {
       'selectionKeys',
       effectiveSelectionKeys,
     ));
+    properties.add(DiagnosticsProperty<Set<LogicalKeyboardKey>>(
+      'panActivationKeys',
+      effectivePanActivationKeys,
+    ));
+    if (zoomActivationKeys != null) {
+      properties.add(DiagnosticsProperty<Set<LogicalKeyboardKey>>(
+        'zoomActivationKeys',
+        zoomActivationKeys!,
+      ));
+    } else {
+      properties.add(DiagnosticsProperty<Set<LogicalKeyboardKey>>(
+        'zoomActivationKeys(default)',
+        effectiveZoomActivationKeys,
+      ));
+    }
   }
 
   @override

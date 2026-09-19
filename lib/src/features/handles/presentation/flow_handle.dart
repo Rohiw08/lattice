@@ -15,18 +15,25 @@ import '../../../core/providers/providers.dart';
 /// Passing the full style object allows the builder to use theme properties
 /// (e.g., `style.hovered?.color`) to create completely custom widgets that
 /// still respect the canvas theme.
-typedef HandleBuilder = Widget Function(
-  BuildContext context,
-  HandleRuntimeState state,
-  FlowHandleStyle style,
-  HandleType type,
-);
+typedef HandleBuilder =
+    Widget Function(
+      BuildContext context,
+      HandleRuntimeState state,
+      FlowHandleStyle style,
+      HandleType type,
+    );
 
 /// A connection point on a node widget.
 ///
 /// This widget is self-contained and communicates directly with the
 /// FlowCanvasInternalController via Riverpod to manage its state (hovered, active, etc.)
 /// and initiate connections. It relies on its parent widget for positioning.
+///
+/// Per-handle connectability (Lattice per-`Handle` `isConnectable` /
+/// `isConnectableStart` / `isConnectableEnd`) resolves widget prop →
+/// [FlowHandle] model → node flag. Widget props gate this handle's drag
+/// start and dimming locally; landing validation and `onConnect` run in the
+/// connection service, so validators and callbacks belong on the model.
 class Handle extends ConsumerWidget {
   final String nodeId;
   final String handleId;
@@ -35,6 +42,15 @@ class Handle extends ConsumerWidget {
   final Size size;
   final FlowHandleStyle? handleStyle;
   final HandleBuilder? handleBuilder;
+
+  /// Local override for drag-start + dimming (see class docs).
+  final bool? isConnectable;
+
+  /// Local start-role override (Lattice `isConnectableStart`).
+  final bool? isConnectableStart;
+
+  /// Local end-role override (Lattice `isConnectableEnd`).
+  final bool? isConnectableEnd;
 
   const Handle({
     super.key,
@@ -45,6 +61,9 @@ class Handle extends ConsumerWidget {
     this.type = HandleType.both,
     this.handleStyle,
     this.handleBuilder,
+    this.isConnectable,
+    this.isConnectableStart,
+    this.isConnectableEnd,
   });
 
   String get handleKey => '$nodeId/$handleId';
@@ -70,15 +89,34 @@ class Handle extends ConsumerWidget {
         (s) => s.handleStates[handleKey] ?? const HandleRuntimeState(),
       ),
     );
-    final connectable = ref.watch(
+    final nodeConnectable = ref.watch(
+      internalControllerProvider.select((s) => s.nodes[nodeId]?.connectable),
+    );
+    final modelConnectable = ref.watch(
       internalControllerProvider.select(
-        (s) => s.nodes[nodeId]?.connectable ?? true,
+        (s) => s.nodes[nodeId]?.effectiveHandles[handleId]?.isConnectable,
       ),
     );
+    final globalConnectable = ref.watch(
+      flowOptionsProvider.select((o) => o.nodeOptions.connectable),
+    );
+    // Widget prop → model → node flag → global (null widget/type props
+    // fall through). Non-interactive masters everything off.
+    final interactive = ref.watch(
+      internalControllerProvider.select((s) => s.interactive),
+    );
+    final connectable =
+        (isConnectable ??
+            modelConnectable ??
+            nodeConnectable ??
+            globalConnectable) &&
+        interactive;
 
     final controller = ref.read(internalControllerProvider.notifier);
-    final lodZoom =
-        ref.read(flowOptionsProvider).viewportOptions.lodHideHandlesBelowZoom;
+    final lodZoom = ref
+        .read(flowOptionsProvider)
+        .viewportOptions
+        .lodHideHandlesBelowZoom;
 
     Widget buildHandle() {
       final baseTheme =
@@ -117,9 +155,44 @@ class Handle extends ConsumerWidget {
       builder: (context, ref, _) {
         final connOpts = ref.watch(flowOptionsProvider).connectionOptions;
         final mode = connOpts.connectionMode;
-        final canStart = mode == ConnectionMode.loose ||
-            type == HandleType.source ||
-            type == HandleType.both;
+        final modelHandle = ref.watch(
+          internalControllerProvider.select(
+            (s) => s.nodes[nodeId]?.effectiveHandles[handleId],
+          ),
+        );
+        final bool? modelConnectable = modelHandle?.isConnectable;
+        final bool? nodeConnectable = ref.watch(
+          internalControllerProvider.select(
+            (s) => s.nodes[nodeId]?.connectable,
+          ),
+        );
+        final globalConnectable = ref.watch(
+          flowOptionsProvider.select((o) => o.nodeOptions.connectable),
+        );
+        final interactive = ref.watch(
+          internalControllerProvider.select((s) => s.interactive),
+        );
+        bool resolvedConnectable = nodeConnectable ?? globalConnectable;
+        if (isConnectable != null) {
+          resolvedConnectable = isConnectable!;
+        } else if (modelConnectable != null) {
+          resolvedConnectable = modelConnectable;
+        }
+        // Non-interactive masters everything off (Lattice setInteractive).
+        resolvedConnectable = resolvedConnectable && interactive;
+        if (isConnectable != null) {
+          resolvedConnectable = isConnectable!;
+        } else if (modelConnectable != null) {
+          resolvedConnectable = modelConnectable;
+        }
+        final startOverride =
+            isConnectableStart ?? modelHandle?.isConnectableStart;
+        final canStart =
+            resolvedConnectable &&
+            (startOverride ??
+                (mode == ConnectionMode.loose ||
+                    type == HandleType.source ||
+                    type == HandleType.both));
         final clickConnect = connOpts.connectOnClick;
 
         // Expand hit target beyond the tiny visual so connect-drag is reliable.
@@ -130,29 +203,36 @@ class Handle extends ConsumerWidget {
         // ScaleGestureRecognizer wins the arena and would swallow onPan*.
         // FlowNoDrag: beat the parent node pan so drag-to-connect isn't stolen.
         final child = FlowNoDrag(
-          child: MouseRegion(
-            onEnter: (_) => controller.handle.setHandleHover(handleKey, true),
-            onExit: (_) => controller.handle.setHandleHover(handleKey, false),
-            cursor: (context.flowCanvasTheme.cursor ??
-                    FlowCursorStyle.system(context))
-                .handle,
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (canStart || clickConnect)
-                  ? (event) => controller.connection.onConnectionPointerDown(
+          child: Semantics(
+            // Lattice `handle.ariaLabel` — each handle is its own node,
+            // like RF's labelled handle divs.
+            label: ref.read(flowOptionsProvider).a11yOptions.labels.handleLabel,
+            container: true,
+            child: MouseRegion(
+              onEnter: (_) => controller.handle.setHandleHover(handleKey, true),
+              onExit: (_) => controller.handle.setHandleHover(handleKey, false),
+              cursor:
+                  (context.flowCanvasTheme.cursor ??
+                          FlowCursorStyle.system(context))
+                      .handle,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (canStart || clickConnect) && resolvedConnectable
+                    ? (event) => controller.connection.onConnectionPointerDown(
                         nodeId,
                         handleId,
                         event,
                       )
-                  : null,
-              child: SizedBox(
-                width: hitW,
-                height: hitH,
-                child: Center(
-                  child: SizedBox(
-                    width: size.width,
-                    height: size.height,
-                    child: handleCore,
+                    : null,
+                child: SizedBox(
+                  width: hitW,
+                  height: hitH,
+                  child: Center(
+                    child: SizedBox(
+                      width: size.width,
+                      height: size.height,
+                      child: handleCore,
+                    ),
                   ),
                 ),
               ),
@@ -166,7 +246,6 @@ class Handle extends ConsumerWidget {
     );
   }
 }
-
 
 class _DefaultHandle extends StatelessWidget {
   final Decoration decoration;

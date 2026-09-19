@@ -1,4 +1,5 @@
 import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
+import 'package:lattice/src/core/options/components/fitview_options.dart';
 import 'package:lattice/src/core/options/flow_options.dart';
 import 'package:lattice/src/core/theme/components/controls_theme.dart';
 import 'package:lattice/src/core/theme/theme_extension.dart';
@@ -11,6 +12,7 @@ class FlowCanvasControls extends ConsumerWidget {
   final Size? size;
   final bool showZoom;
   final bool showFitView;
+  final bool showInteractive;
   final bool showLock;
   final bool showUndoRedo;
   final Axis orientation;
@@ -20,6 +22,19 @@ class FlowCanvasControls extends ConsumerWidget {
   final double spacing;
   final List<Widget> children;
 
+  /// Options for the fit-view button (Lattice `fitViewOptions`).
+  final FitViewOptions fitViewOptions;
+
+  /// Extra listeners after the default actions run (Lattice
+  /// `onZoomIn`/`onZoomOut`/`onFitView`).
+  final VoidCallback? onZoomIn;
+  final VoidCallback? onZoomOut;
+  final VoidCallback? onFitView;
+
+  /// Fired when the interactivity toggle flips (Lattice
+  /// `onInteractiveChange`), with the new value.
+  final ValueChanged<bool>? onInteractiveChange;
+
   // THEME OVERRIDES
   final FlowControlsStyle? controlsStyle;
 
@@ -27,6 +42,7 @@ class FlowCanvasControls extends ConsumerWidget {
     super.key,
     this.showZoom = true,
     this.showFitView = true,
+    this.showInteractive = true,
     this.showLock = true,
     this.showUndoRedo = true,
     this.orientation = Axis.vertical,
@@ -37,6 +53,11 @@ class FlowCanvasControls extends ConsumerWidget {
     this.spacing = 4.0,
     this.controlsStyle,
     this.size,
+    this.fitViewOptions = const FitViewOptions(),
+    this.onZoomIn,
+    this.onZoomOut,
+    this.onFitView,
+    this.onInteractiveChange,
   });
 
   @override
@@ -54,10 +75,16 @@ class FlowCanvasControls extends ConsumerWidget {
     final isLocked = ref.watch(
       internalControllerProvider.select((s) => s.isPanZoomLocked),
     );
+    final isInteractive = ref.watch(
+      internalControllerProvider.select((s) => s.interactive),
+    );
 
     return Align(
       alignment: alignment,
-      child: Container(
+      child: Semantics(
+        label: options.a11yOptions.labels.controlsLabel,
+        container: true,
+        child: Container(
         margin: margin,
         padding: padding,
         decoration: theme.decoration,
@@ -71,9 +98,11 @@ class FlowCanvasControls extends ConsumerWidget {
             context,
             controller,
             isLocked,
+            isInteractive,
             options,
             viewportSize,
           ),
+        ),
         ),
       ),
     );
@@ -83,6 +112,7 @@ class FlowCanvasControls extends ConsumerWidget {
     BuildContext context,
     FlowCanvasInternalController controller,
     bool isLocked,
+    bool isInteractive,
     FlowCanvasOptions options,
     Size? viewportSize,
   ) {
@@ -94,57 +124,79 @@ class FlowCanvasControls extends ConsumerWidget {
     VoidCallback? whenUnlocked(VoidCallback action) =>
         isLocked ? null : action;
 
+    final labels = options.a11yOptions.labels;
+
     return [
       if (showZoom) ...[
         ControlButton(
           icon: Icons.add,
-          tooltip: 'Zoom In',
+          tooltip: labels.controlsZoomIn,
           onPressed: whenUnlocked(
-            () => controller.viewport.zoom(
-              zoomFactor: 0.2,
-              minZoom: options.viewportOptions.minZoom,
-              maxZoom: options.viewportOptions.maxZoom,
-              focalPoint: screenCenter,
-            ),
+            () {
+              controller.viewport.zoom(
+                zoomFactor: 0.2,
+                minZoom: options.viewportOptions.minZoom,
+                maxZoom: options.viewportOptions.maxZoom,
+                focalPoint: screenCenter,
+              );
+              onZoomIn?.call();
+            },
           ),
         ),
         ControlButton(
           icon: Icons.remove,
-          tooltip: 'Zoom Out',
+          tooltip: labels.controlsZoomOut,
           onPressed: whenUnlocked(
-            () => controller.viewport.zoom(
-              zoomFactor: -0.2,
-              minZoom: options.viewportOptions.minZoom,
-              maxZoom: options.viewportOptions.maxZoom,
-              focalPoint: screenCenter,
-            ),
+            () {
+              controller.viewport.zoom(
+                zoomFactor: -0.2,
+                minZoom: options.viewportOptions.minZoom,
+                maxZoom: options.viewportOptions.maxZoom,
+                focalPoint: screenCenter,
+              );
+              onZoomOut?.call();
+            },
           ),
         ),
       ],
       if (showFitView)
         ControlButton(
           icon: Icons.fit_screen,
-          tooltip: 'Fit View',
-          onPressed: whenUnlocked(() => controller.viewport.fitView()),
+          tooltip: labels.controlsFitView,
+          onPressed: whenUnlocked(() {
+            controller.viewport.fitView(
+              fitviewOptions: fitViewOptions,
+              viewportOptions: options.viewportOptions,
+            );
+            onFitView?.call();
+          }),
+        ),
+      if (showInteractive)
+        ControlButton(
+          icon: Icons.touch_app,
+          tooltip: labels.controlsInteractive,
+          selected: !isInteractive,
+          onPressed: () {
+            controller.setInteractive(!isInteractive);
+            onInteractiveChange?.call(!isInteractive);
+          },
         ),
       if (showLock)
         ControlButton(
           icon: isLocked ? Icons.lock : Icons.lock_open,
-          tooltip: isLocked
-              ? 'Unlock (allow all interactions)'
-              : 'Lock (freeze canvas)',
+          tooltip: isLocked ? labels.controlsUnlock : labels.controlsLock,
           selected: isLocked,
           onPressed: controller.viewport.toggleLock,
         ),
       if (showUndoRedo) ...[
         ControlButton(
           icon: Icons.undo,
-          tooltip: 'Undo',
+          tooltip: labels.controlsUndo,
           onPressed: whenUnlocked(controller.history.undo),
         ),
         ControlButton(
           icon: Icons.redo,
-          tooltip: 'Redo',
+          tooltip: labels.controlsRedo,
           onPressed: whenUnlocked(controller.history.redo),
         ),
       ],

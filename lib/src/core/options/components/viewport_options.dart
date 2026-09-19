@@ -217,6 +217,15 @@ class ViewportOptions with Diagnosticable {
   /// Defaults to true.
   final bool autoPanOnNodeDrag;
 
+  /// Whether viewport auto-pans during box/marquee selection.
+  ///
+  /// When true, dragging a selection marquee past the viewport edge pans
+  /// the canvas and extends the selection into the revealed area.
+  ///
+  /// Lattice equivalent: `autoPanOnSelection` prop.
+  /// Defaults to true.
+  final bool autoPanOnSelection;
+
   /// Speed of auto-panning in pixels per frame.
   ///
   /// Higher values pan faster during auto-pan operations.
@@ -275,6 +284,16 @@ class ViewportOptions with Diagnosticable {
   /// `null` disables LOD. Typical value: `0.4`.
   final double? lodHideHandlesBelowZoom;
 
+  /// When zoom is below this value, nodes render as painted thumbnails
+  /// instead of full widgets (strong LOD for very large graphs).
+  ///
+  /// `null` (default) disables thumbnail mode. Typical value: `0.35`.
+  /// Below the threshold the canvas is view-only for nodes: drag, resize,
+  /// handles, and node focus are unavailable until zooming back in (tap
+  /// empty canvas still deselects). Edges, background, and controls are
+  /// unaffected.
+  final double? lodThumbnailBelowZoom;
+
   /// Extent to which the viewport can be moved.
   ///
   /// Constrains how far users can pan the canvas.
@@ -321,6 +340,7 @@ class ViewportOptions with Diagnosticable {
     this.selectionMode = SelectionMode.full,
     this.autoPanOnConnect = true,
     this.autoPanOnNodeDrag = true,
+    this.autoPanOnSelection = true,
     this.autoPanSpeed = 15.0,
     this.autoPanMargin = 50.0,
     this.snapToGrid = false,
@@ -330,6 +350,7 @@ class ViewportOptions with Diagnosticable {
     this.nodeMountExtraPadding = 400.0,
     this.syncViewportToState = SyncViewportMode.end,
     this.lodHideHandlesBelowZoom,
+    this.lodThumbnailBelowZoom,
     this.translateExtent = const CoordinateExtent(),
     this.nodeExtent = const CoordinateExtent(),
     this.minNodeSize,
@@ -370,6 +391,7 @@ class ViewportOptions with Diagnosticable {
         selectionMode = SelectionMode.full,
         autoPanOnConnect = false,
         autoPanOnNodeDrag = false,
+        autoPanOnSelection = false,
         autoPanSpeed = 15.0,
         autoPanMargin = 50.0,
         snapToGrid = false,
@@ -379,6 +401,7 @@ class ViewportOptions with Diagnosticable {
         nodeMountExtraPadding = 400.0,
         syncViewportToState = SyncViewportMode.end,
         lodHideHandlesBelowZoom = null,
+        lodThumbnailBelowZoom = null,
         translateExtent = const CoordinateExtent(),
         nodeExtent = const CoordinateExtent(),
         minNodeSize = null,
@@ -406,6 +429,7 @@ class ViewportOptions with Diagnosticable {
     SelectionMode? selectionMode,
     bool? autoPanOnConnect,
     bool? autoPanOnNodeDrag,
+    bool? autoPanOnSelection,
     double? autoPanSpeed,
     double? autoPanMargin,
     bool? snapToGrid,
@@ -415,6 +439,7 @@ class ViewportOptions with Diagnosticable {
     double? nodeMountExtraPadding,
     SyncViewportMode? syncViewportToState,
     double? lodHideHandlesBelowZoom,
+    double? lodThumbnailBelowZoom,
     CoordinateExtent? translateExtent,
     CoordinateExtent? nodeExtent,
     Size? minNodeSize,
@@ -438,6 +463,7 @@ class ViewportOptions with Diagnosticable {
       selectionMode: selectionMode ?? this.selectionMode,
       autoPanOnConnect: autoPanOnConnect ?? this.autoPanOnConnect,
       autoPanOnNodeDrag: autoPanOnNodeDrag ?? this.autoPanOnNodeDrag,
+      autoPanOnSelection: autoPanOnSelection ?? this.autoPanOnSelection,
       autoPanSpeed: autoPanSpeed ?? this.autoPanSpeed,
       autoPanMargin: autoPanMargin ?? this.autoPanMargin,
       snapToGrid: snapToGrid ?? this.snapToGrid,
@@ -451,6 +477,8 @@ class ViewportOptions with Diagnosticable {
       syncViewportToState: syncViewportToState ?? this.syncViewportToState,
       lodHideHandlesBelowZoom:
           lodHideHandlesBelowZoom ?? this.lodHideHandlesBelowZoom,
+      lodThumbnailBelowZoom:
+          lodThumbnailBelowZoom ?? this.lodThumbnailBelowZoom,
       translateExtent: translateExtent ?? this.translateExtent,
       nodeExtent: nodeExtent ?? this.nodeExtent,
       minNodeSize: minNodeSize ?? this.minNodeSize,
@@ -480,6 +508,7 @@ class ViewportOptions with Diagnosticable {
         other.selectionMode == selectionMode &&
         other.autoPanOnConnect == autoPanOnConnect &&
         other.autoPanOnNodeDrag == autoPanOnNodeDrag &&
+        other.autoPanOnSelection == autoPanOnSelection &&
         other.autoPanSpeed == autoPanSpeed &&
         other.autoPanMargin == autoPanMargin &&
         other.snapToGrid == snapToGrid &&
@@ -489,6 +518,7 @@ class ViewportOptions with Diagnosticable {
         other.nodeMountExtraPadding == nodeMountExtraPadding &&
         other.syncViewportToState == syncViewportToState &&
         other.lodHideHandlesBelowZoom == lodHideHandlesBelowZoom &&
+        other.lodThumbnailBelowZoom == lodThumbnailBelowZoom &&
         other.translateExtent == translateExtent &&
         other.nodeExtent == nodeExtent &&
         other.preventScrolling == preventScrolling;
@@ -512,6 +542,7 @@ class ViewportOptions with Diagnosticable {
         selectionMode,
         autoPanOnConnect,
         autoPanOnNodeDrag,
+        autoPanOnSelection,
         autoPanSpeed,
         autoPanMargin,
         snapToGrid,
@@ -521,6 +552,7 @@ class ViewportOptions with Diagnosticable {
         nodeMountExtraPadding,
         syncViewportToState,
         lodHideHandlesBelowZoom,
+        lodThumbnailBelowZoom,
         translateExtent,
         nodeExtent,
         preventScrolling,

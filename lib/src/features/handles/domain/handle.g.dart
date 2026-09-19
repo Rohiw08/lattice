@@ -7,19 +7,21 @@ part of 'handle.dart';
 // **************************************************************************
 
 _FlowHandle _$FlowHandleFromJson(Map<String, dynamic> json) => _FlowHandle(
-      id: json['id'] as String,
-      type: $enumDecode(_$HandleTypeEnumMap, json['type']),
-      position: const OffsetConverter()
-          .fromJson(json['position'] as Map<String, dynamic>),
-      isConnectable: json['isConnectable'] as bool? ?? true,
-      size: json['size'] == null
-          ? const Size(10, 10)
-          : const SizeConverter()
-              .fromJson(json['size'] as Map<String, dynamic>),
-      maxConnections: (json['maxConnections'] as num?)?.toInt(),
-      connectionGroup: json['connectionGroup'] as String?,
-      data: json['data'] as Map<String, dynamic>? ?? const <String, dynamic>{},
-    );
+  id: json['id'] as String,
+  type: $enumDecode(_$HandleTypeEnumMap, json['type']),
+  position: const OffsetConverter().fromJson(
+    json['position'] as Map<String, dynamic>,
+  ),
+  isConnectable: json['isConnectable'] as bool? ?? true,
+  isConnectableStart: json['isConnectableStart'] as bool?,
+  isConnectableEnd: json['isConnectableEnd'] as bool?,
+  size: json['size'] == null
+      ? const Size(10, 10)
+      : const SizeConverter().fromJson(json['size'] as Map<String, dynamic>),
+  maxConnections: (json['maxConnections'] as num?)?.toInt(),
+  connectionGroup: json['connectionGroup'] as String?,
+  data: json['data'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+);
 
 Map<String, dynamic> _$FlowHandleToJson(_FlowHandle instance) =>
     <String, dynamic>{
@@ -27,6 +29,8 @@ Map<String, dynamic> _$FlowHandleToJson(_FlowHandle instance) =>
       'type': _$HandleTypeEnumMap[instance.type]!,
       'position': const OffsetConverter().toJson(instance.position),
       'isConnectable': instance.isConnectable,
+      'isConnectableStart': instance.isConnectableStart,
+      'isConnectableEnd': instance.isConnectableEnd,
       'size': const SizeConverter().toJson(instance.size),
       'maxConnections': instance.maxConnections,
       'connectionGroup': instance.connectionGroup,

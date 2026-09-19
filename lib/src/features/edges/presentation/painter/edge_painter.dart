@@ -22,11 +22,23 @@ class EdgePainter extends CustomPainter with DiagnosticableTreeMixin {
   final FlowEdgeStyle defaultEdgeStyle;
   final Map<String, Path> precomputedPaths;
   final Map<String, EdgeGeom>? geoms;
+
+  /// Per-edge geometry versions (see `EdgeGeometryService.edgeVersions`).
+  ///
+  /// Compared for this painter's own edge ids so unrelated geometry
+  /// changes don't repaint it; the global [geometryEpoch] alone would.
+  final Map<String, int>? versions;
   final int geometryEpoch;
   final int liveStamp;
 
   /// 0–1 when painting animated edges; null skips dash animation.
   final double? animationValue;
+
+  /// Canvas default for edges that don't set `selectable`
+  /// (`EdgeOptions.selectable`, RF `edgesSelectable`). Drives the disabled
+  /// state tint; the caller resolves `EdgeOptions` (a painter has no
+  /// [BuildContext]).
+  final bool edgesSelectable;
 
   /// Default effect for [FlowEdge.animated] without a custom [animationEffect].
   final EdgeAnimationEffect defaultAnimationEffect;
@@ -41,9 +53,11 @@ class EdgePainter extends CustomPainter with DiagnosticableTreeMixin {
     required this.precomputedPaths,
     this.edgeStates = const {},
     this.geoms,
+    this.versions,
     this.geometryEpoch = 0,
     this.liveStamp = 0,
     this.animationValue,
+    this.edgesSelectable = true,
     this.defaultAnimationEffect = EdgeAnimationEffects.flowingDash,
   })  : _edgePaint = Paint()
           ..style = PaintingStyle.stroke
@@ -84,13 +98,27 @@ class EdgePainter extends CustomPainter with DiagnosticableTreeMixin {
         geoms?[edgeId],
         themeMarker,
       );
+      final foreground = edge.foregroundPainter;
+      if (foreground != null) {
+        foreground(
+          canvas,
+          FlowEdgePaintContext(
+            path: path,
+            edge: edge,
+            selected: states.contains(FlowEdgeState.selected),
+            hovered: states.contains(FlowEdgeState.hovered),
+          ),
+        );
+      }
     }
   }
 
   Set<FlowEdgeState> _resolveEdgeStates(
       EdgeRuntimeState? state, FlowEdge edge) {
     final states = <FlowEdgeState>{};
-    if (edge.selectable == false) states.add(FlowEdgeState.disabled);
+    if (!(edge.selectable ?? edgesSelectable)) {
+      states.add(FlowEdgeState.disabled);
+    }
     if (state?.selected ?? false) states.add(FlowEdgeState.selected);
     if (state?.hovered ?? false) states.add(FlowEdgeState.hovered);
     if (states.isEmpty) states.add(FlowEdgeState.normal);
@@ -285,12 +313,44 @@ class EdgePainter extends CustomPainter with DiagnosticableTreeMixin {
 
   @override
   bool shouldRepaint(covariant EdgePainter oldDelegate) {
-    return oldDelegate.geometryEpoch != geometryEpoch ||
+    // NOTE: `edges` is rebuilt as a fresh map every build by the layer, so
+    // identity comparison would repaint unconditionally. Compare key sets
+    // instead (O(n), microseconds), then per-edge geometry versions so
+    // unrelated edge changes don't repaint this painter either. Content
+    // changes always bump versions via the geometry service, and selection
+    // changes swap `edgeStates` identity.
+    return (oldDelegate.geometryEpoch != geometryEpoch &&
+            !_sameVersions(oldDelegate)) ||
         oldDelegate.liveStamp != liveStamp ||
         oldDelegate.animationValue != animationValue ||
-        oldDelegate.edges != edges ||
+        !_sameEdgeIds(oldDelegate.edges, edges) ||
         oldDelegate.edgeStates != edgeStates ||
         oldDelegate.theme != theme;
+  }
+
+  /// True when every edge painted here has the same geometry version as in
+  /// [oldDelegate]. Missing version maps fall back to repainting. The maps
+  /// may be identical instances (the service mutates in place), so values
+  /// are always compared per painted edge id.
+  bool _sameVersions(EdgePainter oldDelegate) {
+    final oldVersions = oldDelegate.versions;
+    final newVersions = versions;
+    if (oldVersions == null || newVersions == null) return false;
+    for (final id in edges.keys) {
+      if (oldVersions[id] != newVersions[id]) return false;
+    }
+    return true;
+  }
+
+  /// Key-set equality for edge maps rebuilt per build (see [shouldRepaint]).
+  static bool _sameEdgeIds(
+      Map<String, FlowEdge> a, Map<String, FlowEdge> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (!b.containsKey(key)) return false;
+    }
+    return true;
   }
 
   @override

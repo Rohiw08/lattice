@@ -34,6 +34,9 @@ enum EdgePathType {
   step,
   straight,
   smoothStep,
+
+  /// Midpoint-control cubic (Lattice `simplebezier`).
+  simpleBezier,
 }
 
 /// Lattice node `extent` values we support on [FlowNode].
@@ -163,6 +166,19 @@ enum PanOnScrollMode {
 enum SelectionMode {
   partial,
   full,
+}
+
+/// How the canvas manages z-order automatically (Lattice `zIndexMode`).
+///
+/// - [auto] (default): selection elevation ([NodeOptions.elevateNodesOnSelected])
+///   plus the subflow rule (children render strictly above their parent).
+/// - [basic]: selection elevation only; no automatic child-above-parent
+///   bumping on add/update — you own subflow z-order.
+/// - [manual]: no automatic z management at all; [FlowNode.zIndex] rules.
+enum ZIndexMode {
+  auto,
+  basic,
+  manual,
 }
 
 enum ConnectionMode {

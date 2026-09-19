@@ -1,5 +1,10 @@
 # Theming
 
+Defaults follow RF's current **xy-theme** system (not the legacy base
+styles): white/`#ededed` node cards with 8px radius and soft shadows,
+`#2196f3` selection borders, white/`#aaa` handles, `#f7f9fb` / `#101012`
+canvas, purple `#9e86ed` group + resizer accents.
+
 ## Recommended path
 
 ```dart
@@ -29,7 +34,7 @@ final theme = FlowCanvasTheme.light().copyWith(
   ),
   node: FlowNodeStyle.colored(
     color: Color(0xFFFFF7ED),
-    borderColor: Color(0xFF1A192B),
+    borderColor: Color(0xFFEDEDED),
   ),
 );
 ```
@@ -81,7 +86,7 @@ Component look-and-feel types are always `Flow*Style` — never `*Theme` for com
 
 Panel theme default is [FlowPanelStyle.unstyled] (Lattice). Opt in with `FlowPanelStyle.light()` / `.dark()` / `.colored()`, or `theme.copyWith(panel: …)`, or per-panel `FlowPanel(style: …)`.
 
-Light/dark presets paint **distinct** valid (green) and invalid (red) on handles and connection lines. Normal / hover / selected / active handles keep Lattice greys (`#1a192b` / `#bebebe`); connection active stays `#b1b1b7`.
+Light/dark presets paint **distinct** valid (green) and invalid (red) on handles and connection lines. Normal / hover / selected / active handles follow xy-theme (`#ffffff` / `#141519` fills, `#aaa` / `#5a5d66` borders); connection active stays `#b1b1b7`.
 
 ## What “disabled” means
 

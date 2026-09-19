@@ -102,11 +102,12 @@ class FitViewOptions with Diagnosticable {
 
   /// Duration of the animated transition to the fitted view.
   ///
-  /// Set to [Duration.zero] for an instant (non-animated) fit.
-  /// Typical values: 200-500ms for snappy feel, 500-1000ms for smooth.
+  /// Set to a positive value for an animated glide. [Duration.zero] (the
+  /// default, matching Lattice) fits instantly.
+  /// Typical animated values: 200-500ms for snappy feel, 500-1000ms smooth.
   ///
-  /// Lattice equivalent: `duration` (milliseconds).
-  /// Defaults to 300ms.
+  /// Lattice equivalent: `duration` (milliseconds, default 0 = instant).
+  /// Defaults to [Duration.zero].
   final Duration duration;
 
   /// Easing curve for the animated transition.
@@ -155,7 +156,7 @@ class FitViewOptions with Diagnosticable {
     this.includeHiddenNodes = false,
     this.minZoom = 0.1,
     this.maxZoom = 2.0,
-    this.duration = const Duration(milliseconds: 300),
+    this.duration = Duration.zero,
     this.ease = Curves.easeInOut,
     this.interpolate = FitViewInterpolation.smooth,
     this.nodes = const [],
@@ -163,7 +164,7 @@ class FitViewOptions with Diagnosticable {
         assert(maxZoom > 0, 'maxZoom must be greater than 0'),
         assert(maxZoom >= minZoom, 'maxZoom must be >= minZoom');
 
-  /// Creates options for an instant (non-animated) fit.
+  /// Instant fit (no animation) — the default behavior.
   ///
   /// Useful when you want to fit the view immediately without animation,
   /// such as on initial load or after programmatic graph changes.
@@ -190,7 +191,8 @@ class FitViewOptions with Diagnosticable {
   /// Creates options for a smooth, slow animation.
   ///
   /// Uses a longer duration (800ms) and smooth easing for a more
-  /// cinematic effect. Good for onboarding or showcasing.
+  /// cinematic effect. Good for onboarding or showcasing. (The default
+  /// constructor fits instantly; opt in here for motion.)
   ///
   /// Example:
   /// ```
@@ -282,7 +284,7 @@ class FitViewOptions with Diagnosticable {
     properties.add(DoubleProperty('minZoom', minZoom, defaultValue: 0.1));
     properties.add(DoubleProperty('maxZoom', maxZoom, defaultValue: 2.0));
     properties.add(DiagnosticsProperty<Duration>('duration', duration,
-        defaultValue: const Duration(milliseconds: 300)));
+        defaultValue: Duration.zero));
     properties.add(DiagnosticsProperty<Curve>('ease', ease,
         defaultValue: Curves.easeInOut));
     properties.add(EnumProperty<FitViewInterpolation>(

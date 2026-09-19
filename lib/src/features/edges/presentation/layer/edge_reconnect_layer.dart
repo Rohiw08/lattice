@@ -55,17 +55,21 @@ class EdgeReconnectLayer extends ConsumerWidget {
               ? targetNode.effectiveHandles[edge.targetHandleId!]
               : null;
 
-          final sourcePos = NodeLayout.absolutePosition(
+          final defaultOrigin =
+              ref.read(flowOptionsProvider).nodeOptions.nodeOrigin;
+          final sourcePos = NodeLayout.absoluteTopLeft(
                 edge.sourceNodeId,
                 state.nodes,
                 livePositions: session.livePositions,
+                defaultOrigin: defaultOrigin,
               ) +
               (sourceHandle?.position ??
                   Offset(sourceNode.size.width, sourceNode.size.height / 2));
-          final targetPos = NodeLayout.absolutePosition(
+          final targetPos = NodeLayout.absoluteTopLeft(
                 edge.targetNodeId,
                 state.nodes,
                 livePositions: session.livePositions,
+                defaultOrigin: defaultOrigin,
               ) +
               (targetHandle?.position ??
                   Offset(0, targetNode.size.height / 2));

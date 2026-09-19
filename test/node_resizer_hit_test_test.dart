@@ -16,6 +16,8 @@ void main() {
         type: 'default',
         position: const Offset(50, 50),
         size: const Size(200, 100),
+        // Resizing is opt-in (RF parity): the resizer only mounts for it.
+        resizable: true,
       ),
     ];
 

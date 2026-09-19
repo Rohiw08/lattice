@@ -114,7 +114,8 @@ void main() {
     const opts = ConnectionOptions();
     expect(opts.connectionMode, ConnectionMode.strict);
     expect(opts.connectionRadius, 20);
-    expect(opts.connectOnClick, isFalse);
+    // Lattice store default: connectOnClick: true.
+    expect(opts.connectOnClick, isTrue);
     expect(opts.autoCreateEdge, isTrue);
     expect(opts.edgesReconnectable, isTrue);
   });

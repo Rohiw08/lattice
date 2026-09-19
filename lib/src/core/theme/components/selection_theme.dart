@@ -126,12 +126,12 @@ class FlowSelectionStyle extends ThemeExtension<FlowSelectionStyle>
 
   /// Creates a light theme selection style.
   ///
-  /// Uses blue colors with subtle transparency for clean visibility.
+  /// RF default (`base.css`, which xy-theme does not override):
+  /// `rgba(150,150,180,0.1)` fill, dotted `rgba(155,155,155,0.8)` outline.
   factory FlowSelectionStyle.light() {
-    // Lattice: `selection-*` → rgba(0, 89, 220, 0.08 / 0.8), dotted.
     return const FlowSelectionStyle(
-      fillColor: Color(0x140059DC),
-      borderColor: Color(0xCC0059DC),
+      fillColor: Color(0x1A9696B4),
+      borderColor: Color(0xCC9B9B9B),
       borderWidth: 1.0,
       borderRadius: BorderRadius.zero,
       dashLength: 5.0,
@@ -141,12 +141,12 @@ class FlowSelectionStyle extends ThemeExtension<FlowSelectionStyle>
 
   /// Creates a dark theme selection style.
   ///
-  /// Lattice `.dark` selection: `rgba(200, 200, 220, 0.08)` fill,
-  /// dotted `rgba(200, 200, 220, 0.8)` outline.
+  /// Same RF default both modes (no `.dark` override in either `base.css`
+  /// or xy-theme).
   factory FlowSelectionStyle.dark() {
     return const FlowSelectionStyle(
-      fillColor: Color(0x14C8C8DC),
-      borderColor: Color(0xCCC8C8DC),
+      fillColor: Color(0x1A9696B4),
+      borderColor: Color(0xCC9B9B9B),
       borderWidth: 1.0,
       borderRadius: BorderRadius.zero,
       dashLength: 5.0,

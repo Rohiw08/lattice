@@ -75,7 +75,9 @@ Rect computeVisibleFlowRectFromCanvasTransform(
 bool flowNodeOverlapsRect(
   FlowNode node,
   Rect flowRect,
-  Map<String, FlowNode> nodes,
-) {
-  return NodeLayout.absoluteRect(node, nodes).overlaps(flowRect);
+  Map<String, FlowNode> nodes, {
+  Offset defaultOrigin = Offset.zero,
+}) {
+  return NodeLayout.absoluteRect(node, nodes, defaultOrigin: defaultOrigin)
+      .overlaps(flowRect);
 }

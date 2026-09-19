@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
 import 'package:lattice/src/core/options/flow_options.dart';
 import 'package:lattice/src/features/keyboard/presentation/inputs/intent_actions.dart';
@@ -40,7 +39,23 @@ class _KeyboardAdapterState extends State<KeyboardAdapter> {
 
   @override
   Widget build(BuildContext context) {
-    final Map<LogicalKeySet, Intent> shortcuts = widget.keymap.shortcuts;
+    final kb = widget.options.keyboardOptions;
+    // Single dispatch pipeline: user bindings (first, so custom mappings win
+    // on conflict) plus the bonus keymap. Empty when disabled — a disabled
+    // canvas answers no shortcut at all.
+    //
+    // Text-field protection lives in [EditingGuardAction], not here: every
+    // canvas action reports disabled while a field holds primary focus, so
+    // editing keys bubble past the canvas to the app-level text intents.
+    final Map<ShortcutActivator, Intent> shortcuts = kb.enabled
+        ? {
+            ...kb.shortcuts.map(
+              (activator, action) =>
+                  MapEntry(activator, intentForKeyboardAction(action)),
+            ),
+            ...widget.keymap.shortcuts,
+          }
+        : const {};
     final Map<Type, Action<Intent>> actions =
         buildActions(widget.controller, widget.options);
 
@@ -52,29 +67,10 @@ class _KeyboardAdapterState extends State<KeyboardAdapter> {
           focusNode: _focusNode,
           autofocus: true,
           onKeyEvent: (node, event) {
-            final kb = widget.options.keyboardOptions;
-            if (!kb.enabled) return KeyEventResult.ignored;
-
-            // Find matching activator
-            ShortcutActivator? matched;
-            for (final activator in kb.shortcuts.keys) {
-              if (activator.accepts(event, HardwareKeyboard.instance)) {
-                matched = activator;
-                break;
-              }
-            }
-            if (matched == null) return KeyEventResult.ignored;
-            final mapped = kb.shortcuts[matched];
-            if (mapped == null) return KeyEventResult.ignored;
-
-            widget.controller.keyboard.handleKeyboardAction(
-              mapped,
-              options: kb,
-              minZoom: widget.options.viewportOptions.minZoom,
-              maxZoom: widget.options.viewportOptions.maxZoom,
-              translateExtent: widget.options.viewportOptions.translateExtent,
-            );
-            return KeyEventResult.handled;
+            // Never swallow: canvas actions guard themselves via
+            // [EditingGuardAction], and returning handled here would stop the
+            // bubble before the app-level text intents that fields need.
+            return KeyEventResult.ignored;
           },
           child: Listener(
             onPointerDown: (_) {

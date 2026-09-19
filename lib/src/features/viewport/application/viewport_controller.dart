@@ -1,7 +1,8 @@
-import 'package:lattice/src/core/canvas_state_accessor.dart';
+import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/core/options/components/fitview_options.dart';
 import 'package:lattice/src/core/options/components/viewport_options.dart';
 import 'package:lattice/src/core/providers/providers.dart';
+import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
 import 'package:lattice/src/features/viewport/application/viewport_service.dart';
 import 'package:lattice/src/features/viewport/domain/coordinate_extent.dart';
 import 'package:lattice/src/features/viewport/domain/viewport.dart';
@@ -10,14 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ViewportController {
   ViewportController({
-    required CanvasStateAccessor controller,
+    required FlowCanvasInternalController controller,
     required ViewportService viewportService,
     required this.ref,
     required this.viewportHostKey,
   })  : _controller = controller,
         _viewportService = viewportService;
 
-  final CanvasStateAccessor _controller;
+  final FlowCanvasInternalController _controller;
   final ViewportService _viewportService;
   final Ref ref;
   final GlobalKey viewportHostKey;
@@ -48,15 +49,61 @@ class ViewportController {
         currentState.copyWith(isPanZoomLocked: !currentState.isPanZoomLocked));
   }
 
+  /// Whether a programmatic camera flight is in progress.
+  bool get isAnimating => _controller.isViewportAnimating;
+
+  /// Stops a camera flight, keeping the live position (no snap-back).
+  void cancelAnimation() => _controller.cancelViewportAnimation();
+
+  /// Replaces the viewport wholesale (Lattice `setViewport` counterpart).
+  ///
+  /// Zoom is clamped to `[minZoom, maxZoom]` and the offset to
+  /// `translateExtent`, mirroring [zoom]/[panBy]. Transient write (no
+  /// history entry), like the other programmatic camera moves.
+  Future<bool> setViewport(
+    FlowViewport viewport, {
+    double? minZoom,
+    double? maxZoom,
+    Duration duration = Duration.zero,
+    Curve ease = Curves.easeInOut,
+    FitViewInterpolation interpolate = FitViewInterpolation.smooth,
+  }) {
+    if (_controller.currentState.isPanZoomLocked) return Future.value(false);
+    final options = ref.read(flowOptionsProvider).viewportOptions;
+    final zoom = viewport.zoom.clamp(
+      minZoom ?? options.minZoom,
+      maxZoom ?? options.maxZoom,
+    );
+    final clamped = _viewportService.clampViewport(
+      FlowViewport(offset: viewport.offset, zoom: zoom),
+      _translateExtent,
+    );
+    if (duration <= Duration.zero) {
+      _controller.updateStateOnly(
+        _controller.currentState.copyWith(viewport: clamped),
+      );
+      return Future.value(true);
+    }
+    return _controller.animateViewportTo(
+      clamped,
+      duration: duration,
+      ease: ease,
+      interpolate: interpolate,
+    );
+  }
+
   /// [focalPoint] is **viewer-local** (diagram pane), same space as [flowToViewport].
-  void zoom({
+  Future<bool> zoom({
     required Offset focalPoint,
     required double minZoom,
     required double maxZoom,
     required double zoomFactor,
+    Duration duration = Duration.zero,
+    Curve ease = Curves.easeInOut,
+    FitViewInterpolation interpolate = FitViewInterpolation.smooth,
   }) {
-    if (_controller.currentState.isPanZoomLocked) return;
-    final newState = _viewportService.zoom(
+    if (_controller.currentState.isPanZoomLocked) return Future.value(false);
+    final target = _viewportService.zoom(
       _controller.currentState,
       zoomFactor: 1 + zoomFactor,
       focalViewportPoint: focalPoint,
@@ -64,51 +111,186 @@ class ViewportController {
       maxZoom: maxZoom,
       translateExtent: _translateExtent,
     );
-    _controller.updateStateOnly(newState);
+    if (duration <= Duration.zero) {
+      _controller.updateStateOnly(target);
+      return Future.value(true);
+    }
+    return _controller.animateViewportTo(
+      target.viewport,
+      duration: duration,
+      ease: ease,
+      interpolate: interpolate,
+    );
   }
 
   /// Zoom around the center of the diagram pane ([FlowCanvasState.viewportSize]).
-  void zoomAtViewportCenter({
+  Future<bool> zoomAtViewportCenter({
     required bool zoomIn,
     required double minZoom,
     required double maxZoom,
     double step = 0.2,
+    Duration duration = Duration.zero,
+    Curve ease = Curves.easeInOut,
+    FitViewInterpolation interpolate = FitViewInterpolation.smooth,
   }) {
-    if (_controller.currentState.isPanZoomLocked) return;
+    if (_controller.currentState.isPanZoomLocked) return Future.value(false);
     final s = _controller.currentState;
     final size = s.viewportSize;
     final focal = (size != null && size.width > 0 && size.height > 0)
         ? Offset(size.width / 2, size.height / 2)
         : Offset.zero;
-    zoom(
+    return zoom(
       focalPoint: focal,
       minZoom: minZoom,
       maxZoom: maxZoom,
       zoomFactor: zoomIn ? step : -step,
+      duration: duration,
+      ease: ease,
+      interpolate: interpolate,
     );
   }
 
-  void fitView(
+  /// Zooms to an absolute [zoom] level around [focalPoint] (pane center by
+  /// default). Lattice `zoomTo` counterpart.
+  Future<bool> zoomTo(
+    double zoom, {
+    Offset? focalPoint,
+    Duration duration = Duration.zero,
+    Curve ease = Curves.easeInOut,
+    FitViewInterpolation interpolate = FitViewInterpolation.smooth,
+  }) {
+    if (_controller.currentState.isPanZoomLocked) return Future.value(false);
+    final s = _controller.currentState;
+    final size = s.viewportSize;
+    final focal = focalPoint ??
+        ((size != null && size.width > 0 && size.height > 0)
+            ? Offset(size.width / 2, size.height / 2)
+            : Offset.zero);
+    final current = s.viewport.zoom;
+    if (current <= 0) return Future.value(false);
+    final options = ref.read(flowOptionsProvider).viewportOptions;
+    return this.zoom(
+      focalPoint: focal,
+      minZoom: options.minZoom,
+      maxZoom: options.maxZoom,
+      zoomFactor: zoom / current - 1,
+      duration: duration,
+      ease: ease,
+      interpolate: interpolate,
+    );
+  }
+
+  Future<bool> fitView(
       {FitViewOptions fitviewOptions = const FitViewOptions(),
       ViewportOptions viewportOptions = const ViewportOptions()}) {
-    if (_controller.currentState.isPanZoomLocked) return;
-    final newState = _viewportService.fitView(
-        state: _controller.currentState,
-        viewportOptions: viewportOptions,
-        fitViewOptions: fitviewOptions);
-    _controller.updateStateOnly(newState);
+    if (_controller.currentState.isPanZoomLocked) return Future.value(false);
+    final target = _viewportService.fitView(
+      state: _controller.currentState,
+      viewportOptions: viewportOptions,
+      fitViewOptions: fitviewOptions,
+      nodeOrigin: ref.read(flowOptionsProvider).nodeOptions.nodeOrigin,
+    );
+    if (fitviewOptions.duration <= Duration.zero) {
+      _controller.updateStateOnly(target);
+      return Future.value(true);
+    }
+    return _controller.animateViewportTo(
+      target.viewport,
+      duration: fitviewOptions.duration,
+      ease: fitviewOptions.ease,
+      interpolate: fitviewOptions.interpolate,
+    );
+  }
+
+  /// Pure viewport computation (Lattice `getViewportForBounds`): what
+  /// viewport would fit [bounds], without applying it. Null when there is
+  /// nothing to fit (empty bounds/size) or the canvas is locked.
+  FlowViewport? getViewportForBounds(
+    Rect bounds, {
+    EdgeInsets padding = const EdgeInsets.all(50),
+    double? minZoom,
+    double? maxZoom,
+  }) {
+    if (_controller.currentState.isPanZoomLocked) return null;
+    final s = _controller.currentState;
+    final size = s.viewportSize;
+    if (size == null) return null;
+    return _viewportService.viewportForBounds(
+      bounds: bounds,
+      viewportSize: size,
+      viewportOptions: ref.read(flowOptionsProvider).viewportOptions,
+      padding: padding,
+      minZoom: minZoom,
+      maxZoom: maxZoom,
+    );
+  }
+
+  /// Fits an explicit flow-space [bounds] rect. Lattice `fitBounds`.
+  Future<bool> fitBounds(
+    Rect bounds, {
+    EdgeInsets padding = const EdgeInsets.all(50),
+    double? minZoom,
+    double? maxZoom,
+    Duration duration = Duration.zero,
+    Curve ease = Curves.easeInOut,
+    FitViewInterpolation interpolate = FitViewInterpolation.smooth,
+  }) {
+    if (_controller.currentState.isPanZoomLocked) return Future.value(false);
+    final target = _viewportService.fitViewportToBounds(
+      state: _controller.currentState,
+      bounds: bounds,
+      viewportOptions: ref.read(flowOptionsProvider).viewportOptions,
+      padding: padding,
+      minZoom: minZoom,
+      maxZoom: maxZoom,
+    );
+    if (duration <= Duration.zero) {
+      _controller.updateStateOnly(target);
+      return Future.value(true);
+    }
+    return _controller.animateViewportTo(
+      target.viewport,
+      duration: duration,
+      ease: ease,
+      interpolate: interpolate,
+    );
   }
 
   /// Centers the viewport so [flowPosition] (graph coordinates) is in the middle.
-  void centerOnPosition(Offset flowPosition) {
-    if (_controller.currentState.isPanZoomLocked) return;
-    final newState = _viewportService.centerOnPosition(
+  ///
+  /// Lattice `setCenter(x, y, {zoom})` counterpart. When [zoom] is given it
+  /// is clamped to `[minZoom, maxZoom]` like [setViewport]. Pass a non-zero
+  /// [duration] for an animated glide ([ease] + [interpolate] like
+  /// [fitView]); the default is instant. See [isAnimating] /
+  /// [cancelAnimation]. Returns true on landing, false when
+  /// superseded, cancelled, or locked.
+  Future<bool> centerOnPosition(
+    Offset flowPosition, {
+    double? zoom,
+    Duration duration = Duration.zero,
+    Curve ease = Curves.easeInOut,
+    FitViewInterpolation interpolate = FitViewInterpolation.smooth,
+  }) {
+    if (_controller.currentState.isPanZoomLocked) return Future.value(false);
+    final options = ref.read(flowOptionsProvider).viewportOptions;
+    final resolvedZoom = zoom?.clamp(options.minZoom, options.maxZoom);
+    final target = _viewportService.centerOnPosition(
       _controller.currentState,
       flowPosition,
       translateExtent: _translateExtent,
+      zoom: resolvedZoom,
     );
 
-    _controller.updateStateOnly(newState);
+    if (duration <= Duration.zero) {
+      _controller.updateStateOnly(target);
+      return Future.value(true);
+    }
+    return _controller.animateViewportTo(
+      target.viewport,
+      duration: duration,
+      ease: ease,
+      interpolate: interpolate,
+    );
   }
 
   void resetView() {
@@ -122,23 +304,82 @@ class ViewportController {
 
   // --- Flow ↔ viewport ↔ Flutter global ---
 
+  /// Current zoom level (Lattice `getZoom`). Reads the live camera, so it
+  /// is exact mid-gesture; committed state lags until interaction end.
+  double getZoom() => _controller.liveViewport.viewport.zoom;
+
   /// Viewer-local offset → flow (graph) coordinates.
-  Offset viewportToFlow(Offset viewport) =>
-      _viewportService.viewportToFlow(_controller.currentState, viewport);
+  ///
+  /// When [snapToGrid] is set, snaps through the canvas [SnapGrid]
+  /// (Lattice `screenToFlowPosition` snap options).
+  Offset viewportToFlow(Offset viewport, {bool snapToGrid = false}) {
+    final flow =
+        _viewportService.viewportToFlow(_controller.currentState, viewport);
+    if (!snapToGrid) return flow;
+    return ref.read(flowOptionsProvider).viewportOptions.snapGrid.snap(flow);
+  }
+
+  /// Lattice `screenToFlowPosition` alias for [viewportToFlow] ("screen"
+  /// = viewer-local here, matching RF's pane-relative client coords).
+  Offset screenToFlowPosition(Offset screenPosition, {bool snapToGrid = false}) =>
+      viewportToFlow(screenPosition, snapToGrid: snapToGrid);
 
   /// Flow (graph) coordinates → viewer-local offset.
   Offset flowToViewport(Offset flow) =>
       _viewportService.flowToViewport(_controller.currentState, flow);
 
+  /// Lattice `flowToScreenPosition` alias for [flowToViewport].
+  Offset flowToScreenPosition(Offset flowPosition) =>
+      flowToViewport(flowPosition);
+
+  /// Zooms in a step around the pane center (Lattice `zoomIn`).
+  Future<bool> zoomIn({
+    double step = 0.2,
+    Duration duration = Duration.zero,
+    Curve ease = Curves.easeInOut,
+    FitViewInterpolation interpolate = FitViewInterpolation.smooth,
+  }) {
+    final options = ref.read(flowOptionsProvider).viewportOptions;
+    return zoomAtViewportCenter(
+      zoomIn: true,
+      minZoom: options.minZoom,
+      maxZoom: options.maxZoom,
+      step: step,
+      duration: duration,
+      ease: ease,
+      interpolate: interpolate,
+    );
+  }
+
+  /// Zooms out a step around the pane center (Lattice `zoomOut`).
+  Future<bool> zoomOut({
+    double step = 0.2,
+    Duration duration = Duration.zero,
+    Curve ease = Curves.easeInOut,
+    FitViewInterpolation interpolate = FitViewInterpolation.smooth,
+  }) {
+    final options = ref.read(flowOptionsProvider).viewportOptions;
+    return zoomAtViewportCenter(
+      zoomIn: false,
+      minZoom: options.minZoom,
+      maxZoom: options.maxZoom,
+      step: step,
+      duration: duration,
+      ease: ease,
+      interpolate: interpolate,
+    );
+  }
+
   /// Flutter **global** logical position → flow coordinates (uses [viewportHostKey]).
   ///
-  /// Returns null if the diagram is not laid out yet.
-  Offset? flowPositionFromGlobal(Offset global) {
+  /// Returns null if the diagram is not laid out yet. When [snapToGrid] is
+  /// set, snaps through the canvas [SnapGrid].
+  Offset? flowPositionFromGlobal(Offset global, {bool snapToGrid = false}) {
     final box =
         viewportHostKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return null;
     final viewport = box.globalToLocal(global);
-    return viewportToFlow(viewport);
+    return viewportToFlow(viewport, snapToGrid: snapToGrid);
   }
 
   /// Flutter global → viewer-local (diagram pane), without applying zoom inverse.

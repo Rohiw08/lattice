@@ -56,34 +56,91 @@ class FlowCanvasPointerLayer extends ConsumerWidget {
 
 /// Full-screen backdrop behind groups — empty-canvas click deselects, or
 /// starts a marquee when the selection key / [selectionOnDrag] is active.
-class FlowCanvasDeselectLayer extends ConsumerWidget {
-  const FlowCanvasDeselectLayer({super.key});
+///
+/// [flowOrigin] is the flow-space position of this box's top-left (the box
+/// tracks the visible flow rect, so pointer positions are translated before
+/// starting a marquee — raw local coords would be off by the pan offset).
+class FlowCanvasDeselectLayer extends ConsumerStatefulWidget {
+  const FlowCanvasDeselectLayer({super.key, this.flowOrigin = Offset.zero});
+
+  /// Flow-space offset of this box's top-left corner.
+  final Offset flowOrigin;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FlowCanvasDeselectLayer> createState() =>
+      _FlowCanvasDeselectLayerState();
+}
+
+class _FlowCanvasDeselectLayerState
+    extends ConsumerState<FlowCanvasDeselectLayer> {
+  /// Tap tolerance for a pane click (marquee drags always exceed it).
+  static const double _paneClickSlop = 4.0;
+
+  int? _downPointer;
+  Offset? _downLocal;
+
+  @override
+  Widget build(BuildContext context) {
     final controller = ref.read(internalControllerProvider.notifier);
 
     return UnboundedListener(
       behavior: HitTestBehavior.opaque,
-      onPointerHover: (_) {
+      onPointerHover: (event) {
         final state = controller.currentState;
         if (state.hoveredEdgeId.isNotEmpty) {
+          final oldEdge = state.edges[state.hoveredEdgeId];
           controller.updateStateOnly(state.copyWith(hoveredEdgeId: ''));
+          // The edge layer stopped receiving hover (empty canvas now):
+          // close the hover with a leave, mirroring onEdgePointerHover.
+          if (oldEdge != null) {
+            ref.read(flowCanvasCallbacksProvider).onEdgeMouseLeave?.call(
+                  oldEdge,
+                  widget.flowOrigin + event.localPosition,
+                );
+          }
         }
       },
       onPointerDown: (event) {
         final options = ref.read(flowOptionsProvider).viewportOptions;
         // Middle/right pan is handled by the viewport Listener.
         if (options.isAuxiliaryPanButton(event.buttons)) return;
+        // Primary button only: secondary presses route to context-menu
+        // handling on the viewport surface (and must not deselect).
+        if (event.buttons != kPrimaryMouseButton) return;
+        // Space-pan owns the pointer: taps select/deselect nothing.
+        if (ref
+            .read(flowOptionsProvider)
+            .keyboardOptions
+            .isPanActivationHeld) {
+          return;
+        }
 
         if (controller.selection.shouldStartBoxSelection) {
           controller.selection.startSelection(
-            event.localPosition,
+            widget.flowOrigin + event.localPosition,
             pointer: event.pointer,
           );
+          _downPointer = null;
+          _downLocal = null;
         } else {
           controller.selection.deselectAll();
+          _downPointer = event.pointer;
+          _downLocal = event.localPosition;
         }
+      },
+      onPointerUp: (event) {
+        final downLocal = _downLocal;
+        if (event.pointer != _downPointer || downLocal == null) return;
+        _downPointer = null;
+        _downLocal = null;
+        // A marquee/pan always exceeds the slop; a tap does not (Lattice
+        // onPaneClick fires alongside deselect).
+        if ((event.localPosition - downLocal).distance > _paneClickSlop) {
+          return;
+        }
+        ref.read(flowCanvasCallbacksProvider).onPaneClick?.call(
+              widget.flowOrigin + event.localPosition,
+            );
       },
       child: const SizedBox.expand(),
     );

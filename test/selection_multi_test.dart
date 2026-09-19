@@ -103,7 +103,7 @@ void main() {
         {LogicalKeyboardKey.meta},
       ),
     );
-    expect(const KeyboardOptions(multiSelectionKeys: {}).isMultiSelectionActive,
+    expect(KeyboardOptions(multiSelectionKeys: {}).isMultiSelectionActive,
         isFalse);
   });
 

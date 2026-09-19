@@ -139,9 +139,13 @@ class SelectionService {
 
   // The methods below are for multi-selection, which you may want to disable or keep.
   // For now, they remain but the primary toggle methods enforce single selection.
-  FlowCanvasState selectAll(FlowCanvasState state) {
-    final newSelectedNodes = state.nodes.keys.toSet();
-    final newSelectedEdges = state.edges.keys.toSet();
+  FlowCanvasState selectAll(
+    FlowCanvasState state, {
+    bool nodes = true,
+    bool edges = true,
+  }) {
+    final newSelectedNodes = nodes ? state.nodes.keys.toSet() : <String>{};
+    final newSelectedEdges = edges ? state.edges.keys.toSet() : <String>{};
 
     final newNodeStates = <String, NodeRuntimeState>{};
     for (final id in newSelectedNodes) {
@@ -205,15 +209,25 @@ class SelectionService {
     NodeIndex nodeIndex,
     EdgeIndex edgeIndex, {
     SelectionMode selectionMode = SelectionMode.full,
+    Offset defaultOrigin = Offset.zero,
+    bool nodesSelectable = true,
+    bool edgesSelectable = true,
   }) {
     final newSelectionRect = Rect.fromPoints(origin, position);
     var newSelectedNodes = nodeIndex.queryNodesInRect(newSelectionRect);
+
+    // Unselectable nodes never join a marquee (Lattice `selectable`).
+    newSelectedNodes = newSelectedNodes.where((id) {
+      final node = state.nodes[id];
+      return node != null && (node.selectable ?? nodesSelectable);
+    }).toSet();
 
     if (selectionMode == SelectionMode.full) {
       newSelectedNodes = newSelectedNodes.where((id) {
         final node = state.nodes[id];
         if (node == null) return false;
-        final abs = NodeLayout.absoluteRect(node, state.nodes);
+        final abs = NodeLayout.absoluteRect(node, state.nodes,
+            defaultOrigin: defaultOrigin);
         return newSelectionRect.left <= abs.left &&
             newSelectionRect.top <= abs.top &&
             newSelectionRect.right >= abs.right &&
@@ -227,6 +241,7 @@ class SelectionService {
       for (final edgeId in connectedEdges) {
         final edge = state.edges[edgeId];
         if (edge != null &&
+            (edge.selectable ?? edgesSelectable) &&
             newSelectedNodes.contains(edge.sourceNodeId) &&
             newSelectedNodes.contains(edge.targetNodeId)) {
           edgesInArea.add(edgeId);

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/features/viewport/domain/viewport.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/widgets.dart' show Matrix4;
@@ -73,4 +74,31 @@ bool matrix4NearEqual(Matrix4 a, Matrix4 b) {
     if ((a.storage[i] - b.storage[i]).abs() > eps) return false;
   }
   return true;
+}
+
+/// Interpolates between two viewports for camera animation.
+///
+/// [t] is the eased progress in `[0, 1]` (already passed through the
+/// animation curve by the caller). Offset always lerps linearly; zoom follows
+/// [interpolate]: [FitViewInterpolation.smooth] travels in log space so
+/// perceived speed stays constant, [FitViewInterpolation.linear] lerps the
+/// raw factor.
+FlowViewport lerpViewport(
+  FlowViewport a,
+  FlowViewport b,
+  double t, {
+  FitViewInterpolation interpolate = FitViewInterpolation.smooth,
+}) {
+  final clamped = t.clamp(0.0, 1.0);
+  final offset = Offset.lerp(a.offset, b.offset, clamped)!;
+  double zoom;
+  if (interpolate == FitViewInterpolation.linear ||
+      a.zoom <= 0 ||
+      b.zoom <= 0 ||
+      (a.zoom - b.zoom).abs() < 1e-9) {
+    zoom = a.zoom + (b.zoom - a.zoom) * clamped;
+  } else {
+    zoom = a.zoom * math.pow(b.zoom / a.zoom, clamped);
+  }
+  return FlowViewport(offset: offset, zoom: zoom);
 }

@@ -2,7 +2,6 @@ import 'package:lattice/src/core/utils/custom_stack_widget.dart';
 import 'package:lattice/src/features/nodes/presentation/flow_no_drag.dart';
 import 'package:lattice/src/features/nodes/presentation/node_drag_pan_gesture_recognizer.dart';
 import 'package:lattice/src/features/nodes/presentation/unbounded_raw_gesture_detector.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

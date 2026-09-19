@@ -335,6 +335,165 @@ class RenderUnboundedPositionedBox extends RenderPositionedBox {
   }
 }
 
+/// Semantics that does not reject positions outside its layout size.
+///
+/// [RenderSemanticsAnnotations] (used by the [Semantics] widget) applies the
+/// default `size.contains` gate, which would hide node chrome that overflows
+/// the node box (resize handles, connection handles, overlays) from pointer
+/// hit-testing. This variant forwards hit tests to children regardless of
+/// bounds — the same unbounded contract as the other widgets in this file —
+/// while exposing the node-level semantics surface (label / hint /
+/// selected / focusable / focused / tap).
+class UnboundedSemantics extends SingleChildRenderObjectWidget {
+  const UnboundedSemantics({
+    super.key,
+    this.container = false,
+    this.label,
+    this.hint,
+    this.selected,
+    this.focused,
+    this.onTap,
+    super.child,
+  });
+
+  final bool container;
+  final String? label;
+  final String? hint;
+  final bool? selected;
+
+  /// Non-null [focused] advertises the subtree as focusable (current
+  /// Flutter semantics: focusability derives from `focused` being set).
+  /// Pass null for non-focusable content.
+  final bool? focused;
+  final VoidCallback? onTap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderUnboundedSemantics(
+      container: container,
+      label: label,
+      hint: hint,
+      selected: selected,
+      focused: focused,
+      onTap: onTap,
+      textDirection: Directionality.maybeOf(context),
+    );
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) {
+    final ro = renderObject as _RenderUnboundedSemantics;
+    ro
+      ..container = container
+      ..label = label
+      ..hint = hint
+      ..selected = selected
+      ..focused = focused
+      ..onTap = onTap
+      ..textDirection = Directionality.maybeOf(context);
+  }
+}
+
+class _RenderUnboundedSemantics extends RenderSemanticsAnnotations {
+  // ignore: use_super_parameters
+  _RenderUnboundedSemantics({
+    required bool container,
+    required String? label,
+    required String? hint,
+    required bool? selected,
+    required bool? focused,
+    required VoidCallback? onTap,
+    required TextDirection? textDirection,
+  })  : _label = label,
+        _hint = hint,
+        _selected = selected,
+        _focused = focused,
+        _onTap = onTap,
+        super(
+          properties: SemanticsProperties(
+            label: label,
+            hint: hint,
+            selected: selected,
+            focused: focused,
+            onTap: onTap,
+            textDirection: textDirection,
+          ),
+          container: container,
+          textDirection: textDirection,
+        );
+
+  String? _label;
+  String? _hint;
+  bool? _selected;
+  bool? _focused;
+  VoidCallback? _onTap;
+
+  void _sync(TextDirection? textDirection) {
+    properties = SemanticsProperties(
+      label: _label,
+      hint: _hint,
+      selected: _selected,
+      focused: _focused,
+      onTap: _onTap,
+      textDirection: textDirection,
+    );
+  }
+
+  @override
+  set container(bool value) {
+    if (super.container == value) return;
+    super.container = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  @override
+  set textDirection(TextDirection? value) {
+    if (textDirection == value) return;
+    super.textDirection = value;
+    _sync(value);
+  }
+
+  set label(String? value) {
+    if (_label == value) return;
+    _label = value;
+    _sync(textDirection);
+  }
+
+  set hint(String? value) {
+    if (_hint == value) return;
+    _hint = value;
+    _sync(textDirection);
+  }
+
+  set selected(bool? value) {
+    if (_selected == value) return;
+    _selected = value;
+    _sync(textDirection);
+  }
+
+  set focused(bool? value) {
+    if (_focused == value) return;
+    _focused = value;
+    _sync(textDirection);
+  }
+
+  set onTap(VoidCallback? value) {
+    _onTap = value;
+    _sync(textDirection);
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    // Skip _size.contains(position) — node chrome may sit outside the box.
+    if (hitTestChildren(result, position: position) ||
+        hitTestSelf(position)) {
+      result.add(BoxHitTestEntry(this, position));
+      return true;
+    }
+    return false;
+  }
+}
+
 /// [Positioned] + [UnboundedHitTestBox] ([UnboundedPositioned]).
 ///
 /// Use [.fill] for canvas layers so hit tests reach children whose flow

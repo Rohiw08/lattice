@@ -7,22 +7,17 @@ class Keymap {
 
   const Keymap(this.shortcuts);
 
+  /// Bonus bindings beyond the user-configurable shortcut map: they cannot
+  /// collide with custom bindings (user entries win on conflict) and are
+  /// silenced together with everything else when keyboard input is disabled.
   factory Keymap.standard() {
     return Keymap({
-      // Zoom (+/-/0) lives on [KeyboardOptions.shortcuts] so Cmd/Ctrl track platform.
       LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF):
           const FitViewIntent(),
       LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyC):
           const CopyIntent(),
       LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyV):
           const PasteIntent(),
-      LogicalKeySet(LogicalKeyboardKey.delete): const DeleteIntent(),
-      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyZ):
-          const UndoIntent(),
-      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyY):
-          const RedoIntent(),
-      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyA):
-          const SelectAllIntent(),
       LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift,
           LogicalKeyboardKey.keyN): const SelectAllIntent(selectEdges: false),
       LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift,

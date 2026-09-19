@@ -81,18 +81,19 @@ List<BoxShadow>? _boxShadow(Decoration? decoration) {
   return null;
 }
 
-/// Translucent group chrome derived from [FlowNodeStyle] (Lattice group bg).
+/// Translucent group chrome in xy-theme purples.
 ///
-/// Lattice: group background is always `rgba(240,240,240,0.25)` in both
-/// modes; border follows the node border; hover/selected only add the node
-/// state shadows (no background change).
-FlowNodeStyle _groupStyleFrom(FlowNodeStyle base) {
-  const fill = Color(0x40F0F0F0);
+/// Light: `rgba(207,182,255,0.4)` fill + `#9e86ed` border; dark:
+/// `rgba(123,107,148,0.22)` fill + `#7b6b94` border. Hover/selected reuse
+/// the node state's shadows; selected border follows the blue selection
+/// language.
+FlowNodeStyle _groupStyleFrom(FlowNodeStyle base, Brightness brightness) {
+  final dark = brightness == Brightness.dark;
+  final fill = dark ? const Color(0x387B6B94) : const Color(0x66CFB6FF);
   final border =
-      _decorationBorderColor(base.decoration) ?? const Color(0xFF1A192B);
+      dark ? const Color(0xFF7B6B94) : const Color(0xFF9E86ED);
   final selectedBorder =
       _decorationBorderColor(base.selectedDecoration) ?? border;
-  final hoverBorder = _decorationBorderColor(base.hoverDecoration) ?? border;
   final hoverShadow = _boxShadow(base.hoverDecoration) ?? const [];
   final selectedShadow = _boxShadow(base.selectedDecoration) ?? const [];
   final radius = _decorationRadius(base.decoration);
@@ -111,7 +112,7 @@ FlowNodeStyle _groupStyleFrom(FlowNodeStyle base) {
 
   return FlowNodeStyle(
     decoration: decoration(bColor: border),
-    hoverDecoration: decoration(bColor: hoverBorder, shadows: hoverShadow),
+    hoverDecoration: decoration(bColor: border, shadows: hoverShadow),
     selectedDecoration:
         decoration(bColor: selectedBorder, shadows: selectedShadow),
   );
@@ -130,7 +131,8 @@ class GroupNode extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = (context.flowCanvasTheme.node ?? FlowNodeStyle.system(context))
         .merge(node.style);
-    final style = _groupStyleFrom(base);
+    final style =
+        _groupStyleFrom(base, Theme.of(context).brightness);
 
     return BaseNode(
       node: node,

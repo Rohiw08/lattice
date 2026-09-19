@@ -132,12 +132,14 @@ class FlowPanelStyle extends ThemeExtension<FlowPanelStyle>
   }
 
   /// Optional light card chrome (controls-like).
+  ///
+  /// xy-theme panel: `#ffffff` surface, `#111827` text, `#ededed` edge.
   factory FlowPanelStyle.light() {
     return FlowPanelStyle.colored(
-      color: const Color(0xFFFEFEFE),
-      borderColor: const Color(0xFFEEEEEE),
+      color: const Color(0xFFFFFFFF),
+      borderColor: const Color(0xFFEDEDED),
       hoverColor: const Color(0xFFF4F4F4),
-      selectedBorderColor: const Color(0xFF1A192B),
+      selectedBorderColor: const Color(0xFF2196F3),
       disabledColor: const Color(0xFFF5F5F5),
       disabledBorderColor: const Color(0xFFE0E0E0),
       shadows: [
@@ -151,12 +153,14 @@ class FlowPanelStyle extends ThemeExtension<FlowPanelStyle>
   }
 
   /// Optional dark card chrome.
+  ///
+  /// xy-theme panel: `#141519` surface, `#f3f4f6` text.
   factory FlowPanelStyle.dark() {
     return FlowPanelStyle.colored(
-      color: const Color(0xFF2A2A2A),
-      borderColor: const Color(0xFF3C3C3C),
-      hoverColor: const Color(0xFF333333),
-      selectedBorderColor: const Color(0xFFBEBEBE),
+      color: const Color(0xFF141519),
+      borderColor: const Color(0xFF303238),
+      hoverColor: const Color(0xFF24262C),
+      selectedBorderColor: const Color(0xFF2196F3),
       disabledColor: const Color(0xFF222222),
       disabledBorderColor: const Color(0xFF2A2A2A),
       shadows: [

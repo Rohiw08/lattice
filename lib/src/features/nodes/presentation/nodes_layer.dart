@@ -11,7 +11,10 @@ import 'package:lattice/src/features/nodes/domain/models/node_props.dart';
 import 'package:lattice/src/features/nodes/domain/models/node_state.dart';
 import 'package:lattice/src/features/nodes/domain/node_layout.dart';
 import 'package:lattice/src/features/nodes/domain/node_render_layer.dart';
+import 'package:lattice/src/features/nodes/presentation/flow_focusable_node.dart';
+import 'package:lattice/src/features/nodes/presentation/flow_interaction.dart';
 import 'package:lattice/src/features/nodes/presentation/node_drag_pan_gesture_recognizer.dart';
+import 'package:lattice/src/features/nodes/presentation/nodes_thumbnail_layer.dart';
 import 'package:lattice/src/features/nodes/presentation/unbounded_raw_gesture_detector.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
@@ -54,7 +57,7 @@ final nodesProvider = Provider<NodeKeys>((ref) {
 ///
 /// Within the band, paint order follows Lattice: ascending `zIndex`, with an
 /// optional +[kSelectedNodeZBoost] when [NodeOptions.elevateNodesOnSelected].
-class FlowNodesLayer extends ConsumerWidget {
+class FlowNodesLayer extends ConsumerStatefulWidget {
   const FlowNodesLayer({
     super.key,
     this.layer = NodeRenderLayer.middle,
@@ -63,27 +66,69 @@ class FlowNodesLayer extends ConsumerWidget {
   final NodeRenderLayer layer;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FlowNodesLayer> createState() => _FlowNodesLayerState();
+}
+
+class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
+  NodeRenderLayer get layer => widget.layer;
+
+  /// Stable [_NodeWidget] instances per node id (invariant #6, one level up:
+  /// identical instances short-circuit parent-driven cascades).
+  ///
+  /// A layer rebuild (e.g. a selection toggle) otherwise mints N fresh
+  /// widgets, forcing N element updates + `didUpdateWidget` cascades
+  /// (gesture-shell resyncs) even when nothing about the node changed.
+  /// Cached instances make the cascade a no-op: the child's own fine-grained
+  /// watches still rebuild exactly the affected bodies. Evicted when the id
+  /// leaves this render layer so removed nodes don't leak.
+  final Map<String, _NodeWidget> _widgets = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     ref.watch(internalControllerProvider
         .select((state) => '${state.nodes.length}-${state.maxZIndex}'));
 
     final vpOpts = context.flowCanvasOptions.viewportOptions;
     final elevateOnSelect =
-        context.flowCanvasOptions.nodeOptions.elevateNodesOnSelected;
+        context.flowCanvasOptions.nodeOptions.elevateNodesOnSelected &&
+            context.flowCanvasOptions.zIndexMode != ZIndexMode.manual;
+
+    // Thumbnail LOD: below the threshold the middle band paints every node
+    // as a rect instead of mounting widgets; other bands stand down.
+    final thumbnailBelowZoom = vpOpts.lodThumbnailBelowZoom;
+    if (thumbnailBelowZoom != null) {
+      final zoom = ref.watch(
+        internalControllerProvider.select((s) => s.viewport.zoom),
+      );
+      if (zoom < thumbnailBelowZoom) {
+        if (layer != NodeRenderLayer.middle) {
+          return const SizedBox.shrink();
+        }
+        return const NodesThumbnailLayer();
+      }
+    }
 
     // selectedNodes: z-order / keep-mounted when culling.
     // Do not watch dragMode or InteractionSession here — remounts kill pans.
+    // NOTE: select the set itself (stable identity across emissions), never
+    // a fresh copy — a new collection would fail `==` every time and rebuild
+    // the whole layer on each state change.
     ref.watch(internalControllerProvider
-        .select((s) => Set<String>.from(s.selectedNodes)));
+        .select((s) => s.selectedNodes));
 
     final notifier = ref.read(internalControllerProvider.notifier);
-    final outer = ref.read(internalControllerProvider);
 
     // Keep ListenableBuilder mounted always when culling — toggling it with
     // dragMode remounted nodes and broke in-flight pans.
-    final wrapTransformListener = vpOpts.onlyRenderVisibleElements &&
-        outer.viewportSize != null &&
-        !outer.viewportSize!.isEmpty;
+    // NOTE: keyed on the *option* only, never on viewportSize/dragMode.
+    // Conditioning the wrapper on viewportSize reintroduced the forbidden
+    // toggle on pre-layout builds: the wrapper flip wholesale-unmounted all
+    // node shells mid-gesture (in-flight recognizers disposed, moves/up
+    // lost, drag stuck in DragMode.node). The cull filter inside buildStack
+    // keeps its own null/empty viewportSize guard, so mounting the listener
+    // early is safe.
+    final wrapTransformListener = vpOpts.onlyRenderVisibleElements;
 
     Widget buildStack() {
       final state = ref.read(internalControllerProvider);
@@ -106,7 +151,24 @@ class FlowNodesLayer extends ConsumerWidget {
           return a.key.compareTo(b.key);
         });
 
-      if (entries.isEmpty) return const SizedBox.shrink();
+      if (entries.isEmpty) {
+        _widgets.clear();
+        return const SizedBox.shrink();
+      }
+
+      // Evict widgets for nodes that left this render layer; reuse stable
+      // instances for the rest so cascades skip unchanged nodes entirely.
+      final ids = entries.map((e) => e.key).toSet();
+      _widgets.removeWhere((id, _) => !ids.contains(id));
+      for (final entry in entries) {
+        _widgets.putIfAbsent(
+          entry.key,
+          () => _NodeWidget(
+            key: ValueKey('${layer.name}_${entry.key}'),
+            nodeId: entry.key,
+          ),
+        );
+      }
 
       final dragging = notifier.interactionSession.draggingNodeIds;
 
@@ -141,7 +203,10 @@ class FlowNodesLayer extends ConsumerWidget {
           // Prefer spatial hits; fall back to Freezed AABB so a desynced
           // index cannot leave a visible node unmounted/unclickable.
           if (spatialIds.contains(e.key)) return true;
-          return flowNodeOverlapsRect(e.value, rect, state.nodes);
+          return flowNodeOverlapsRect(
+              e.value, rect, state.nodes,
+              defaultOrigin:
+                  context.flowCanvasOptions.nodeOptions.nodeOrigin);
         }).toList();
       }
 
@@ -164,11 +229,7 @@ class FlowNodesLayer extends ConsumerWidget {
       return UnboundedRepaintBoundary(
         child: InfiniteHitTestStack(
           children: [
-            for (final entry in entries)
-              _NodeWidget(
-                key: ValueKey('${layer.name}_${entry.key}'),
-                nodeId: entry.key,
-              ),
+            for (final entry in entries) _widgets[entry.key]!,
           ],
         ),
       );
@@ -194,11 +255,37 @@ class FlowNodesLayer extends ConsumerWidget {
   }
 }
 
+/// Ancestor geometry hash for [nodeId] (Lattice relative children ride along
+/// when an ancestor moves/resizes). Excludes selection/hover/runtime so
+/// gesture recognizers are not remounted by unrelated state changes.
+int _ancestorHash(Map<String, FlowNode> nodes, String nodeId) {
+  final parts = <Object?>[];
+  String? id = nodeId;
+  final seen = <String>{};
+  while (id != null && seen.add(id)) {
+    final n = nodes[id];
+    if (n == null) break;
+    parts.add(n.position.dx);
+    parts.add(n.position.dy);
+    parts.add(n.size.width);
+    parts.add(n.size.height);
+    parts.add(n.origin);
+    id = n.parentId;
+  }
+  return Object.hashAll(parts);
+}
+
 /// Handles gestures and position for a single node.
 ///
 /// Does not watch selection/hover — those rebuild [_NodeBody] / resizer only,
 /// so the pan recognizer stays alive across select-on-pointer-down.
-class _NodeWidget extends ConsumerWidget {
+///
+/// Stateful purely to hold stable child instances ([_NodeBody],
+/// [_NodeResizerSlot]): passing the identical instance down lets the child
+/// element skip parent-driven cascades, while their own fine-grained watches
+/// still rebuild them exactly when their inputs change. Without this, every
+/// layer rebuild (e.g. a selection toggle) rebuilds all N node contents.
+class _NodeWidget extends ConsumerStatefulWidget {
   final String nodeId;
 
   const _NodeWidget({
@@ -207,32 +294,43 @@ class _NodeWidget extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final node = ref.watch(
+  ConsumerState<_NodeWidget> createState() => _NodeWidgetState();
+}
+
+class _NodeWidgetState extends ConsumerState<_NodeWidget> {
+  late final _body = _NodeBody(nodeId: widget.nodeId);
+  late final _resizer = _NodeResizerSlot(nodeId: widget.nodeId);
+
+  /// Cached session scope (see `InteractionSession.scopeFor`). A fresh scope
+  /// per build would resubscribe on the session on every layer rebuild —
+  /// resubscribe scans the O(N) listener list, turning each cascade O(N^2).
+  /// Refreshed only if the session object itself is swapped.
+  Object? _scopeSession;
+  Listenable? _scope;
+
+  /// Cached gesture shell (see [_NodeWidgetState] docs): recognizer factories
+  /// compare by identity, so a fresh shell per build would dispose + recreate
+  /// every recognizer on each layer cascade. Refreshed only when capability
+  /// flags change, so callbacks never go stale.
+  Widget? _gestureShell;
+  (bool, bool, bool)? _gestureFlags;
+
+  String get nodeId => widget.nodeId;
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
+    // Single subscription: node record + ancestor geometry hash (Lattice
+    // relative children). One select instead of two halves the per-emission
+    // subscription tax across N shells; rebuild semantics are identical.
+    final record = ref.watch(
       internalControllerProvider.select(
-        (state) => state.nodes[nodeId],
+        (state) => (state.nodes[nodeId], _ancestorHash(state.nodes, nodeId)),
       ),
     );
+    final node = record.$1;
 
     if (node == null) return const SizedBox.shrink();
-
-    // Rebuild when ancestor geometry changes (Lattice relative children).
-    // Intentionally excludes selection so the pan recognizer is not remounted.
-    ref.watch(internalControllerProvider.select((state) {
-      final parts = <Object?>[];
-      String? id = nodeId;
-      final seen = <String>{};
-      while (id != null && seen.add(id)) {
-        final n = state.nodes[id];
-        if (n == null) break;
-        parts.add(n.position.dx);
-        parts.add(n.position.dy);
-        parts.add(n.size.width);
-        parts.add(n.size.height);
-        id = n.parentId;
-      }
-      return Object.hashAll(parts);
-    }));
 
     final controller = ref.read(internalControllerProvider.notifier);
     final nodesController = controller.nodes;
@@ -253,11 +351,14 @@ class _NodeWidget extends ConsumerWidget {
     final isDraggable = options.draggable;
     final isResizable = options.resizable;
 
-    // Gesture detector is stable across selection (body rebuilds separately).
+    // Gesture shell is stable across selection (body rebuilds separately).
     // The sized box lives inside the session ListenableBuilder below so an
     // expandParent-grown parent resizes live while its child is dragged.
-    final gestureChild = UnboundedRepaintBoundary(
-      child: InfiniteHitTestStack(
+    final gestureFlags = (isSelectable, isDraggable, isResizable);
+    if (_gestureShell == null || _gestureFlags != gestureFlags) {
+      _gestureFlags = gestureFlags;
+      _gestureShell = UnboundedRepaintBoundary(
+        child: InfiniteHitTestStack(
         clipBehavior: Clip.none,
         children: [
           NodeDragShell(
@@ -270,6 +371,22 @@ class _NodeWidget extends ConsumerWidget {
                           NodeDragPanGestureRecognizer>(
                     () => NodeDragPanGestureRecognizer(),
                     (recognizer) {
+                      // Space-pan owns the pointer: skip node drag so the
+                      // viewport pan wins the arena (evaluated per pointer;
+                      // assigned outside the cascade below on purpose).
+                      recognizer.shouldYieldPointer = () => ref
+                          .read(flowOptionsProvider)
+                          .keyboardOptions
+                          .isPanActivationHeld;
+                      recognizer.shouldBlockDragStart = (event) {
+                        final gated = ref
+                                .read(internalControllerProvider)
+                                .nodes[nodeId]
+                                ?.dragHandle ??
+                            false;
+                        if (!gated) return false;
+                        return !FlowInteraction.isDragHandleAt(event.position);
+                      };
                       recognizer
                         ..dragStartBehavior = DragStartBehavior.start
                         ..onStart = (details) {
@@ -299,32 +416,49 @@ class _NodeWidget extends ConsumerWidget {
                     },
                   ),
               },
-              child: _NodeBody(nodeId: nodeId),
+              child: _body,
             ),
           ),
-          if (isResizable) _NodeResizerSlot(nodeId: nodeId),
+          if (isResizable) _resizer,
         ],
       ),
     );
+    }
+    final gestureChild = _gestureShell!;
 
+    // Per-node session scope: only this node (and its dragged descendants)
+    // rebuild on gesture ticks; static siblings skip the tick entirely.
+    // Global session listeners (edge layers, minimap, toolbars) are separate.
+    // The scope is cached (not rebuilt per build) so layer cascades don't
+    // churn session subscriptions.
+    if (!identical(session, _scopeSession)) {
+      _scopeSession = session;
+      _scope = session.scopeFor(nodeId);
+    }
     return ListenableBuilder(
-      listenable: session,
+      listenable: _scope!,
       child: gestureChild,
       builder: (context, child) {
         final nodes = ref.read(internalControllerProvider).nodes;
-        final absolute = NodeLayout.absolutePosition(
+        // Visual top-left: the stored anchor minus this node's origin shift
+        // (identical to the anchor when the origin is top-left).
+        final topLeft = NodeLayout.absoluteTopLeft(
           nodeId,
           nodes,
           livePositions: session.isActive ? session.livePositions : null,
+          defaultOrigin: baseOptions.nodeOrigin,
         );
         final size = session.liveSizes[nodeId] ?? node.size;
         return Positioned(
-          left: absolute.dx,
-          top: absolute.dy,
-          child: UnboundedSizedBox(
-            height: size.height,
-            width: size.width,
-            child: child!,
+          left: topLeft.dx,
+          top: topLeft.dy,
+          child: FlowFocusableNode(
+            nodeId: nodeId,
+            child: UnboundedSizedBox(
+              height: size.height,
+              width: size.width,
+              child: child!,
+            ),
           ),
         );
       },
@@ -340,21 +474,23 @@ class _NodeBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final node = ref.watch(
-      internalControllerProvider.select((s) => s.nodes[nodeId]),
+    // Single subscription for node + selection + runtime (see _NodeWidgetState
+    // docs): same rebuild decisions as three separate selects, one third of
+    // the per-emission subscription tax.
+    final record = ref.watch(
+      internalControllerProvider.select(
+        (s) => (
+          s.nodes[nodeId],
+          s.selectedNodes.contains(nodeId),
+          s.nodeStates[nodeId] ?? const NodeRuntimeState(),
+        ),
+      ),
     );
+    final node = record.$1;
     if (node == null) return const SizedBox.shrink();
 
-    final isSelected = ref.watch(
-      internalControllerProvider.select(
-        (s) => s.selectedNodes.contains(nodeId),
-      ),
-    );
-    final runtime = ref.watch(
-      internalControllerProvider.select(
-        (s) => s.nodeStates[nodeId] ?? const NodeRuntimeState(),
-      ),
-    );
+    final isSelected = record.$2;
+    final runtime = record.$3;
 
     return ref.read(nodeRegistryProvider).buildWidget(
           NodeProps.fromNode(

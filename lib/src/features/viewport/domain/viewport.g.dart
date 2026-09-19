@@ -10,8 +10,9 @@ _FlowViewport _$FlowViewportFromJson(Map<String, dynamic> json) =>
     _FlowViewport(
       offset: json['offset'] == null
           ? Offset.zero
-          : const OffsetConverter()
-              .fromJson(json['offset'] as Map<String, dynamic>),
+          : const OffsetConverter().fromJson(
+              json['offset'] as Map<String, dynamic>,
+            ),
       zoom: (json['zoom'] as num?)?.toDouble() ?? 1.0,
     );
 

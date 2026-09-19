@@ -5,11 +5,67 @@ import 'package:lattice/src/core/theme/components/edge_label_theme.dart';
 import 'package:lattice/src/core/theme/components/edge_marker_theme.dart';
 import 'package:lattice/src/core/theme/components/edge_theme.dart';
 import 'package:lattice/src/core/enums/enums.dart';
+import 'package:lattice/src/features/connections/domain/models/connection_params.dart';
 import 'package:lattice/src/features/edges/domain/edge_animation_effect.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'edge.freezed.dart';
 part 'edge.g.dart';
+
+/// Input for a custom edge path builder (Lattice custom-edge path section).
+@immutable
+class FlowEdgePathInput {
+  const FlowEdgePathInput({
+    required this.source,
+    required this.target,
+    required this.sourceDir,
+    required this.targetDir,
+    required this.edge,
+  });
+
+  /// Handle anchor in flow coordinates (already origin-resolved).
+  final Offset source;
+
+  /// Handle anchor in flow coordinates (already origin-resolved).
+  final Offset target;
+
+  /// Side the path leaves [source] from.
+  final HandlePosition sourceDir;
+
+  /// Side the path enters [target] from.
+  final HandlePosition targetDir;
+
+  final FlowEdge edge;
+}
+
+/// Builds a fully custom edge path (Lattice custom SVG edge path).
+///
+/// Return any [Path] (e.g. sinusoidal); bounds, hit-testing, labels, and
+/// markers all derive from it automatically. Prefer [EdgePathCreator] statics
+/// for the four built-in shapes.
+typedef FlowEdgePathBuilder = Path Function(FlowEdgePathInput input);
+
+/// Context for a custom edge foreground painter.
+@immutable
+class FlowEdgePaintContext {
+  const FlowEdgePaintContext({
+    required this.path,
+    required this.edge,
+    required this.selected,
+    required this.hovered,
+  });
+
+  /// The resolved path (custom or built-in).
+  final Path path;
+  final FlowEdge edge;
+  final bool selected;
+  final bool hovered;
+}
+
+/// Paints canvas-space decorations over an edge's base stroke + markers
+/// (Lattice custom-edge body section; widgets go in [FlowEdge.overlayLabel]).
+typedef FlowEdgeForegroundPainter = void Function(
+    Canvas canvas, FlowEdgePaintContext context);
 
 /// Represents a permanent connection (edge) between two nodes in the flow canvas.
 ///
@@ -119,17 +175,28 @@ abstract class FlowEdge with _$FlowEdge {
     /// - [EdgePathType.smoothstep] - Smooth right-angled path
     @Default(EdgePathType.bezier) EdgePathType type,
 
-    /// Width of the invisible interaction area around the edge for easier selection.
-    ///
-    /// Makes thin edges easier to click/hover. Typical values: 8-15.
-    /// Default is 10.0.
-    @Default(10.0) double interactionWidth,
+  /// Width of the invisible interaction area around the edge for easier selection.
+  ///
+  /// Makes thin edges easier to click/hover. Typical values: 8-15.
+  /// RF parity: `BaseEdge` defaults to 20.0.
+  /// Default is 20.0.
+  @Default(20.0) double interactionWidth,
 
     /// Optional widget to display as a label on the edge.
     ///
     /// Typically a Text widget, but can be any widget. Positioned at the
     /// center of the edge path.
     @JsonKey(ignore: true) Widget? label,
+
+    /// Interactive overlay label rendered by [FlowEdgeLabelPortal].
+    ///
+    /// Unlike [label] (canvas-space, scales with zoom, never interactive),
+    /// the overlay label renders in a screen-space portal at the path
+    /// midpoint at a constant size and receives pointer events — the
+    /// counterpart of RF's `<EdgeLabelRenderer>` content (e.g. a delete
+    /// button). Rendered only when a [FlowEdgeLabelPortal] is in the
+    /// canvas `overlays`. Not serialized.
+    @JsonKey(ignore: true) Widget? overlayLabel,
 
     /// Optional decoration for the label container.
     ///
@@ -193,6 +260,11 @@ abstract class FlowEdge with _$FlowEdge {
     /// If null, uses the global canvas setting.
     bool? focusable,
 
+    /// Screen-reader label for this edge.
+    ///
+    /// Falls back to `'Edge <id>'`. Serialized with the edge.
+    String? semanticsLabel,
+
     /// Whether this edge's connections can be changed by dragging.
     ///
     /// Allows reconnecting the edge to different nodes/handles.
@@ -203,10 +275,50 @@ abstract class FlowEdge with _$FlowEdge {
     ///
     /// If null, uses the global canvas setting.
     bool? elevateEdgeOnSelect,
+
+    /// Fully custom path builder (Lattice custom edge path).
+    ///
+    /// Overrides [type] for path computation; bounds, hit-testing, labels,
+    /// and markers derive from the returned path. Not serialized.
+    @JsonKey(ignore: true) FlowEdgePathBuilder? pathBuilder,
+
+    /// Canvas-space decorations painted over the base stroke (Lattice
+    /// custom edge body). Widget content belongs in [overlayLabel].
+    /// Not serialized.
+    @JsonKey(ignore: true) FlowEdgeForegroundPainter? foregroundPainter,
   }) = _FlowEdge;
 
   factory FlowEdge.fromJson(Map<String, dynamic> json) =>
       _$FlowEdgeFromJson(json);
+
+  /// Builds an edge from a [ConnectionParams] (Lattice `addEdge`
+  /// connection form).
+  ///
+  /// Counterpart for controlled flows (`autoCreateEdge: false`): turn the
+  /// emitted [ConnectionParams] into an edge and insert it with
+  /// `controller.edges.addEdge`.
+  ///
+  /// ```dart
+  /// onConnection: (params) => controller.edges.addEdge(
+  ///   FlowEdge.fromConnection(params, id: IdGenerator.generateEdgeId()),
+  /// ),
+  /// ```
+  factory FlowEdge.fromConnection(
+    ConnectionParams connection, {
+    required String id,
+    EdgePathType type = EdgePathType.bezier,
+    Map<String, dynamic> data = const {},
+  }) {
+    return FlowEdge(
+      id: id,
+      sourceNodeId: connection.sourceNodeId,
+      sourceHandleId: connection.sourceHandleId,
+      targetNodeId: connection.targetNodeId,
+      targetHandleId: connection.targetHandleId,
+      type: type,
+      data: data,
+    );
+  }
 
   // ==========================================================================
   // Connection Query Methods (Domain Logic)

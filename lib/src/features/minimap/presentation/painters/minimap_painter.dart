@@ -29,6 +29,14 @@ class MiniMapPainter extends CustomPainter {
   final MiniMapNodeBuilder? nodeBuilder;
   final Map<String, Offset> livePositions;
 
+  /// Canvas default origin for rect resolution (per-node origin wins).
+  final Offset defaultOrigin;
+
+  /// Canvas default for nodes that don't set `selectable`
+  /// (`NodeOptions.selectable`). Drives the dimmed state; the caller
+  /// resolves `NodeOptions` (a painter has no [BuildContext]).
+  final bool nodesSelectable;
+
   /// Bumped by the interaction session on every live position change —
   /// drives [shouldRepaint] (live positions live in a single mutated map,
   /// whose identity never changes mid-drag).
@@ -55,6 +63,8 @@ class MiniMapPainter extends CustomPainter {
     this.nodeBuilder,
     this.livePositions = const {},
     this.liveStamp = 0,
+    this.defaultOrigin = Offset.zero,
+    this.nodesSelectable = true,
   })  : _backgroundPaint = Paint()..color = theme.backgroundColor,
         _maskPaint = Paint()..color = theme.maskColor,
         _maskStrokePaint = Paint()
@@ -76,7 +86,7 @@ class MiniMapPainter extends CustomPainter {
     if (override != null) return override;
 
     final states = <MinimapNodeState>{};
-    if (node.selectable == false) {
+    if (!(node.selectable ?? nodesSelectable)) {
       states.add(MinimapNodeState.disabled);
     }
     if (selectedNodeIds.contains(node.id)) {
@@ -92,7 +102,8 @@ class MiniMapPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Calculations are now done in the widget and passed in,
     // but we still need them here for painting.
-    final combinedBounds = getCombinedBounds(nodes, viewport);
+    final combinedBounds =
+        getCombinedBounds(nodes, viewport, defaultOrigin: defaultOrigin);
     final transform = calculateTransform(combinedBounds, size, theme);
 
     canvas.save();
@@ -146,7 +157,8 @@ class MiniMapPainter extends CustomPainter {
         }
       } else {
         final transformedRect = fromCanvasToMiniMap(
-          NodeLayout.absoluteRect(node, byId, livePositions: livePositions),
+          NodeLayout.absoluteRect(node, byId,
+              livePositions: livePositions, defaultOrigin: defaultOrigin),
           transform,
           minimapSize,
         );
@@ -192,6 +204,7 @@ class MiniMapPainter extends CustomPainter {
     List<FlowNode> nodes,
     Rect viewport, {
     Map<String, Offset> livePositions = const {},
+    Offset defaultOrigin = Offset.zero,
   }) {
     if (nodes.isEmpty && viewport.isEmpty) return Rect.zero;
     Rect? combinedBounds;
@@ -199,7 +212,7 @@ class MiniMapPainter extends CustomPainter {
       final byId = {for (final n in nodes) n.id: n};
       combinedBounds = nodes
           .map((n) => NodeLayout.absoluteRect(n, byId,
-              livePositions: livePositions))
+              livePositions: livePositions, defaultOrigin: defaultOrigin))
           .reduce((a, b) => a.expandToInclude(b));
     }
     if (!viewport.isEmpty) {
@@ -270,6 +283,7 @@ class MiniMapPainter extends CustomPainter {
         oldDelegate.nodeBorderRadius != nodeBorderRadius ||
         oldDelegate.nodeBuilder != nodeBuilder ||
         oldDelegate.livePositions != livePositions ||
-        oldDelegate.liveStamp != liveStamp;
+        oldDelegate.liveStamp != liveStamp ||
+        oldDelegate.defaultOrigin != defaultOrigin;
   }
 }

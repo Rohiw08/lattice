@@ -184,18 +184,18 @@ class FlowHandleStyle extends ThemeExtension<FlowHandleStyle>
   ///
   /// Suitable for light mode applications with a clean, minimal aesthetic.
   factory FlowHandleStyle.light() {
-    // Lattice: `#1a192b` fill, `#fff` 1px border, valid `#ff0072`,
-    // invalid `#ff6060` (classic connection feedback colors).
-    const color = Color(0xFF1A192B);
+    // xy-theme: `#fff` fill, 1px `#aaa` border. Valid/invalid keep the
+    // classic connection-feedback colors (functionality RF lacks).
+    const color = Color(0xFFFFFFFF);
     return FlowHandleStyle.colored(
       color: color,
       hoverColor: color,
       selectedColor: color,
       activeColor: color,
-      validTargetColor: const Color(0xFFFF0072),
+      validTargetColor: const Color(0xFF2196F3),
       invalidTargetColor: const Color(0xFFFF6060),
       disabledColor: FlowThemeDim.color(color),
-      borderColor: Colors.white,
+      borderColor: Color(0xFFAAAAAA),
       borderWidth: 1,
     );
   }
@@ -204,18 +204,18 @@ class FlowHandleStyle extends ThemeExtension<FlowHandleStyle>
   ///
   /// Suitable for dark mode applications with subtle contrast.
   factory FlowHandleStyle.dark() {
-    // Lattice `.dark` handle: `#bebebe` / border `#1e1e1e`.
+    // xy-theme `.dark` handle: `#141519` fill, 1px `#5a5d66` border.
     // Valid/invalid are the same as light (classic Lattice colors).
-    const color = Color(0xFFBEBEBE);
+    const color = Color(0xFF141519);
     return FlowHandleStyle.colored(
       color: color,
       hoverColor: color,
       selectedColor: color,
       activeColor: color,
-      validTargetColor: const Color(0xFFFF0072),
+      validTargetColor: const Color(0xFF2196F3),
       invalidTargetColor: const Color(0xFFFF6060),
       disabledColor: FlowThemeDim.color(color),
-      borderColor: const Color(0xFF1E1E1E),
+      borderColor: const Color(0xFF5A5D66),
       borderWidth: 1,
     );
   }

@@ -112,7 +112,7 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
   /// All parameters have sensible defaults for a light-themed
   /// dotted background pattern.
   const FlowBackgroundStyle({
-    this.backgroundColor = const Color(0xFFFFFFFF),
+    this.backgroundColor = const Color(0xFFF7F9FB),
     this.variant = BackgroundVariant.dots,
     this.patternColor = const Color(0xFF91919A),
     this.gap = 20.0,
@@ -130,14 +130,14 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
 
   /// Creates a light mode background style with a dotted pattern.
   ///
-  /// Lattice v12: white canvas with `#91919A` dots (size 1px, gap 20px).
+  /// xy-theme: `#f7f9fb` canvas.
   factory FlowBackgroundStyle.light() => const FlowBackgroundStyle();
 
   /// Creates a dark mode background style with a dotted pattern.
   ///
-  /// Lattice v12 `.dark`: `#141414` canvas with `#555` dots.
+  /// xy-theme `.dark`: `#101012` canvas.
   factory FlowBackgroundStyle.dark() => const FlowBackgroundStyle(
-        backgroundColor: Color(0xFF141414),
+        backgroundColor: Color(0xFF101012),
         patternColor: Color(0xFF555555),
       );
 

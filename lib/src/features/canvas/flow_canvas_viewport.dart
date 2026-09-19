@@ -5,14 +5,17 @@ import 'package:lattice/src/core/theme/components/cursor_theme.dart';
 import 'package:lattice/src/core/theme/theme_extension.dart';
 import 'package:lattice/src/core/utils/custom_stack_widget.dart';
 import 'package:lattice/src/features/background/presentation/flow_background_pattern_layer.dart';
+import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_pointer_layer.dart';
 import 'package:lattice/src/features/edges/presentation/layer/edge_reconnect_layer.dart';
+import 'package:lattice/src/features/edges/presentation/layer/edge_a11y_layer.dart';
 import 'package:lattice/src/features/edges/presentation/layer/edges_layer.dart';
 import 'package:lattice/src/features/keyboard/presentation/inputs/gesture_bindings.dart';
 import 'package:lattice/src/features/nodes/domain/node_render_layer.dart';
 import 'package:lattice/src/features/nodes/presentation/flow_interaction.dart';
 import 'package:lattice/src/features/nodes/presentation/nodes_layer.dart';
 import 'package:lattice/src/features/selection/presentation/layers/selection_layer.dart';
+import 'package:lattice/src/features/viewport/domain/visible_flow_region.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -52,10 +55,22 @@ class _FlowCanvasInteractiveSurfaceState
   /// Mirrors Lattice `selectionKeyPressed` so pan can be disabled while Shift is held.
   bool _selectionKeyHeld = false;
 
+  /// Mirrors Lattice `panActivationKeyCode`: while held, left-drag pans.
+  bool _spacePanHeld = false;
+
   /// Middle/right button pan (Lattice `panOnDrag={[1,2]}`) — IV only handles left.
   int? _auxPanPointer;
   Offset? _auxPanLastGlobal;
   bool _auxPanRouteActive = false;
+
+  /// Pending secondary-button press for context-menu routing (Lattice
+  /// `onNodeContextMenu` / `onEdgeContextMenu` / `onPaneContextMenu`).
+  /// A press that moves past [_contextMenuSlop] becomes an aux-pan instead.
+  int? _secondaryPointer;
+  Offset? _secondaryDownGlobal;
+
+  /// Tap tolerance for a context-menu press (aux pans always exceed it).
+  static const double _contextMenuSlop = 8.0;
 
   /// True while InteractiveViewer / aux pan is actively moving the viewport.
   bool _viewportInteracting = false;
@@ -64,10 +79,9 @@ class _FlowCanvasInteractiveSurfaceState
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
-    _selectionKeyHeld = ref
-        .read(flowOptionsProvider)
-        .keyboardOptions
-        .isSelectionKeyActive;
+    final keyboardOptions = ref.read(flowOptionsProvider).keyboardOptions;
+    _selectionKeyHeld = keyboardOptions.isSelectionKeyActive;
+    _spacePanHeld = keyboardOptions.isPanActivationHeld;
   }
 
   @override
@@ -78,10 +92,14 @@ class _FlowCanvasInteractiveSurfaceState
   }
 
   bool _onKeyEvent(KeyEvent event) {
-    final active =
-        ref.read(flowOptionsProvider).keyboardOptions.isSelectionKeyActive;
+    final keyboardOptions = ref.read(flowOptionsProvider).keyboardOptions;
+    final active = keyboardOptions.isSelectionKeyActive;
     if (active != _selectionKeyHeld) {
       setState(() => _selectionKeyHeld = active);
+    }
+    final spacePan = keyboardOptions.isPanActivationHeld;
+    if (spacePan != _spacePanHeld) {
+      setState(() => _spacePanHeld = spacePan);
     }
     return false;
   }
@@ -142,6 +160,43 @@ class _FlowCanvasInteractiveSurfaceState
     controller.onViewportInteractionStart();
   }
 
+  void _trackSecondaryDown(PointerDownEvent event) {
+    if (event.buttons & kSecondaryMouseButton == 0) return;
+    _secondaryPointer = event.pointer;
+    _secondaryDownGlobal = event.position;
+  }
+
+  /// Lattice `onPaneMouseEnter/Move` (flow coords). Pure observers: no
+  /// setState, no rebuilds.
+  void _firePaneEnter(PointerEnterEvent event) {
+    final cb = ref.read(flowCanvasCallbacksProvider).onPaneMouseEnter;
+    if (cb == null) return;
+    final flow = ref
+        .read(internalControllerProvider.notifier)
+        .viewport
+        .flowPositionFromGlobal(event.position);
+    if (flow != null) cb(flow);
+  }
+
+  void _firePaneHover(PointerHoverEvent event) {
+    final cb = ref.read(flowCanvasCallbacksProvider).onPaneMouseMove;
+    if (cb == null) return;
+    final flow = ref
+        .read(internalControllerProvider.notifier)
+        .viewport
+        .flowPositionFromGlobal(event.position);
+    if (flow != null) cb(flow);
+  }
+
+  void _maybeFireContextMenu(PointerUpEvent event) {    final downGlobal = _secondaryDownGlobal;
+    if (event.pointer != _secondaryPointer || downGlobal == null) return;
+    _secondaryPointer = null;
+    _secondaryDownGlobal = null;
+    if ((event.position - downGlobal).distance > _contextMenuSlop) return;
+    final controller = ref.read(internalControllerProvider.notifier);
+    controller.fireContextMenuAt(event.position);
+  }
+
   void _onPointerSignal(PointerSignalEvent signal) {
     if (signal is! PointerScrollEvent) return;
     if (signal.kind != PointerDeviceKind.mouse) return;
@@ -155,7 +210,19 @@ class _FlowCanvasInteractiveSurfaceState
     final v = ref.read(flowOptionsProvider).viewportOptions;
     final controller = ref.read(internalControllerProvider.notifier);
 
-    if (v.zoomOnScroll) {
+    // Lattice `onPaneScroll` (flow coords), for processed scrolls only.
+    final onPaneScroll =
+        ref.read(flowCanvasCallbacksProvider).onPaneScroll;
+    if (onPaneScroll != null) {
+      final flow = controller.viewport.flowPositionFromGlobal(signal.position);
+      if (flow != null) onPaneScroll(flow);
+    }
+
+    // Lattice `zoomActivationKeyCode`: when a gate set is configured, wheel
+    // zoom needs a held key; otherwise the wheel falls back to pan/scroll.
+    final zoomGated = v.zoomOnScroll &&
+        !ref.read(flowOptionsProvider).keyboardOptions.isZoomActivationHeld;
+    if (v.zoomOnScroll && !zoomGated) {
       final local = controller.viewport.viewportPositionFromGlobal(
         signal.position,
       );
@@ -204,12 +271,13 @@ class _FlowCanvasInteractiveSurfaceState
     // Lattice: left pan off for marquee / selection key / active connection drag.
     // Do NOT disable pan for [DragMode.node] — node pan wins the arena; flipping
     // panEnabled mid-drag causes dual-motion jank.
+    // Pan-activation key (Space) forces pan on instead, winning over marquee
+    // and selection-key modes for the drag duration.
     final panEnabled = !isLocked &&
         dragMode != DragMode.selection &&
         dragMode != DragMode.connection &&
-        !_selectionKeyHeld &&
-        !v.selectionOnDrag &&
-        v.panOnDragLeft;
+        (_spacePanHeld ||
+            (!_selectionKeyHeld && !v.selectionOnDrag && v.panOnDragLeft));
 
     final cursors =
         context.flowCanvasTheme.cursor ?? FlowCursorStyle.system(context);
@@ -219,6 +287,7 @@ class _FlowCanvasInteractiveSurfaceState
           v.selectionOnDrag,
       dragging: _viewportInteracting ||
           _auxPanRouteActive ||
+          _spacePanHeld ||
           dragMode == DragMode.canvas,
       panEnabled: panEnabled,
     );
@@ -230,9 +299,19 @@ class _FlowCanvasInteractiveSurfaceState
 
         return MouseRegion(
           cursor: paneCursor,
+          onEnter: _firePaneEnter,
+          onHover: _firePaneHover,
+          onExit: (_) => ref
+              .read(flowCanvasCallbacksProvider)
+              .onPaneMouseLeave
+              ?.call(),
           child: Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: isLocked ? null : _maybeStartAuxiliaryPan,
+          onPointerDown: isLocked ? null : (PointerDownEvent event) {
+            _trackSecondaryDown(event);
+            _maybeStartAuxiliaryPan(event);
+          },
+          onPointerUp: isLocked ? null : _maybeFireContextMenu,
           onPointerSignal: isLocked ? null : _onPointerSignal,
           child: AbsorbPointer(
             absorbing: isLocked,
@@ -263,8 +342,25 @@ class _FlowCanvasInteractiveSurfaceState
               child: InfiniteHitTestStack(
                 clipBehavior: Clip.none,
                 children: [
-                  const UnboundedPositioned.fill(
-                    child: FlowCanvasDeselectLayer(),
+                  // Pane backdrop sized to the VISIBLE flow rect (not the
+                  // fixed flow box): after any pan/zoom, taps and marquee
+                  // starts outside the origin box would otherwise fall into
+                  // a dead zone. Rebuilt per matrix tick; hit-test only.
+                  ListenableBuilder(
+                    listenable: controller.transformationController,
+                    builder: (context, _) {
+                      final visible =
+                          _visibleFlowRect(controller, Size(width, height));
+                      return UnboundedPositioned(
+                        left: visible.left,
+                        top: visible.top,
+                        width: visible.width,
+                        height: visible.height,
+                        child: FlowCanvasDeselectLayer(
+                          flowOrigin: visible.topLeft,
+                        ),
+                      );
+                    },
                   ),
                   if (widget.backgroundPatternStyle != null)
                     UnboundedPositioned.fill(
@@ -279,6 +375,7 @@ class _FlowCanvasInteractiveSurfaceState
                     ),
                   ),
                   const UnboundedPositioned.fill(child: FlowEdgeLayer()),
+                  const UnboundedPositioned.fill(child: EdgeA11yLayer()),
                   const UnboundedPositioned.fill(
                     child: FlowCanvasPointerLayer(),
                   ),
@@ -304,4 +401,25 @@ class _FlowCanvasInteractiveSurfaceState
       },
     );
   }
+}
+
+/// Visible flow-space rect for the pane backdrop, clamped to finite bounds.
+///
+/// Pre-layout (empty size) the helper returns a ~infinite rect; clamping
+/// keeps the positioned box finite so layout never sees absurd sizes.
+Rect _visibleFlowRect(
+  FlowCanvasInternalController controller,
+  Size viewportSize,
+) {
+  final rect = computeVisibleFlowRectFromCanvasTransform(
+    controller.transformationController.value,
+    viewportSize,
+  );
+  double clamp(double v) => v.clamp(-1e6, 1e6);
+  return Rect.fromLTRB(
+    clamp(rect.left),
+    clamp(rect.top),
+    clamp(rect.right),
+    clamp(rect.bottom),
+  );
 }

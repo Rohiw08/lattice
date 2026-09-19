@@ -1,5 +1,5 @@
 import 'package:lattice/src/core/providers/providers.dart';
-import 'package:lattice/src/core/options/options_extensions.dart';
+import 'package:lattice/src/core/options/components/node_options.dart';
 import 'package:lattice/src/core/utils/custom_stack_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:lattice/src/features/nodes/domain/models/node_state.dart';
@@ -59,7 +59,7 @@ class BaseNode extends ConsumerWidget {
   Set<FlowNodeState> _computeStates(
       NodeRuntimeState nodeRuntimeState, FlowNode node, BuildContext context) {
     final states = <FlowNodeState>{FlowNodeState.normal};
-    if (node.selectable == false) {
+    if (!node.isSelectable(context)) {
       states.add(FlowNodeState.disabled);
     }
     if (nodeRuntimeState.selected) {
@@ -86,14 +86,12 @@ class BaseNode extends ConsumerWidget {
     final states = _computeStates(nodeRuntimeState, node, context);
     final decoration = theme.resolveDecoration(states);
     final controller = ref.read(internalControllerProvider.notifier);
-    final isHoverable = context.flowCanvasOptions.nodeOptions
-        .copyWith(hoverable: node.hoverable)
-        .hoverable;
+    final isHoverable = node.isHoverable(context);
     final cursors =
         context.flowCanvasTheme.cursor ?? FlowCursorStyle.system(context);
     final cursor = cursors.resolveNode(
-      selectable: node.selectable ?? true,
-      draggable: node.draggable ?? true,
+      selectable: node.isSelectable(context),
+      draggable: node.isDraggable(context),
       dragging: nodeRuntimeState.dragging,
     );
 

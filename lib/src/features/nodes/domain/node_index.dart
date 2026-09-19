@@ -14,28 +14,41 @@ class NodeIndex {
   final Map<CellKey, Set<String>> _handleSpatialGrid;
   final double _cellSize;
 
+  /// Canvas default origin used when a node has no per-node [FlowNode.origin].
+  ///
+  /// Sticky across [SpatialIndexService.rebuild] unless overridden, so pure
+  /// call sites (history, load) never reset it to zero behind the canvas's
+  /// back. Updated from `NodeOptions.nodeOrigin` on init/options change.
+  final Offset defaultOrigin;
+
   NodeIndex._({
     required Map<String, FlowNode> nodes,
     required Map<CellKey, Set<String>> nodeSpatialGrid,
     required Map<CellKey, Set<String>> handleSpatialGrid,
     required double cellSize,
+    this.defaultOrigin = Offset.zero,
   })  : _nodes = nodes,
         _nodeSpatialGrid = nodeSpatialGrid,
         _handleSpatialGrid = handleSpatialGrid,
         _cellSize = cellSize;
 
   /// Creates an empty spatial index.
-  factory NodeIndex.empty({double cellSize = _defaultCellSize}) => NodeIndex._(
+  factory NodeIndex.empty(
+          {double cellSize = _defaultCellSize,
+          Offset defaultOrigin = Offset.zero}) =>
+      NodeIndex._(
         nodes: {},
         nodeSpatialGrid: {},
         handleSpatialGrid: {},
         cellSize: cellSize,
+        defaultOrigin: defaultOrigin,
       );
 
   /// Builds an index from an initial set of nodes.
   factory NodeIndex.fromNodes(
     Iterable<FlowNode> nodes, {
     double cellSize = _defaultCellSize,
+    Offset defaultOrigin = Offset.zero,
   }) {
     final nodeMap = <String, FlowNode>{
       for (final node in nodes) node.id: node,
@@ -44,7 +57,8 @@ class NodeIndex {
     final handleGrid = <CellKey, Set<String>>{};
 
     for (final node in nodeMap.values) {
-      _addNodeToGrids(node, nodeMap, nodeGrid, handleGrid, cellSize);
+      _addNodeToGrids(
+          node, nodeMap, nodeGrid, handleGrid, cellSize, defaultOrigin);
     }
 
     return NodeIndex._(
@@ -52,6 +66,7 @@ class NodeIndex {
       nodeSpatialGrid: nodeGrid,
       handleSpatialGrid: handleGrid,
       cellSize: cellSize,
+      defaultOrigin: defaultOrigin,
     );
   }
 
@@ -77,7 +92,9 @@ class NodeIndex {
       for (final id in ids) {
         final node = _nodes[id];
         if (node != null &&
-            NodeLayout.absoluteRect(node, _nodes).overlaps(rect)) {
+            NodeLayout.absoluteRect(node, _nodes,
+                    defaultOrigin: defaultOrigin)
+                .overlaps(rect)) {
           resultIds.add(id);
         }
       }
@@ -114,14 +131,15 @@ class NodeIndex {
   /// Adds [node] to the index in-place.
   void addNode(FlowNode node) {
     _nodes[node.id] = node;
-    _addNodeToGrids(node, _nodes, _nodeSpatialGrid, _handleSpatialGrid, _cellSize);
+    _addNodeToGrids(node, _nodes, _nodeSpatialGrid, _handleSpatialGrid,
+        _cellSize, defaultOrigin);
   }
 
   /// Removes [node] from the index in-place.
   void removeNode(FlowNode node) {
     if (!_nodes.containsKey(node.id)) return;
-    _removeNodeFromGrids(
-        node, _nodes, _nodeSpatialGrid, _handleSpatialGrid, _cellSize);
+    _removeNodeFromGrids(node, _nodes, _nodeSpatialGrid, _handleSpatialGrid,
+        _cellSize, defaultOrigin);
     _nodes.remove(node.id);
   }
 
@@ -137,11 +155,11 @@ class NodeIndex {
     // Fast path: skip update if identical in geometry
     if (identical(oldNode, newNode) || oldNode == newNode) return;
 
-    _removeNodeFromGrids(
-        oldNode, _nodes, _nodeSpatialGrid, _handleSpatialGrid, _cellSize);
+    _removeNodeFromGrids(oldNode, _nodes, _nodeSpatialGrid, _handleSpatialGrid,
+        _cellSize, defaultOrigin);
     _nodes[newNode.id] = newNode;
-    _addNodeToGrids(
-        newNode, _nodes, _nodeSpatialGrid, _handleSpatialGrid, _cellSize);
+    _addNodeToGrids(newNode, _nodes, _nodeSpatialGrid, _handleSpatialGrid,
+        _cellSize, defaultOrigin);
   }
 
   /// Batch updates multiple nodes in-place.
@@ -155,11 +173,11 @@ class NodeIndex {
       final newNode = entry.value;
 
       if (_nodes.containsKey(oldNode.id)) {
-        _removeNodeFromGrids(
-            oldNode, _nodes, _nodeSpatialGrid, _handleSpatialGrid, _cellSize);
+        _removeNodeFromGrids(oldNode, _nodes, _nodeSpatialGrid,
+            _handleSpatialGrid, _cellSize, defaultOrigin);
         _nodes[newNode.id] = newNode;
-        _addNodeToGrids(
-            newNode, _nodes, _nodeSpatialGrid, _handleSpatialGrid, _cellSize);
+        _addNodeToGrids(newNode, _nodes, _nodeSpatialGrid, _handleSpatialGrid,
+            _cellSize, defaultOrigin);
       }
     }
   }
@@ -172,8 +190,10 @@ class NodeIndex {
     Map<CellKey, Set<String>> nodeGrid,
     Map<CellKey, Set<String>> handleGrid,
     double cellSize,
+    Offset defaultOrigin,
   ) {
-    final abs = NodeLayout.absolutePosition(node.id, nodes);
+    final abs = NodeLayout.absoluteTopLeft(node.id, nodes,
+        defaultOrigin: defaultOrigin);
     final absRect =
         Rect.fromLTWH(abs.dx, abs.dy, node.size.width, node.size.height);
     final nodeCells = _getCellsInRect(absRect, cellSize);
@@ -196,8 +216,10 @@ class NodeIndex {
     Map<CellKey, Set<String>> nodeGrid,
     Map<CellKey, Set<String>> handleGrid,
     double cellSize,
+    Offset defaultOrigin,
   ) {
-    final abs = NodeLayout.absolutePosition(node.id, nodes);
+    final abs = NodeLayout.absoluteTopLeft(node.id, nodes,
+        defaultOrigin: defaultOrigin);
     final absRect =
         Rect.fromLTWH(abs.dx, abs.dy, node.size.width, node.size.height);
     final nodeCells = _getCellsInRect(absRect, cellSize);

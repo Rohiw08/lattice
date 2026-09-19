@@ -1,5 +1,8 @@
+import 'dart:collection';
+
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/features/edges/domain/edge_index.dart';
+import 'package:lattice/src/features/edges/domain/model/edge.dart';
 import 'package:lattice/src/features/nodes/domain/node_layout.dart';
 import 'package:lattice/src/core/utils/edge_path_creator.dart';
 import 'package:lattice/src/core/enums/enums.dart';
@@ -52,25 +55,41 @@ class EdgeGeometryService {
   /// Unmodifiable view of cached paths — do not allocate a new map each build.
   Map<String, Path> get precomputedPaths => _pathView;
 
-  /// @Deprecated Use [precomputedPaths] — kept for call-site compatibility.
-  Map<String, Path> getPrecomputedPaths() => _pathView;
+  /// Unmodifiable view of cached geometry (paths, bounds, marker tangents).
+  ///
+  /// Painters read marker tangents from here instead of running
+  /// `computeMetrics` per edge per repaint. Same identity across builds;
+  /// [EdgePainter.shouldRepaint] keys off epochs, not this map.
+  Map<String, EdgeGeom> get geometries => UnmodifiableMapView(_edgeCache);
+
+  /// Unmodifiable view of per-edge geometry versions.
+  ///
+  /// Painters compare versions for their own edge set to skip repaints
+  /// when unrelated edges change (the global [geometryEpoch] bumps on any
+  /// change). Same identity across builds.
+  Map<String, int> get edgeVersions => UnmodifiableMapView(_edgeVersion);
 
   /// Updates the cache for all visible edges, removing any that no longer exist.
-  void updateCache(FlowCanvasState state, Iterable<String> visibleEdgeIds) {
+  void updateCache(
+    FlowCanvasState state,
+    Iterable<String> visibleEdgeIds, {
+    Offset defaultOrigin = Offset.zero,
+  }) {
     final currentEdgeIds = Set<String>.from(visibleEdgeIds);
     _edgeCache.removeWhere((id, _) => !currentEdgeIds.contains(id));
     _edgeVersion.removeWhere((id, _) => !currentEdgeIds.contains(id));
     _pathView.removeWhere((id, _) => !currentEdgeIds.contains(id));
 
     for (final id in currentEdgeIds) {
-      _ensureEdgeGeom(state, id);
+      _ensureEdgeGeom(state, id, defaultOrigin: defaultOrigin);
     }
   }
 
   /// Updates only edges connected to specific nodes (OPTIMIZED).
   void updateEdgesForNodes(
       FlowCanvasState state, Set<String> nodeIds, EdgeIndex edgeIndex,
-      {Map<String, Offset>? livePositions}) {
+      {Map<String, Offset>? livePositions,
+      Offset defaultOrigin = Offset.zero}) {
     if (nodeIds.isEmpty) return;
 
     final edgesToUpdate = <String>{};
@@ -78,15 +97,18 @@ class EdgeGeometryService {
       edgesToUpdate.addAll(edgeIndex.getEdgesForNode(nodeId));
     }
     for (final edgeId in edgesToUpdate) {
-      _ensureEdgeGeom(state, edgeId, livePositions: livePositions);
+      _ensureEdgeGeom(state, edgeId,
+          livePositions: livePositions, defaultOrigin: defaultOrigin);
     }
   }
 
   /// Updates a single edge (useful when adding/modifying one edge).
   void updateEdge(FlowCanvasState state, String edgeId,
-      {Map<String, Offset>? livePositions}) {
+      {Map<String, Offset>? livePositions,
+      Offset defaultOrigin = Offset.zero}) {
     _edgeVersion.remove(edgeId);
-    _ensureEdgeGeom(state, edgeId, livePositions: livePositions);
+    _ensureEdgeGeom(state, edgeId,
+        livePositions: livePositions, defaultOrigin: defaultOrigin);
   }
 
   /// Removes edges from the cache (useful when edges are deleted).
@@ -111,6 +133,7 @@ class EdgeGeometryService {
     FlowCanvasState state,
     String edgeId, {
     Map<String, Offset>? livePositions,
+    Offset defaultOrigin = Offset.zero,
   }) {
     final edge = state.edges[edgeId];
     if (edge == null) return;
@@ -119,15 +142,17 @@ class EdgeGeometryService {
     final targetNode = state.nodes[edge.targetNodeId];
     if (sourceNode == null || targetNode == null) return;
 
-    final sourceAbs = NodeLayout.absolutePosition(
+    final sourceAbs = NodeLayout.absoluteTopLeft(
       sourceNode.id,
       state.nodes,
       livePositions: livePositions,
+      defaultOrigin: defaultOrigin,
     );
-    final targetAbs = NodeLayout.absolutePosition(
+    final targetAbs = NodeLayout.absoluteTopLeft(
       targetNode.id,
       state.nodes,
       livePositions: livePositions,
+      defaultOrigin: defaultOrigin,
     );
 
     final version = Object.hash(
@@ -138,6 +163,18 @@ class EdgeGeometryService {
       edge.sourceHandleId,
       edge.targetHandleId,
       edge.type,
+      edge.pathBuilder,
+      // Paint-relevant fields (the painter skips repaints unless this
+      // version or the epoch changes): style/marker/decoration inputs must
+      // participate, or style-only updates would render stale pixels.
+      edge.style,
+      edge.startMarkerStyle,
+      edge.endMarkerStyle,
+      edge.foregroundPainter,
+      edge.animationEffect,
+      edge.animated,
+      edge.selectable,
+      edge.data,
     );
 
     final oldVersion = _edgeVersion[edgeId];
@@ -167,11 +204,18 @@ class EdgeGeometryService {
           Offset(targetNode.size.width / 2, targetNode.size.height / 2);
     }
 
-    final path = EdgePathCreator.createPath(
-      edge.type,
-      sourceHandlePosition,
-      targetHandlePosition,
-      sourcePosition: sourceDir,
+    final path = edge.pathBuilder?.call(FlowEdgePathInput(
+          source: sourceHandlePosition,
+          target: targetHandlePosition,
+          sourceDir: sourceDir,
+          targetDir: targetDir,
+          edge: edge,
+        )) ??
+        EdgePathCreator.createPath(
+          edge.type,
+          sourceHandlePosition,
+          targetHandlePosition,
+          sourcePosition: sourceDir,
       targetPosition: targetDir,
     );
     final bounds = path.getBounds().inflate(8);

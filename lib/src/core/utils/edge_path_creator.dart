@@ -69,6 +69,13 @@ class EdgePathCreator {
           borderRadius: borderRadius,
           offset: stepOffset,
         );
+      case EdgePathType.simpleBezier:
+        return getSimpleBezierPath(
+          source: start,
+          target: end,
+          sourcePosition: sourcePosition,
+          targetPosition: targetPosition,
+        );
     }
   }
 
@@ -77,6 +84,13 @@ class EdgePathCreator {
       ..moveTo(start.dx, start.dy)
       ..lineTo(end.dx, end.dy);
   }
+
+  /// Public straight-line path (Lattice `getStraightPath`).
+  static Path getStraightPath({
+    required Offset source,
+    required Offset target,
+  }) =>
+      _getStraightPath(source, target);
 
   // ── Smooth step / step (orthogonal router) ─────────────────────────────
 
@@ -327,6 +341,35 @@ class EdgePathCreator {
 
   // ── Bezier ───────────────────────────────────────────────────────
 
+  /// Control point for [getSimpleBezierPath] (exact Lattice port): midpoint
+  /// on the handle axis, anchor on the other.
+  static Offset _simpleBezierControl(
+    HandlePosition position,
+    Offset p1,
+    Offset p2,
+  ) {
+    if (position == HandlePosition.left ||
+        position == HandlePosition.right) {
+      return Offset(0.5 * (p1.dx + p2.dx), p1.dy);
+    }
+    return Offset(p1.dx, 0.5 * (p1.dy + p2.dy));
+  }
+
+  /// Simple cubic bezier between two points (Lattice `getSimpleBezierPath`,
+  /// exact port of `SimpleBezierEdge`: midpoint controls, no curvature).
+  static Path getSimpleBezierPath({
+    required Offset source,
+    required Offset target,
+    HandlePosition sourcePosition = HandlePosition.bottom,
+    HandlePosition targetPosition = HandlePosition.top,
+  }) {
+    final c1 = _simpleBezierControl(sourcePosition, source, target);
+    final c2 = _simpleBezierControl(targetPosition, target, source);
+    return Path()
+      ..moveTo(source.dx, source.dy)
+      ..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, target.dx, target.dy);
+  }
+
   static Path getBezierPathWithPositions({
     required Offset source,
     required Offset target,
@@ -375,5 +418,28 @@ class EdgePathCreator {
     Offset end,
   ) {
     return Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+  }
+
+  /// Center + half-extents between two endpoints (Lattice `getEdgeCenter`).
+  ///
+  /// Exact port of `getEdgeCenter` in
+  /// `xyflow/packages/system/src/utils/edges/general.ts`: used for straight
+  /// edges and simple smooth-step labels (LTR, RTL, BTT, TTB). Returns
+  /// `(center, offset)` where `offset` holds the non-negative half
+  /// distances, so `center == source + offset` up to direction.
+  static ({Offset center, Offset offset}) getEdgeCenter({
+    required Offset source,
+    required Offset target,
+  }) {
+    final xOffset = (target.dx - source.dx).abs() / 2;
+    final centerX =
+        target.dx < source.dx ? target.dx + xOffset : target.dx - xOffset;
+    final yOffset = (target.dy - source.dy).abs() / 2;
+    final centerY =
+        target.dy < source.dy ? target.dy + yOffset : target.dy - yOffset;
+    return (
+      center: Offset(centerX, centerY),
+      offset: Offset(xOffset, yOffset),
+    );
   }
 }

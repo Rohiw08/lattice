@@ -1,7 +1,9 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+// ignore_for_file: invalid_annotation_target
+import 'package:flutter/foundation.dart';import 'package:flutter/material.dart';
 import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/core/utils/json_converters.dart';
+import 'package:lattice/src/features/connections/domain/models/connection_params.dart';
+import 'package:lattice/src/features/edges/domain/model/edge.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'handle.freezed.dart';
@@ -106,6 +108,34 @@ abstract class FlowHandle with _$FlowHandle {
     ///
     /// Default is true.
     @Default(true) bool isConnectable,
+
+    /// Whether a connection drag may START here (Lattice `isConnectableStart`).
+    ///
+    /// Null (default) derives from [type]: sources (and `both`) start in
+    /// strict mode, anything starts in loose mode. Set explicitly to allow a
+    /// target handle to start connections, or to forbid a source from doing
+    /// so. Serialized.
+    bool? isConnectableStart,
+
+    /// Whether a connection drag may LAND here (Lattice `isConnectableEnd`).
+    ///
+    /// Null (default) derives from [type]: targets (and `both`) land in
+    /// strict mode, anything lands in loose mode. Set explicitly to turn a
+    /// handle into a start-only or end-only port. Serialized.
+    bool? isConnectableEnd,
+
+    /// Per-handle connection validator (Lattice per-`Handle`
+    /// `isValidConnection`).
+    ///
+    /// Runs inside the connection service alongside the canvas-wide
+    /// validator; return false to reject. Not serialized.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    bool Function(ConnectionParams connection)? isValidConnection,
+
+    /// Fired when an edge involving this handle is created (Lattice per-
+    /// `Handle` `onConnect`). Not serialized.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    void Function(ConnectionParams connection)? onConnect,
 
     /// The size of the handle's interaction area.
     ///
@@ -251,6 +281,49 @@ abstract class FlowHandle with _$FlowHandle {
 
   /// Returns true if this handle is a target (input) handle.
   bool get isTarget => type == HandleType.target;
+
+  /// Whether a connection drag may start here under [mode].
+  ///
+  /// Honors [isConnectable] first, then the explicit [isConnectableStart]
+  /// override, then the type default (sources and `both` start in strict
+  /// mode; anything starts in loose mode).
+  bool allowsStart(ConnectionMode mode) {
+    if (!isConnectable) return false;
+    if (isConnectableStart != null) return isConnectableStart!;
+    return mode == ConnectionMode.loose ||
+        type == HandleType.source ||
+        type == HandleType.both;
+  }
+
+  /// Whether a connection drag may land here under [mode].
+  ///
+  /// Honors [isConnectable] first, then the explicit [isConnectableEnd]
+  /// override, then the type default (targets and `both` land in strict
+  /// mode; anything lands in loose mode).
+  bool allowsEnd(ConnectionMode mode) {
+    if (!isConnectable) return false;
+    if (isConnectableEnd != null) return isConnectableEnd!;
+    return mode == ConnectionMode.loose ||
+        type == HandleType.target ||
+        type == HandleType.both;
+  }
+
+  /// Whether [edges] still have room on this handle of [nodeId].
+  ///
+  /// Counts edges attached to either end; null [maxConnections] means
+  /// unbounded. Pure (counts from state, no runtime sync needed).
+  bool hasCapacity(Iterable<FlowEdge> edges, String nodeId) {
+    final max = maxConnections;
+    if (max == null) return true;
+    var count = 0;
+    for (final edge in edges) {
+      if ((edge.sourceNodeId == nodeId && edge.sourceHandleId == id) ||
+          (edge.targetNodeId == nodeId && edge.targetHandleId == id)) {
+        if (++count >= max) return false;
+      }
+    }
+    return true;
+  }
 
   /// Returns true if this handle can potentially connect to another handle.
   ///

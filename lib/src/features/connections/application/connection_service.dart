@@ -14,20 +14,22 @@ import 'package:lattice/src/core/enums/enums.dart';
 
 import 'dart:math';
 
-typedef ConnectionValidator = bool Function(
-  FlowNode sourceNode,
-  FlowHandle sourceHandle,
-  FlowNode targetNode,
-  FlowHandle targetHandle,
-);
+typedef ConnectionValidator =
+    bool Function(
+      FlowNode sourceNode,
+      FlowHandle sourceHandle,
+      FlowNode targetNode,
+      FlowHandle targetHandle,
+    );
 
-typedef EdgeFactory = FlowEdge Function({
-  required String id,
-  required String sourceNodeId,
-  required String sourceHandleId,
-  required String targetNodeId,
-  required String targetHandleId,
-});
+typedef EdgeFactory =
+    FlowEdge Function({
+      required String id,
+      required String sourceNodeId,
+      required String sourceHandleId,
+      required String targetNodeId,
+      required String targetHandleId,
+    });
 
 class ClosestHandleResult {
   final String nodeId;
@@ -53,14 +55,23 @@ class ConnectionService {
     required Offset startPosition,
     ConnectionMode mode = ConnectionMode.strict,
     bool forceAllowStart = false,
+    bool nodesConnectable = true,
   }) {
     final fromNode = state.nodes[fromNodeId];
     final fromHandle = fromNode?.effectiveHandles[fromHandleId];
 
     if (fromNode == null || fromHandle == null) return state;
+    // Node + handle connectability always apply (RF: non-connectable nodes
+    // and handles never start connections, forced or not). Null inherits
+    // the canvas default (`NodeOptions.connectable`).
+    if (!(fromNode.connectable ?? nodesConnectable)) return state;
+    if (!fromHandle.isConnectable) return state;
+    // Per-handle start gate: isConnectableStart / maxConnections (RF
+    // per-Handle isConnectableStart). Forced starts (click-connect
+    // completion, reconnect) bypass the role/capacity checks.
+    if (!forceAllowStart && !fromHandle.allowsStart(mode)) return state;
     if (!forceAllowStart &&
-        mode == ConnectionMode.strict &&
-        fromHandle.type == HandleType.target) {
+        !fromHandle.hasCapacity(state.edges.values, fromNodeId)) {
       return state;
     }
 
@@ -71,8 +82,10 @@ class ConnectionService {
               (state.handleStates[handleKey] ?? const HandleRuntimeState())
                   .copyWith(active: true);
 
-    final sourceDir =
-        _determineHandlePosition(fromHandle.position, fromNode.size);
+    final sourceDir = _determineHandlePosition(
+      fromHandle.position,
+      fromNode.size,
+    );
 
     return state.copyWith(
       handleStates: newHandleStates,
@@ -100,6 +113,8 @@ class ConnectionService {
     ConnectionValidator? validator,
     ConnectionMode mode = ConnectionMode.strict,
     bool Function(ConnectionParams connection)? isValidConnection,
+    Offset defaultOrigin = Offset.zero,
+    bool nodesConnectable = true,
   }) {
     final connection = state.activeConnection;
     if (connection == null) return state;
@@ -111,15 +126,18 @@ class ConnectionService {
       return cancelConnection(state);
     }
 
-    final newHandleStates =
-        Map<String, HandleRuntimeState>.from(state.handleStates);
+    final newHandleStates = Map<String, HandleRuntimeState>.from(
+      state.handleStates,
+    );
 
     // Clear previous valid/invalid target highlights.
     for (final key in newHandleStates.keys.toList()) {
       final s = newHandleStates[key]!;
       if (s.validTarget || s.invalidTarget) {
-        newHandleStates[key] =
-            s.copyWith(validTarget: false, invalidTarget: false);
+        newHandleStates[key] = s.copyWith(
+          validTarget: false,
+          invalidTarget: false,
+        );
       }
     }
 
@@ -139,6 +157,7 @@ class ConnectionService {
       cursorPosition,
       snapRadius: effectiveSnap,
       mode: mode,
+      defaultOrigin: defaultOrigin,
     );
 
     if (closest != null) {
@@ -151,6 +170,8 @@ class ConnectionService {
         validator,
         mode: mode,
         isValidConnection: isValidConnection,
+        existingEdges: state.edges.values,
+        nodesConnectable: nodesConnectable,
       )) {
         targetNodeId = closest.nodeId;
         targetHandleId = closest.handle.id;
@@ -171,8 +192,10 @@ class ConnectionService {
     if (targetNodeId != null && targetHandleId != null) {
       final targetNode = state.nodes[targetNodeId]!;
       final targetHandle = targetNode.effectiveHandles[targetHandleId]!;
-      targetDir =
-          _determineHandlePosition(targetHandle.position, targetNode.size);
+      targetDir = _determineHandlePosition(
+        targetHandle.position,
+        targetNode.size,
+      );
     } else {
       targetDir = _oppositePosition(connection.sourcePosition);
     }
@@ -202,12 +225,14 @@ class ConnectionService {
     ConnectionMode mode = ConnectionMode.strict,
     bool Function(ConnectionParams connection)? isValidConnection,
     bool autoCreateEdge = true,
+    bool nodesConnectable = true,
   }) {
     final connection = state.activeConnection;
     if (connection == null) return state;
 
     final isComplete = connection.isComplete;
-    final validState = state.connectionState is HoveringConnectionState &&
+    final validState =
+        state.connectionState is HoveringConnectionState &&
         (state.connectionState as HoveringConnectionState).isValid;
 
     final newHandleStates = _clearConnectionStates(state);
@@ -219,7 +244,8 @@ class ConnectionService {
         connection.toNodeId != null &&
         connection.toHandleId != null) {
       final sourceNode = state.nodes[connection.fromNodeId!];
-      final sourceHandle = sourceNode?.effectiveHandles[connection.fromHandleId!];
+      final sourceHandle =
+          sourceNode?.effectiveHandles[connection.fromHandleId!];
       final targetNode = state.nodes[connection.toNodeId!];
       final targetHandle = targetNode?.effectiveHandles[connection.toHandleId!];
 
@@ -235,6 +261,8 @@ class ConnectionService {
             validator,
             mode: mode,
             isValidConnection: isValidConnection,
+            existingEdges: state.edges.values,
+            nodesConnectable: nodesConnectable,
           )) {
         if (!autoCreateEdge) {
           return state.copyWith(
@@ -288,10 +316,19 @@ class ConnectionService {
     );
   }
 
+  /// Clears transient handle highlights (valid/invalid/active) without
+  /// touching the pending connection. Public for completion paths that
+  /// insert an edge themselves (e.g. `onBeforeConnect` prebuilt edges).
+  Map<String, HandleRuntimeState> clearConnectionHandleStates(
+    FlowCanvasState state,
+  ) => _clearConnectionStates(state);
+
   Map<String, HandleRuntimeState> _clearConnectionStates(
-      FlowCanvasState state) {
-    final newHandleStates =
-        Map<String, HandleRuntimeState>.from(state.handleStates);
+    FlowCanvasState state,
+  ) {
+    final newHandleStates = Map<String, HandleRuntimeState>.from(
+      state.handleStates,
+    );
 
     for (final key in newHandleStates.keys.toList()) {
       final s = newHandleStates[key]!;
@@ -313,6 +350,7 @@ class ConnectionService {
     Offset cursorPosition, {
     required double snapRadius,
     ConnectionMode mode = ConnectionMode.strict,
+    Offset defaultOrigin = Offset.zero,
   }) {
     final connection = state.activeConnection;
     final sourceNode = state.nodes[connection!.fromNodeId];
@@ -320,8 +358,10 @@ class ConnectionService {
 
     if (sourceNode == null || sourceHandle == null) return null;
 
-    final nearbyHandles =
-        nodeIndex.queryHandlesNear(cursorPosition, searchRadius: snapRadius);
+    final nearbyHandles = nodeIndex.queryHandlesNear(
+      cursorPosition,
+      searchRadius: snapRadius,
+    );
     ClosestHandleResult? closest;
     double minDistance = double.infinity;
 
@@ -338,15 +378,22 @@ class ConnectionService {
       if (potentialTargetNode == null || potentialTargetHandle == null) {
         continue;
       }
-      // Strict: only land on targets. Loose: any handle.
+      // Explicit end-only opt-out: never a landing candidate (both modes).
+      // Plain isConnectable=false stays a candidate so it highlights as
+      // invalid (existing behavior); the validator below rejects it.
+      if (potentialTargetHandle.isConnectableEnd == false) continue;
+      // Strict: only land on targets (unless explicitly end-enabled).
       if (mode == ConnectionMode.strict &&
-          potentialTargetHandle.type == HandleType.source) {
+          potentialTargetHandle.type == HandleType.source &&
+          potentialTargetHandle.isConnectableEnd != true) {
         continue;
       }
 
-      final handleCenter = NodeLayout.absolutePosition(
+      final handleCenter =
+          NodeLayout.absoluteTopLeft(
             potentialTargetNodeId,
             state.nodes,
+            defaultOrigin: defaultOrigin,
           ) +
           potentialTargetHandle.position;
       final dist = (cursorPosition - handleCenter).distance;
@@ -373,6 +420,8 @@ class ConnectionService {
     FlowHandle targetHandle, {
     ConnectionMode mode = ConnectionMode.strict,
     bool Function(ConnectionParams connection)? isValidConnection,
+    Iterable<FlowEdge> existingEdges = const [],
+    bool nodesConnectable = true,
   }) {
     return _isValidConnection(
       sourceNode,
@@ -382,6 +431,8 @@ class ConnectionService {
       null,
       mode: mode,
       isValidConnection: isValidConnection,
+      existingEdges: existingEdges,
+      nodesConnectable: nodesConnectable,
     );
   }
 
@@ -393,16 +444,39 @@ class ConnectionService {
     ConnectionValidator? customValidator, {
     ConnectionMode mode = ConnectionMode.strict,
     bool Function(ConnectionParams connection)? isValidConnection,
+    Iterable<FlowEdge> existingEdges = const [],
+    bool nodesConnectable = true,
   }) {
     if (sourceNode.id == targetNode.id) return false;
     if (!sourceHandle.isConnectable || !targetHandle.isConnectable) {
       return false;
     }
+    if (!(sourceNode.connectable ?? nodesConnectable) ||
+        !(targetNode.connectable ?? nodesConnectable)) {
+      return false;
+    }
+
+    // Explicit role opt-outs apply in every mode (loose included).
+    if (sourceHandle.isConnectableStart == false) return false;
+    if (targetHandle.isConnectableEnd == false) return false;
 
     if (mode == ConnectionMode.strict) {
-      // Lattice Strict: only source → target.
-      if (sourceHandle.type == HandleType.target) return false;
-      if (targetHandle.type == HandleType.source) return false;
+      // Lattice Strict: only source → target (unless the handle explicitly
+      // opts into the other role via isConnectableStart/End).
+      if (sourceHandle.type == HandleType.target &&
+          sourceHandle.isConnectableStart != true) {
+        return false;
+      }
+      if (targetHandle.type == HandleType.source &&
+          targetHandle.isConnectableEnd != true) {
+        return false;
+      }
+    }
+
+    // Per-handle capacity (declarative maxConnections).
+    if (!sourceHandle.hasCapacity(existingEdges, sourceNode.id) ||
+        !targetHandle.hasCapacity(existingEdges, targetNode.id)) {
+      return false;
     }
 
     final params = ConnectionParams(
@@ -412,12 +486,25 @@ class ConnectionService {
       targetHandleId: targetHandle.id,
     );
 
+    // Per-handle validators run before the canvas-wide one.
+    if (sourceHandle.isValidConnection != null &&
+        !sourceHandle.isValidConnection!(params)) {
+      return false;
+    }
+    if (targetHandle.isValidConnection != null &&
+        !targetHandle.isValidConnection!(params)) {
+      return false;
+    }
     if (isValidConnection != null && !isValidConnection(params)) {
       return false;
     }
     if (customValidator != null) {
       return customValidator(
-          sourceNode, sourceHandle, targetNode, targetHandle);
+        sourceNode,
+        sourceHandle,
+        targetNode,
+        targetHandle,
+      );
     }
     return true;
   }
@@ -449,11 +536,17 @@ class ConnectionService {
   }
 
   List<FlowEdge> getConnectedEdges(
-      FlowCanvasState state, String nodeId, String handleId) {
+    FlowCanvasState state,
+    String nodeId,
+    String handleId,
+  ) {
     return state.edges.values
-        .where((edge) =>
-            (edge.sourceNodeId == nodeId && edge.sourceHandleId == handleId) ||
-            (edge.targetNodeId == nodeId && edge.targetHandleId == handleId))
+        .where(
+          (edge) =>
+              (edge.sourceNodeId == nodeId &&
+                  edge.sourceHandleId == handleId) ||
+              (edge.targetNodeId == nodeId && edge.targetHandleId == handleId),
+        )
         .toList();
   }
 
@@ -484,5 +577,3 @@ class ConnectionService {
     }
   }
 }
-
-

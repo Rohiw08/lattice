@@ -27,6 +27,17 @@ import '../../../core/theme/components/edge_theme.dart';
 ///   type: 'dashed',
 /// );
 /// ```
+/// Custom edge example:
+///
+/// ```
+/// final registry = EdgeRegistry()
+///   ..register('sine', EdgeTypeConfig(
+///     pathBuilder: (input) {
+///       // ... build a sinusoidal Path from input.source to input.target
+///       return Path()..moveTo(input.source.dx, input.source.dy);
+///     },
+///   ));
+/// ```
 class EdgeRegistry {
   final Map<String, EdgeTypeConfig> _types;
 
@@ -92,6 +103,8 @@ class EdgeRegistry {
       focusable: config.focusable,
       reconnectable: config.reconnectable,
       animated: config.animated ?? false,
+      pathBuilder: config.pathBuilder,
+      foregroundPainter: config.foregroundPainter,
     );
   }
 
@@ -100,7 +113,12 @@ class EdgeRegistry {
   // ---------------------------------------------------------------------------
 
   void _registerDefaultTypes() {
+    // Lattice built-in edge types (all five render without registration).
     register('default', EdgeTypeConfig.bezier());
+    register('straight', EdgeTypeConfig.straight());
+    register('step', EdgeTypeConfig.step());
+    register('smoothstep', EdgeTypeConfig.smoothStep());
+    register('simplebezier', EdgeTypeConfig.simpleBezier());
   }
 }
 
@@ -121,6 +139,12 @@ class EdgeTypeConfig {
   final bool? focusable;
   final bool? reconnectable;
 
+  /// Fully custom path builder, copied onto created edges.
+  final FlowEdgePathBuilder? pathBuilder;
+
+  /// Canvas-space foreground painter, copied onto created edges.
+  final FlowEdgeForegroundPainter? foregroundPainter;
+
   const EdgeTypeConfig({
     this.pathType = EdgePathType.bezier,
     this.style,
@@ -132,6 +156,8 @@ class EdgeTypeConfig {
     this.selectable,
     this.focusable,
     this.reconnectable,
+    this.pathBuilder,
+    this.foregroundPainter,
   });
 
   /// Predefined bezier edge configuration.
@@ -149,6 +175,16 @@ class EdgeTypeConfig {
         pathType: EdgePathType.smoothStep,
       );
 
+  /// Predefined sharp step edge configuration.
+  factory EdgeTypeConfig.step() => const EdgeTypeConfig(
+        pathType: EdgePathType.step,
+      );
+
+  /// Predefined simple-bezier edge configuration.
+  factory EdgeTypeConfig.simpleBezier() => const EdgeTypeConfig(
+        pathType: EdgePathType.simpleBezier,
+      );
+
   /// Copies this configuration with optional overrides.
   EdgeTypeConfig copyWith({
     EdgePathType? pathType,
@@ -161,6 +197,8 @@ class EdgeTypeConfig {
     bool? selectable,
     bool? focusable,
     bool? reconnectable,
+    FlowEdgePathBuilder? pathBuilder,
+    FlowEdgeForegroundPainter? foregroundPainter,
   }) {
     return EdgeTypeConfig(
       pathType: pathType ?? this.pathType,
@@ -173,6 +211,8 @@ class EdgeTypeConfig {
       selectable: selectable ?? this.selectable,
       focusable: focusable ?? this.focusable,
       reconnectable: reconnectable ?? this.reconnectable,
+      pathBuilder: pathBuilder ?? this.pathBuilder,
+      foregroundPainter: foregroundPainter ?? this.foregroundPainter,
     );
   }
 }

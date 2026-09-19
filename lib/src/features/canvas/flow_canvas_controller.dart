@@ -1,7 +1,9 @@
 import 'package:lattice/src/features/viewport/application/viewport_controller.dart';
+import 'package:lattice/src/core/document/canvas_document.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
+import 'package:lattice/src/features/canvas/flow_canvas_callbacks.dart';
 import 'package:lattice/src/features/clipboard/application/clipboard_controller.dart';
 import 'package:lattice/src/features/connections/application/connection_controller.dart';
 import 'package:lattice/src/features/edges/application/edge_geometry_controller.dart';
@@ -87,8 +89,10 @@ class FlowCanvasController {
   @internal
   void attach(FlowCanvasInternalController internalController) {
     if (_internalController != null) {
-      debugPrint('FlowCanvasController is being re-attached. '
-          'This is usually fine during hot reload.');
+      if (kDebugMode) {
+        debugPrint('FlowCanvasController is being re-attached. '
+            'This is usually fine during hot reload.');
+      }
     }
     _internalController = internalController;
     for (final listener in _listeners) {
@@ -110,15 +114,63 @@ class FlowCanvasController {
   FlowCanvasState get currentState => _internal.currentState;
 
   /// Replaces the current canvas state with a new one.
-  /// Typically used for loading a saved graph.
+  ///
+  /// Typically used for loading a saved graph. Resets undo history —
+  /// prefer the granular `nodes` / `edges` / `selection` APIs for
+  /// incremental updates, and [applyRemote] for live collaboration.
   void load(FlowCanvasState state) => _internal.load(state);
 
   /// Returns the current canvas state serialized as JSON.
   /// Symmetric counterpart to [load] for save/restore workflows.
   Map<String, dynamic> toJson() => _internal.currentState.toJson();
 
+  /// Returns the canvas state serialized for multiplayer sync: like [toJson]
+  /// but strips per-client UI state (selection), which must never be shared.
+  /// Pair with [applyRemote] on the receiving side.
+  Map<String, dynamic> toSyncJson() => _internal.currentState.toSyncJson();
+
+  /// Applies a remote collaborator's graph without touching local UI state
+  /// (selection, viewport) or undo history.
+  ///
+  /// Multiplayer counterpart to [load] (which resets history and takes over
+  /// everything — right for file-open, wrong for live collab). Decoded from
+  /// a peer's [toSyncJson]; emits no `onNodesChange`/`onEdgesChange` so sync
+  /// adapters can't echo-loop (observe via [addListener] if needed).
+  void applyRemote(FlowCanvasState state) => _internal.applyRemote(state);
+
+  /// Returns the nodes, edges and viewport as an object (Lattice
+  /// `toObject` / `ReactFlowJsonObject`). Pair with [load] to restore.
+  ReactFlowJsonObject toObject() {
+    final s = currentState;
+    return (
+      nodes: s.nodes.values.toList(),
+      edges: s.edges.values.toList(),
+      viewport: s.viewport,
+    );
+  }
+
   /// Pushes the current graph state as an undo checkpoint without mutating.
   void commitHistoryCheckpoint() => _internal.commitHistoryCheckpoint();
+
+  /// Flips the master element-interaction switch (Lattice `setInteractive`).
+  ///
+  /// While false, node drag/select, edge select, connection starts, and
+  /// marquees stop; viewport, pointer observations, and programmatic APIs
+  /// keep working. Transient (no history entry, not serialized). The
+  /// `FlowCanvasControls` `showInteractive` button drives the same flag.
+  void setInteractive(bool interactive) =>
+      _internal.setInteractive(interactive);
+
+  /// Removes nodes (with descendants) and edges in a single undo step.
+  ///
+  /// Lattice `deleteElements` counterpart — see
+  /// [FlowCanvasInternalController.deleteElements] for semantics.
+  /// Returns the removed objects.
+  FlowDeletedElements deleteElements({
+    Iterable<String> nodeIds = const {},
+    Iterable<String> edgeIds = const {},
+  }) =>
+      _internal.deleteElements(nodeIds: nodeIds, edgeIds: edgeIds);
 
   /// Adds a listener that is called whenever the canvas state changes.
   void addListener(void Function(FlowCanvasState) listener) {

@@ -34,6 +34,11 @@ class KeyboardActionService {
     required double maxZoom,
     required CoordinateExtent translateExtent,
     required double zoomStep,
+    Offset defaultOrigin = Offset.zero,
+    bool nodesDeletable = true,
+    bool edgesDeletable = true,
+    bool nodesDraggable = true,
+    bool expandParentDefault = false,
   }) {
     switch (action) {
       // --- MUTATION ACTIONS (will be wrapped in history by the controller) ---
@@ -43,26 +48,47 @@ class KeyboardActionService {
         return selectionService.deselectAll(state);
       case KeyboardAction.deleteSelection:
         final selectedNodeIds = state.selectedNodes.toList();
-        if (selectedNodeIds.isEmpty) return state;
+        // Explicitly selected edges (null deletable counts as allowed,
+        // mirroring NodeService). Connected edges of removed nodes go away
+        // unconditionally so no edge dangles.
+        final selectedEdgeIds = state.selectedEdges
+            .where((id) =>
+                state.edges[id]?.deletable ?? edgesDeletable)
+            .toList();
+        if (selectedNodeIds.isEmpty && selectedEdgeIds.isEmpty) return state;
         final connectedEdgeIds =
             edgeService.getEdgesFromNodes(state, selectedNodeIds);
-        final stateAfterEdges =
-            edgeService.removeEdges(state, connectedEdgeIds);
-        final newState =
-            nodeService.removeNodes(stateAfterEdges, selectedNodeIds);
+        final stateAfterEdges = edgeService.removeEdges(
+            state, [...connectedEdgeIds, ...selectedEdgeIds],
+            edgesDeletable: edgesDeletable);
+        final newState = nodeService.removeNodes(
+            stateAfterEdges, selectedNodeIds,
+            nodesDeletable: nodesDeletable);
         return newState;
       case KeyboardAction.moveUp:
         return nodeService.moveSelectedNodes(
-            state, Offset(0, arrowMoveDelta.dy));
+            state, Offset(0, arrowMoveDelta.dy),
+            defaultOrigin: defaultOrigin,
+            nodesDraggable: nodesDraggable,
+            expandParentDefault: expandParentDefault);
       case KeyboardAction.moveDown:
         return nodeService.moveSelectedNodes(
-            state, Offset(0, -arrowMoveDelta.dy));
+            state, Offset(0, -arrowMoveDelta.dy),
+            defaultOrigin: defaultOrigin,
+            nodesDraggable: nodesDraggable,
+            expandParentDefault: expandParentDefault);
       case KeyboardAction.moveLeft:
         return nodeService.moveSelectedNodes(
-            state, Offset(-arrowMoveDelta.dx, 0));
+            state, Offset(-arrowMoveDelta.dx, 0),
+            defaultOrigin: defaultOrigin,
+            nodesDraggable: nodesDraggable,
+            expandParentDefault: expandParentDefault);
       case KeyboardAction.moveRight:
         return nodeService.moveSelectedNodes(
-            state, Offset(arrowMoveDelta.dx, 0));
+            state, Offset(arrowMoveDelta.dx, 0),
+            defaultOrigin: defaultOrigin,
+            nodesDraggable: nodesDraggable,
+            expandParentDefault: expandParentDefault);
       case KeyboardAction.zoomIn:
       case KeyboardAction.zoomOut:
         {
