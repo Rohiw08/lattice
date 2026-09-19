@@ -208,48 +208,58 @@ class FlowEdgeLayer extends ConsumerWidget {
               ),
             ),
             // Animated edges — shared ticker, only while needed (VNF pattern).
+            // Own RepaintBoundary so the ~60fps ticker repaint does not dirty
+            // sibling layers (static edges, labels, connection painter).
             if (animatedOrdered.isNotEmpty)
-              _AnimatedEdgesPaint(
-                edges: Map.fromEntries(animatedOrdered),
-                edgeStates: paintState.edgeStates,
-                theme: theme,
-                defaultEdgeStyle: defaultEdgeStyle,
-                precomputedPaths: precomputedPaths,
-                geoms: controller.edgeGeometryService.geometries,
-                versions: controller.edgeGeometryService.edgeVersions,
-                geometryEpoch: paintState.geometryRevision,
-                liveStamp: session.liveStamp,
-              ),
-            CustomPaint(
-              painter: EdgePainter(
-                edgesSelectable: EdgeOptions.resolve(context).selectable,
-                edges: Map.fromEntries(
-                  activeOrdered.where((e) => !e.value.animated),
+              RepaintBoundary(
+                child: _AnimatedEdgesPaint(
+                  edges: Map.fromEntries(animatedOrdered),
+                  edgeStates: paintState.edgeStates,
+                  theme: theme,
+                  defaultEdgeStyle: defaultEdgeStyle,
+                  precomputedPaths: precomputedPaths,
+                  geoms: controller.edgeGeometryService.geometries,
+                  versions: controller.edgeGeometryService.edgeVersions,
+                  geometryEpoch: paintState.geometryRevision,
+                  liveStamp: session.liveStamp,
                 ),
-                edgeStates: paintState.edgeStates,
-                theme: theme,
-                defaultEdgeStyle: defaultEdgeStyle,
-                precomputedPaths: precomputedPaths,
-                geoms: controller.edgeGeometryService.geometries,
-                versions: controller.edgeGeometryService.edgeVersions,
-                geometryEpoch: paintState.geometryRevision,
-                liveStamp: session.liveStamp,
               ),
-              size: Size.infinite,
+            // Active (drag) edges — repaint every drag frame; isolate them so
+            // that per-frame repaint does not re-raster the sibling layers.
+            RepaintBoundary(
+              child: CustomPaint(
+                painter: EdgePainter(
+                  edgesSelectable: EdgeOptions.resolve(context).selectable,
+                  edges: Map.fromEntries(
+                    activeOrdered.where((e) => !e.value.animated),
+                  ),
+                  edgeStates: paintState.edgeStates,
+                  theme: theme,
+                  defaultEdgeStyle: defaultEdgeStyle,
+                  precomputedPaths: precomputedPaths,
+                  geoms: controller.edgeGeometryService.geometries,
+                  versions: controller.edgeGeometryService.edgeVersions,
+                  geometryEpoch: paintState.geometryRevision,
+                  liveStamp: session.liveStamp,
+                ),
+                size: Size.infinite,
+              ),
             ),
             if (activeOrdered.any((e) => e.value.animated))
-              _AnimatedEdgesPaint(
-                edges: Map.fromEntries(
-                  activeOrdered.where((e) => e.value.animated),
+              RepaintBoundary(
+                child: _AnimatedEdgesPaint(
+                  edges: Map.fromEntries(
+                    activeOrdered.where((e) => e.value.animated),
+                  ),
+                  edgeStates: paintState.edgeStates,
+                  theme: theme,
+                  defaultEdgeStyle: defaultEdgeStyle,
+                  precomputedPaths: precomputedPaths,
+                  geoms: controller.edgeGeometryService.geometries,
+                  versions: controller.edgeGeometryService.edgeVersions,
+                  geometryEpoch: paintState.geometryRevision,
+                  liveStamp: session.liveStamp,
                 ),
-                edgeStates: paintState.edgeStates,
-                theme: theme,
-                defaultEdgeStyle: defaultEdgeStyle,
-                precomputedPaths: precomputedPaths,
-                geoms: controller.edgeGeometryService.geometries,
-                versions: controller.edgeGeometryService.edgeVersions,
-                geometryEpoch: paintState.geometryRevision,
-                liveStamp: session.liveStamp,
               ),
             ...staticOrdered
                 .where((entry) => hasLabel(entry))
