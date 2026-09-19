@@ -55,6 +55,12 @@ class NodesController {
   Map<String, Offset> _dragStartPositions = {};
   Set<String> _nodesBeingDragged = {};
 
+  /// Parent→children adjacency captured at drag-start. The tree shape is
+  /// stable across a drag (only positions move), so [_moveNodesBy] reuses this
+  /// every frame instead of rescanning all nodes via
+  /// [NodeService.getDescendants].
+  Map<String, List<String>>? _dragAdjacency;
+
   /// Accumulated pointer travel in flow units since drag start (gesture
   /// deltas + auto-pan tick compensation). Lattice `XYDrag.updateNodes`:
   /// RF maps pointer -> node ABSOLUTELY (`nextPosition = pointer -
@@ -723,12 +729,17 @@ class NodesController {
 
     _isDragActive = true;
 
+    // Cache the parent→children adjacency once; the tree shape is stable for
+    // the whole gesture, so every frame reuses this instead of rescanning.
+    _dragAdjacency = _nodeService.buildChildAdjacency(stateAfterSelection);
+
     // Edges of dragged nodes + descendants (absolute positions change when a
     // parent moves even if child stored coords do not).
     final activeEdges = <String>{};
     final affected = _nodeService.getDescendants(
       stateAfterSelection,
       _nodesBeingDragged,
+      adjacency: _dragAdjacency,
     );
     for (final id in affected) {
       activeEdges.addAll(_spatialIndex.edgeIndex.getEdgesForNode(id));
@@ -895,7 +906,8 @@ class NodesController {
       // Re-sync spatial entries for dragged nodes, grown parents and shifted
       // siblings (absolute positions of children change when a parent moves).
       final affected =
-          _nodeService.getDescendants(_controller.currentState, draggedIds)
+          _nodeService.getDescendants(_controller.currentState, draggedIds,
+              adjacency: _dragAdjacency)
             ..addAll(liveSizes.keys)
             ..addAll(live.keys);
       for (final id in affected) {
@@ -980,6 +992,7 @@ class NodesController {
     _dragStartPositions = {};
     _pointerTravel = Offset.zero;
     _nodesBeingDragged.clear();
+    _dragAdjacency = null;
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -1078,6 +1091,7 @@ class NodesController {
     _dragStartPositions = {};
     _pointerTravel = Offset.zero;
     _nodesBeingDragged.clear();
+    _dragAdjacency = null;
     if (_session.isActive) _session.endDrag();
     _ensureDragModeReset();
   }
@@ -1272,9 +1286,11 @@ class NodesController {
       }
     }
 
-    final affected = _nodeService.getDescendants(state, nodesToMove)
-      ..addAll(_session.livePositions.keys)
-      ..addAll(_session.liveSizes.keys);
+    final affected =
+        _nodeService.getDescendants(state, nodesToMove,
+            adjacency: _dragAdjacency)
+          ..addAll(_session.livePositions.keys)
+          ..addAll(_session.liveSizes.keys);
     _edgeGeometryService.updateEdgesForNodes(
       state,
       affected,

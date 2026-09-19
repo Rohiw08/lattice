@@ -566,17 +566,34 @@ FlowCanvasState updateNode(
     return state.copyWith(nodes: newNodes);
   }
 
-  /// returns a set of all descendant nodes for the given roots
-  Set<String> getDescendants(
-      FlowCanvasState state, Iterable<String> rootNodeIds) {
-    if (rootNodeIds.isEmpty) return {};
-
+  /// Builds a parent→children adjacency map from [state] in one O(N) pass.
+  ///
+  /// The parent/child structure is stable across a drag gesture (only
+  /// positions change), so callers on the drag hot path build this once at
+  /// drag-start and pass it back into [getDescendants] every frame instead of
+  /// rescanning all nodes each time.
+  Map<String, List<String>> buildChildAdjacency(FlowCanvasState state) {
     final parentToChildren = <String, List<String>>{};
     for (final node in state.nodes.values) {
       if (node.parentId != null) {
         parentToChildren.putIfAbsent(node.parentId!, () => []).add(node.id);
       }
     }
+    return parentToChildren;
+  }
+
+  /// returns a set of all descendant nodes for the given roots
+  ///
+  /// Pass [adjacency] (from [buildChildAdjacency]) to skip the O(N) parent
+  /// scan — used on the drag hot path where the tree shape does not change.
+  Set<String> getDescendants(
+    FlowCanvasState state,
+    Iterable<String> rootNodeIds, {
+    Map<String, List<String>>? adjacency,
+  }) {
+    if (rootNodeIds.isEmpty) return {};
+
+    final parentToChildren = adjacency ?? buildChildAdjacency(state);
 
     final allNodes = <String>{};
     final queue = List<String>.from(rootNodeIds);
