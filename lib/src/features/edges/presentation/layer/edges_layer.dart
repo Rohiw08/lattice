@@ -46,14 +46,16 @@ class PainterState extends Equatable {
     required this.hasAnimatedEdges,
   }) : _edgesHash = edgesHash;
 
-  factory PainterState.fromState(FlowCanvasState s) {
-    var hasAnimated = false;
-    for (final e in s.edges.values) {
-      if (e.animated) {
-        hasAnimated = true;
-        break;
-      }
-    }
+  /// Builds the lean paint state from [s].
+  ///
+  /// [signature] carries the edge-set hash + animated flag, memoized on the
+  /// edges-map identity by [EdgeGeometryService.edgesSignature] so this
+  /// selector stays O(1) on hover/selection/viewport emissions (which reuse
+  /// the same edges map) instead of re-scanning every edge each time.
+  factory PainterState.fromState(
+    FlowCanvasState s, {
+    required ({int hash, bool hasAnimated}) signature,
+  }) {
     return PainterState(
       dragMode: s.dragMode,
       edges: s.edges,
@@ -62,8 +64,8 @@ class PainterState extends Equatable {
       connection: s.activeConnection,
       connectionState: s.connectionState,
       geometryRevision: s.geometryRevision,
-      edgesHash: Object.hashAll(s.edges.keys),
-      hasAnimatedEdges: hasAnimated,
+      edgesHash: signature.hash,
+      hasAnimatedEdges: signature.hasAnimated,
     );
   }
 
@@ -93,7 +95,12 @@ class FlowEdgeLayer extends ConsumerWidget {
     final session = controller.interactionSession;
 
     final paintState = ref.watch(
-      internalControllerProvider.select((s) => PainterState.fromState(s)),
+      internalControllerProvider.select(
+        (s) => PainterState.fromState(
+          s,
+          signature: controller.edgeGeometryService.edgesSignature(s.edges),
+        ),
+      ),
     );
 
     final precomputedPaths = controller.edgeGeometryService.precomputedPaths;

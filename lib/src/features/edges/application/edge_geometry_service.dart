@@ -49,6 +49,36 @@ class EdgeGeometryService {
   /// Bumped whenever any cached path changes (for [shouldRepaint]).
   int geometryEpoch = 0;
 
+  // Memoized edge-set signature (see [edgesSignature]).
+  Map<String, FlowEdge>? _sigEdgesRef;
+  int _sigHash = 0;
+  bool _sigHasAnimated = false;
+
+  /// Cheap, cached signature of the edge set: a hash of the edge ids plus
+  /// whether any edge is animated.
+  ///
+  /// Both are O(edges) to compute, but they only change when the `edges` map
+  /// itself is replaced (add/remove/modify) — never on a hover, selection,
+  /// or viewport emission, which reuse the same map reference. Memoizing on
+  /// map identity keeps the edge-layer selector O(1) on those frequent
+  /// emissions instead of re-scanning every edge each time.
+  ({int hash, bool hasAnimated}) edgesSignature(Map<String, FlowEdge> edges) {
+    if (identical(edges, _sigEdgesRef)) {
+      return (hash: _sigHash, hasAnimated: _sigHasAnimated);
+    }
+    var hasAnimated = false;
+    for (final e in edges.values) {
+      if (e.animated) {
+        hasAnimated = true;
+        break;
+      }
+    }
+    _sigEdgesRef = edges;
+    _sigHash = Object.hashAll(edges.keys);
+    _sigHasAnimated = hasAnimated;
+    return (hash: _sigHash, hasAnimated: hasAnimated);
+  }
+
   /// Retrieves the cached geometry for a given edge ID.
   EdgeGeom? getGeom(String edgeId) => _edgeCache[edgeId];
 
