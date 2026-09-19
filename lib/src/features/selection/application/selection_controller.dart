@@ -7,6 +7,7 @@ import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart
 import 'package:lattice/src/features/selection/application/selection_service.dart';
 import 'package:lattice/src/features/spatial/application/spatial_index_service.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -39,6 +40,15 @@ class SelectionController {
   Timer? _autoPanTimer;
   Offset _autoPanVelocity = Offset.zero;
   Offset? _lastGlobalPosition;
+
+  // Marquee move updates are coalesced to one per frame. Raw pointer moves can
+  // arrive several times per frame, and each `updateSelection` runs an O(N)
+  // spatial query and clones both runtime maps. We keep only the latest scene
+  // position and flush it once on the next frame (mirrors InteractionSession's
+  // `_scheduleNotify`). Auto-pan stays on its own 16ms timer, already
+  // frame-bound.
+  Offset? _pendingScenePosition;
+  bool _moveScheduled = false;
 
   /// Whether box-select should start (Lattice: selectionKeyPressed || selectionOnDrag).
   ///
@@ -99,6 +109,7 @@ class SelectionController {
     _removeGlobalPointerRoute();
     _stopSelectionAutoPan();
     _lastGlobalPosition = null;
+    _pendingScenePosition = null;
     _selectionDragOrigin = position;
     final stateAfterStart =
         _selectionService.startBoxSelection(_controller.currentState, position);
@@ -144,6 +155,9 @@ class SelectionController {
   }
 
   void endSelection() {
+    // Apply the last coalesced move so the final selection reflects the
+    // pointer's release position before we read it for the end callback.
+    _flushPendingSelection();
     _stopSelectionAutoPan();
     _removeGlobalPointerRoute();
     _selectionDragOrigin = null;
@@ -170,6 +184,8 @@ class SelectionController {
   }
 
   void cancelSelection() {
+    // Drop any coalesced move — the gesture is being abandoned.
+    _pendingScenePosition = null;
     _stopSelectionAutoPan();
     _removeGlobalPointerRoute();
     _selectionDragOrigin = null;
@@ -188,11 +204,33 @@ class SelectionController {
 
     if (event is PointerMoveEvent) {
       _lastGlobalPosition = event.position;
-      updateSelection(_globalToScene(event.position));
+      // Coalesce the marquee update to one flush per frame; auto-pan velocity
+      // is cheap and stays synchronous so the ramp reacts immediately.
+      _pendingScenePosition = _globalToScene(event.position);
+      _scheduleMoveFlush();
       _handleSelectionAutoPan(event.position);
     } else if (event is PointerUpEvent || event is PointerCancelEvent) {
       endSelection();
     }
+  }
+
+  /// Schedules a single [updateSelection] flush on the next frame.
+  void _scheduleMoveFlush() {
+    if (_moveScheduled) return;
+    _moveScheduled = true;
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _moveScheduled = false;
+      _flushPendingSelection();
+    });
+    SchedulerBinding.instance.scheduleFrame();
+  }
+
+  /// Applies the latest pending marquee position, if any.
+  void _flushPendingSelection() {
+    final position = _pendingScenePosition;
+    if (position == null) return;
+    _pendingScenePosition = null;
+    updateSelection(position);
   }
 
   void _removeGlobalPointerRoute() {
