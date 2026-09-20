@@ -13,6 +13,7 @@ import 'package:lattice/src/features/edges/presentation/layer/edges_layer.dart';
 import 'package:lattice/src/features/keyboard/presentation/inputs/gesture_bindings.dart';
 import 'package:lattice/src/features/nodes/domain/node_render_layer.dart';
 import 'package:lattice/src/features/nodes/presentation/flow_interaction.dart';
+import 'package:lattice/src/features/nodes/presentation/flow_node_a11y_layer.dart';
 import 'package:lattice/src/features/nodes/presentation/nodes_layer.dart';
 import 'package:lattice/src/features/selection/presentation/layers/selection_layer.dart';
 import 'package:lattice/src/features/viewport/domain/visible_flow_region.dart';
@@ -394,6 +395,11 @@ class _FlowCanvasInteractiveSurfaceState
                       layoutSize: Size(width, height),
                     ),
                   ),
+                  // Always-mounted keyboard-focus / screen-reader proxies for
+                  // every node (bodies above are culled). Ring paints over the
+                  // node bodies; IgnorePointer keeps pointer behavior on the
+                  // real bodies.
+                  const UnboundedPositioned.fill(child: FlowNodeA11yLayer()),
                   const UnboundedPositioned.fill(child: SelectionLayer()),
                   const UnboundedPositioned.fill(child: EdgeReconnectLayer()),
                 ],
