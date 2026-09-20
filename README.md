@@ -45,13 +45,13 @@ The canvas uses a **hybrid hot/cold** model. Full story + measured numbers:
 | Pan / zoom | `InteractiveViewer` matrix is authoritative. Freezed `state.viewport` commits on gesture **end** (`SyncViewportMode.end`, default). |
 | Node drag | Positions live in an internal `InteractionSession` buffer; Freezed graph + spatial index + history commit on drag **end**. |
 | Edges | Static edges sit behind a `RepaintBoundary`; only edges attached to dragged nodes repaint mid-drag. |
-| Culling | Enable `ViewportOptions.onlyRenderVisibleElements` for large graphs. Uses the spatial grid + hysteresis. |
+| Culling | On by default (`ViewportOptions.onlyRenderVisibleElements`): off-screen node widgets aren't mounted, so large graphs are fast out of the box. Uses the spatial grid + hysteresis; keyboard/screen-reader access to off-screen nodes is preserved. Set it `false` to mount every node. |
 
 ### Recommended options for large graphs
 
 ```dart
 ViewportOptions(
-  onlyRenderVisibleElements: true,
+  onlyRenderVisibleElements: true,           // default (shown for clarity)
   syncViewportToState: SyncViewportMode.end, // default
   lodHideHandlesBelowZoom: 0.4,              // optional LOD
   minZoom: 0.1,

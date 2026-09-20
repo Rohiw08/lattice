@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Breaking (pre-1.0) default: viewport culling is now **on** by default
+  (`ViewportOptions.onlyRenderVisibleElements` flips `false` → `true`, both
+  ctors). Off-screen node widgets aren't mounted, so large graphs are fast out
+  of the box. This is safe now that culling (a) engages on the first frame —
+  the nodes/edges layers fall back to the `LayoutBuilder` size before
+  `state.viewportSize` is seeded post-frame, so frame 1 mounts only the visible
+  band instead of all N; (b) **freezes** its visible set during node drag
+  (`frozen ∪ dragAffected ∪ selected`) instead of wholesale-disabling culling,
+  killing the drag-start mass-mount (drag p95 stays ~146ms, was ~4666ms when
+  culling was disabled on drag); and (c) preserves keyboard traversal +
+  screen-reader access + focus-into-view for off-screen nodes via an
+  always-mounted proxy layer (`FlowNodeA11yLayer`, one lightweight
+  Focus+Semantics proxy per node, mirroring `EdgeA11yLayer`). Opt out with
+  `ViewportOptions(onlyRenderVisibleElements: false)`. Same-machine 450-node
+  debug bench (cull on vs off): mount ~31% faster, remount ~37%, tap-select
+  ~33%, drag flat with no spike. Pinned by `test/cull_drag_freeze_test.dart`,
+  `test/cull_focus_traversal_test.dart`, `test/viewport_options_default_test.dart`.
 - Cull first-drag fix (correctness, no API change): with
   `onlyRenderVisibleElements: true`, the first drag on a fresh canvas lost
   moves/up (0.0 displacement, stuck `DragMode.node`, 3/3 bench repro). Root
@@ -29,17 +46,12 @@
   bulk move+fitView 34.2s vs 1.1s, remount 16.1s vs 1.1s. Numbers +
   asymmetries recorded in `PERFORMANCE.md`; debug-harness caveats stand (no
   rasterization, JIT first frames).
-- Culling opt-in status (no API change): `onlyRenderVisibleElements: true`
-  stays off by default (RF parity) and tap-select + gesture drag are verified
-  working under it (cull bench fully green post-fix: drag commits, tap-select
-  ~98ms). See the cull-fix entry above for the wrapper-toggle bug that was
-  found and fixed via this variant.
+- Culling verification (superseded by the default-flip entry above): the cull
+  variant was validated working — tap-select + gesture drag commit correctly
+  under it — before it became the default.
   `benchmark/outside_450_test.dart` accepts `--dart-define=LATTICE_BENCH_CULL=true`
-  to exercise the variant; `benchmark/probe_sel_test.dart` probes it with
-  `--dart-define=CULL=true` (spelled `=true`: `bool.fromEnvironment` only
-  accepts `"true"`). Post-fix p50s: mount 15.5s vs 1.3s, drag-move 25ms vs
-  52ms (lattice wins), tap-select 136ms vs 20ms, bulk move+fitView 34.2s vs
-  1.1s, remount 16.1s vs 1.1s. Full table + asymmetries in `PERFORMANCE.md`.
+  to force the variant on for the head-to-head bench regardless of the default.
+  Full table + asymmetries in `PERFORMANCE.md`.
 - Per-node drag scopes (no API change): node shells now listen to a filtered
   session scope instead of the whole gesture notifier, so static siblings run
   zero builders and zero element updates on drag ticks — only dragged roots,

@@ -10,7 +10,7 @@ How `lattice` stays fast, what we measured, and the habits that keep it fast.
 | Camera flights | `fitView` / `centerOnPosition` / `setViewport` with a duration write the matrix per tick and commit **once** on landing (or on cancel). A user grab cancels the flight and commits the live position — no snap-back. |
 | Node drag | Positions live in an `InteractionSession` buffer; committed graph + spatial index + history land on drop. Per move, only the dragged subtree rebuilds — static siblings skip gesture ticks entirely via per-node session scopes (`scopeFor`), and the edge layer does not rebuild (only dragged-attached edges repaint). `onNodeDrag` streams live positions without touching state. |
 | Edges | Static edges behind a `RepaintBoundary`; animated edges share one ticker that exists only while mounted (and never under reduced motion);Reconnect/drag-attached edges paint on a separate active layer. |
-| Culling | `ViewportOptions.onlyRenderVisibleElements` + spatial grid + hysteresis (`renderCullingPadding`, `nodeMountExtraPadding`). Disabled mid node/connection drag (index defers to drop). Opt-in (RF default `false` preserved). The cull transform-listener wrapper is keyed on the option only and never toggles (a `viewportSize`-conditioned toggle wholesale-remounted all shells mid-gesture — fixed, pinned by `test/cull_drag_test.dart`). |
+| Culling | `ViewportOptions.onlyRenderVisibleElements` + spatial grid + hysteresis (`renderCullingPadding`, `nodeMountExtraPadding`). **On by default** — engages on the first frame (falls back to the `LayoutBuilder` size before `state.viewportSize` is seeded post-frame). During node drag the layer **freezes** its pre-drag visible set (`frozen ∪ dragAffected ∪ selected`) instead of querying the mid-drag-stale index, so no node vanishes and drag-start never mass-mounts. Keyboard/screen-reader reach to off-screen nodes is preserved by an always-mounted proxy layer (`FlowNodeA11yLayer`). Opt out with `onlyRenderVisibleElements: false`. |
 | LOD | `lodHideHandlesBelowZoom` drops handle widgets when zoomed out; `lodThumbnailBelowZoom` replaces all node widgets with one cached paint below its threshold (view-only down there — drag/resize/focus return when zooming back in). |
 
 ## Measured behavior
@@ -47,39 +47,45 @@ Same fixture/scenarios/harness on both sides, outside-in black-box only:
 Debug `flutter test` env (no rasterization; JIT-dominated first frames).
 p50 shown; means track p50 except where noted.
 
-| Scenario | lattice (default) | lattice (cull opt-in) | vyuh_node_flow 0.27.3 |
-|---|---|---|---|
-| Mount (pumpWidget + settle) | ~15.5s | ~16.8s | ~1.3s |
-| Drag, 10x10px moves, per-pump | p50 ~25ms (mean ~33ms) | p50 ~27ms (mean ~482ms: one-time un-cull on dragStart) | p50 ~52ms |
-| Tap-select | ~136ms | ~98ms | ~20ms |
-| Bulk move 450 + fitView, total | ~34.2s | ~28.4s | ~1.1s |
-| Full remount | ~16.1s | ~16.8s | ~1.1s |
+Culling is now **on by default** (Sept 2026). The table pairs the default
+against `onlyRenderVisibleElements: false` on the same machine/run so the
+delta is honest; VNF's column is the earlier recorded run (not re-benched
+this pass — treat cross-column ratios as directional, same-column deltas as
+solid). p50 shown; means noted where they diverge.
 
-Read it straight: on mount/bulk-ops VNF is ~10-30x faster in this
-harness — leaner node tree vs our RF-parity chrome (first inflate and bulk
-rebuilds are genuine O(N) widget work, debug-slow). On interactions, lattice
-is at parity or better: steady-state drag moves ~25ms vs ~52ms, tap-select
-~136ms vs ~20ms (was ~6s before the layer instance cache — the gap was
-cascade waste, now fixed). Both sides show debug variance (VNF drag p95
-~376ms; lattice cull-drag first move ~5.6s for the one-time un-cull).
+| Scenario | lattice (default, cull on) | lattice (cull off) | vyuh_node_flow 0.27.3† |
+|---|---|---|---|
+| Mount (pumpWidget + settle) | ~9.7s (mean ~10.1s) | ~14.0s (mean ~13.7s) | ~1.3s |
+| Drag, 10x10px moves, per-pump | p50 ~23ms (mean ~31ms, p95 ~146ms) | p50 ~21ms (mean ~29ms, p95 ~156ms) | p50 ~52ms |
+| Tap-select | ~118ms (mean ~122ms) | ~175ms (mean ~179ms) | ~20ms |
+| Bulk move 450 + fitView, total | ~26.8s | ~27.5s | ~1.1s |
+| Full remount | ~8.4s (mean ~7.5s) | ~13.2s (mean ~12.4s) | ~1.1s |
+
+† VNF column recorded in an earlier pass on the same harness; not re-run when
+culling was flipped, so use it for order-of-magnitude context only.
+
+Read it straight. Culling default-on is a clear same-machine win on the
+mount-class scenarios — mount ~31% faster, remount ~37%, tap-select ~33% —
+because only the on-screen band mounts instead of all 450 bodies. Drag is
+**flat** (p50 23 vs 21ms) with **no drag-start spike**: freezing the visible
+set on drag replaced the old wholesale un-cull that used to stall the first
+move. Bulk move + `fitView` is flat (~27s) because it repositions and
+re-fits every node — a genuine full-graph O(N) pass culling can't shortcut.
+
+Versus VNF, mount/bulk-ops are still ~7-30x slower in this debug harness:
+that's our RF-parity chrome (first inflate and bulk rebuilds are real O(N)
+widget work, debug-slow) against a leaner node tree — culling narrows the
+mount gap but does not close it. On interactive drag lattice stays ~2x
+ahead (p50 23ms vs 52ms). Tap-select's pure-Dart cost is ~0.23ms at 450
+nodes and rebuilds exactly one body; the ~120ms here is debug-mode
+per-frame framework tax (assertions/timeline/layout), not an optimizable
+term — so it's left alone (measured, September 2026).
 
 Asymmetries documented in the bench headers (not hidden): VNF edges are
 port-to-port (every node carries 2 ports; lattice edges are portless);
 VNF changePos is 450x public `setNodePosition` (450 MobX actions) vs our
-single bulk `load` — and still 30x faster, so the gap is per-emission/frame
-cost, not API shape; VNF select flushes an extra 100ms pump for its
+single bulk `load`; VNF select flushes an extra 100ms pump for its
 double-tap timer.
-
-Cull opt-in bug (Sept 2026 bench, 3/3 repro — FIXED): on a fresh
-canvas with `onlyRenderVisibleElements: true`, the first node drag started
-(mode=node, selection lands) but moves/up were lost — displacement 0.0 and
-the drag stuck in `DragMode.node`. Root cause: the cull transform-listener
-wrapper was conditioned on `viewportSize`, so its toggle wholesale-unmounted
-every node shell mid-gesture (in-flight recognizer disposed). Fix: the
-wrapper is keyed on the *option* only and never toggles; the cull filter
-keeps its own null/empty-size guard. Pinned by `test/cull_drag_test.dart`.
-The same toggle also caused the ~300-body select storm under culling
-(~34s → ~98ms tap-select).
 
 ## Habits that keep it fast
 
@@ -92,11 +98,12 @@ The same toggle also caused the ~300-body select storm under culling
    changes; watching the whole map rebuilds on every commit. Dedicated
    `flowSelectedNodeIdsProvider` / `flowViewportProvider` exist for this.
 3. **Collapse with `hidden`, cull with options.** `hidden` nodes mount one
-   `SizedBox`; `onlyRenderVisibleElements` unmounts off-screen subtrees.
+   `SizedBox`; `onlyRenderVisibleElements` (on by default) unmounts off-screen
+   subtrees while keeping keyboard/screen-reader reach via the proxy layer.
 4. **Keep node chrome cheap.** Shadows, gradients, and animated edges cost
    raster time on every repaint — fine at 50 nodes, felt at 5000.
-5. **Large-graph recipe:** `onlyRenderVisibleElements: true`,
-   `lodHideHandlesBelowZoom: 0.4`, `lodThumbnailBelowZoom: 0.35`,
+5. **Large-graph recipe:** `onlyRenderVisibleElements: true` (already the
+   default), `lodHideHandlesBelowZoom: 0.4`, `lodThumbnailBelowZoom: 0.35`,
    `syncViewportToState: SyncViewportMode.end` (the default).
 
 ## Debugging
@@ -130,10 +137,15 @@ areas, keep its invariant or update the contract test next to it:
    `edgeVersions`; painters compare only their own ids. If you add a paint
    input, add it to the hash or stale pixels won't repaint.
    Exemplar: `lib/src/features/edges/application/edge_geometry_service.dart`.
-4. **Culling stays off the drag path.** The spatial index defers to drag-end,
-   so nothing may cull on mid-drag queries. Correctness (no stuck/vanished
-   nodes) beats frame savings here.
-   Exemplar: `allowCull` in `nodes_layer.dart`.
+4. **Never query the spatial index mid node-drag.** The index holds stale
+   pre-drag positions until drop, so a mid-drag query could drop a
+   still-visible node. During `DragMode.node` the nodes layer keeps culling on
+   but **freezes** its pre-drag visible set and adds only the drag-affected
+   subtree + selection (`_lastCulledIds ∪ session.dragAffected ∪ selected`) —
+   no query, no drag-start mass-mount. Correctness (no stuck/vanished nodes,
+   no spike) beats frame savings here.
+   Exemplar: the `DragMode.node` freeze branch in `buildStack`
+   (`nodes_layer.dart`); pinned by `test/cull_drag_freeze_test.dart`.
 5. **Cache, don't recompute, per frame.** Tangents, laid-out text, and
    precomputed paths come from a service cache the painter receives — never
    recomputed inside `paint`.
