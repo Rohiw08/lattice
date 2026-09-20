@@ -258,8 +258,15 @@ class ViewportOptions with Diagnosticable {
 
   /// Performance optimization: only render visible elements.
   ///
-  /// When true, nodes/edges outside the viewport are not rendered.
-  /// Improves performance for large graphs.
+  /// When true, node widgets outside the viewport (plus a
+  /// [renderCullingPadding] + [nodeMountExtraPadding] margin) are not mounted,
+  /// so the first frame and every rebuild touch only the on-screen band
+  /// instead of the whole graph. Keyboard traversal, screen-reader access, and
+  /// focus-into-view for off-screen nodes are preserved by an always-mounted
+  /// lightweight proxy layer, so culling never costs accessibility. Edges are
+  /// painted (not one widget each) and are unaffected.
+  ///
+  /// Defaults to true.
   final bool onlyRenderVisibleElements;
 
   /// Extra flow-space margin around the visible rect when [onlyRenderVisibleElements]
@@ -345,7 +352,7 @@ class ViewportOptions with Diagnosticable {
     this.autoPanMargin = 50.0,
     this.snapToGrid = false,
     this.snapGrid = const SnapGrid(),
-    this.onlyRenderVisibleElements = false,
+    this.onlyRenderVisibleElements = true,
     this.renderCullingPadding = 200.0,
     this.nodeMountExtraPadding = 400.0,
     this.syncViewportToState = SyncViewportMode.end,
@@ -396,7 +403,7 @@ class ViewportOptions with Diagnosticable {
         autoPanMargin = 50.0,
         snapToGrid = false,
         snapGrid = const SnapGrid(),
-        onlyRenderVisibleElements = false,
+        onlyRenderVisibleElements = true,
         renderCullingPadding = 200.0,
         nodeMountExtraPadding = 400.0,
         syncViewportToState = SyncViewportMode.end,
