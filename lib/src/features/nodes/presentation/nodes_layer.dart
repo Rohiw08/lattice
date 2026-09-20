@@ -61,9 +61,16 @@ class FlowNodesLayer extends ConsumerStatefulWidget {
   const FlowNodesLayer({
     super.key,
     this.layer = NodeRenderLayer.middle,
+    this.layoutSize,
   });
 
   final NodeRenderLayer layer;
+
+  /// Finite pane size from the surrounding [LayoutBuilder], used as the cull
+  /// fallback on the first frame before `state.viewportSize` is seeded
+  /// post-frame. Without it, culling can't engage until frame 2, so all nodes
+  /// mount on the initial frame. Null-safe: culling still guards on emptiness.
+  final Size? layoutSize;
 
   @override
   ConsumerState<FlowNodesLayer> createState() => _FlowNodesLayerState();
@@ -179,12 +186,14 @@ class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
           state.dragMode != DragMode.node &&
           state.dragMode != DragMode.connection;
 
-      if (allowCull &&
-          state.viewportSize != null &&
-          !state.viewportSize!.isEmpty) {
+      // Fall back to the LayoutBuilder size on the first frame, before
+      // `viewportSize` is seeded post-frame (see [FlowNodesLayer.layoutSize]).
+      final size = state.viewportSize ?? widget.layoutSize;
+
+      if (allowCull && size != null && !size.isEmpty) {
         final rect = computeVisibleFlowRectFromCanvasTransform(
           notifier.transformationController.value,
-          state.viewportSize!,
+          size,
           padding: vpOpts.renderCullingPadding + vpOpts.nodeMountExtraPadding,
         );
 

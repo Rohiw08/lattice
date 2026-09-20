@@ -84,7 +84,12 @@ class PainterState extends Equatable {
 
 /// Renders edges as static (RepaintBoundary) + animated + active (drag) layers.
 class FlowEdgeLayer extends ConsumerWidget {
-  const FlowEdgeLayer({super.key});
+  const FlowEdgeLayer({super.key, this.layoutSize});
+
+  /// Finite pane size from the surrounding [LayoutBuilder], used as the cull
+  /// fallback on the first frame before `state.viewportSize` is seeded
+  /// post-frame. Null-safe: culling still no-ops when neither is available.
+  final Size? layoutSize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -143,12 +148,16 @@ class FlowEdgeLayer extends ConsumerWidget {
           paintState.dragMode == DragMode.connection) {
         return source;
       }
-      if (flowState.viewportSize == null || flowState.viewportSize!.isEmpty) {
+      // Fall back to the LayoutBuilder size on the first frame, before
+      // `viewportSize` is seeded post-frame — otherwise culling can't engage
+      // until frame 2 and every edge paints on the initial mount.
+      final size = flowState.viewportSize ?? layoutSize;
+      if (size == null || size.isEmpty) {
         return source;
       }
       final rect = computeVisibleFlowRectFromCanvasTransform(
         controller.transformationController.value,
-        flowState.viewportSize!,
+        size,
         padding: vpOpts.renderCullingPadding,
       );
       return source.where((entry) {

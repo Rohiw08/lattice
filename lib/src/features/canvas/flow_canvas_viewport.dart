@@ -369,24 +369,29 @@ class _FlowCanvasInteractiveSurfaceState
                         viewportSize: Size(width, height),
                       ),
                     ),
-                  const UnboundedPositioned.fill(
+                  UnboundedPositioned.fill(
                     child: FlowNodesLayer(
                       layer: NodeRenderLayer.background,
+                      layoutSize: Size(width, height),
                     ),
                   ),
-                  const UnboundedPositioned.fill(child: FlowEdgeLayer()),
+                  UnboundedPositioned.fill(
+                    child: FlowEdgeLayer(layoutSize: Size(width, height)),
+                  ),
                   const UnboundedPositioned.fill(child: EdgeA11yLayer()),
                   const UnboundedPositioned.fill(
                     child: FlowCanvasPointerLayer(),
                   ),
-                  const UnboundedPositioned.fill(
+                  UnboundedPositioned.fill(
                     child: FlowNodesLayer(
                       layer: NodeRenderLayer.middle,
+                      layoutSize: Size(width, height),
                     ),
                   ),
-                  const UnboundedPositioned.fill(
+                  UnboundedPositioned.fill(
                     child: FlowNodesLayer(
                       layer: NodeRenderLayer.foreground,
+                      layoutSize: Size(width, height),
                     ),
                   ),
                   const UnboundedPositioned.fill(child: SelectionLayer()),
