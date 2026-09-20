@@ -47,45 +47,48 @@ Same fixture/scenarios/harness on both sides, outside-in black-box only:
 Debug `flutter test` env (no rasterization; JIT-dominated first frames).
 p50 shown; means track p50 except where noted.
 
-Culling is now **on by default** (Sept 2026). The table pairs the default
-against `onlyRenderVisibleElements: false` on the same machine/run so the
-delta is honest; VNF's column is the earlier recorded run (not re-benched
-this pass — treat cross-column ratios as directional, same-column deltas as
-solid). p50 shown; means noted where they diverge.
+**Apples-to-apples node.** Both benches render the *same* node: a
+`BaseNode` (decoration) + **2 handles/ports** + a centered id label. This
+matters — an earlier run compared a bare lattice `SizedBox+Text` (no
+decoration, no handles) against VNF's decorated 2-port node and wrongly
+concluded mount was tied. The lattice bench now selects the node shape with
+`--dart-define=LATTICE_BENCH_NODE=fair|bare|chrome|default` (`fair` is the
+default and the only honest cross-library comparison). Both libraries cull
+by default; the table is each at its default. VNF re-benched on the same
+machine this pass (no longer a stale column).
 
-| Scenario | lattice (default, cull on) | lattice (cull off) | vyuh_node_flow 0.27.3† |
-|---|---|---|---|
-| Mount (pumpWidget + settle) | ~9.7s (mean ~10.1s) | ~14.0s (mean ~13.7s) | ~1.3s |
-| Drag, 10x10px moves, per-pump | p50 ~23ms (mean ~31ms, p95 ~146ms) | p50 ~21ms (mean ~29ms, p95 ~156ms) | p50 ~52ms |
-| Tap-select | ~118ms (mean ~122ms) | ~175ms (mean ~179ms) | ~20ms |
-| Bulk move 450 + fitView, total | ~26.8s | ~27.5s | ~1.1s |
-| Full remount | ~8.4s (mean ~7.5s) | ~13.2s (mean ~12.4s) | ~1.1s |
+| Scenario | lattice (fair, cull on) | vyuh_node_flow 0.27.3 |
+|---|---|---|
+| Mount (pumpWidget + settle) | ~2.65s | ~1.36s |
+| Drag, 10x10px moves, per-pump | p50 ~31ms (p95 ~80ms) | p50 ~52ms (p95 ~371ms) |
+| Tap-select | ~72ms | ~16ms |
+| Bulk move 450 + fitView, total | ~5.16s | ~1.03s |
+| Full remount | ~2.31s | ~1.11s |
 
-† VNF column recorded in an earlier pass on the same harness; not re-run when
-culling was flipped, so use it for order-of-magnitude context only.
+Read it straight. On **interactive drag lattice wins** — p50 31 vs 52ms and
+**4.6× steadier** at the tail (p95 80 vs 371ms), because our committed state
+is frozen mid-drag (one session write per move, ~1 rebuild, edge layer
+untouched) while VNF re-evaluates its connections observer per move. On the
+mount-class scenarios VNF is still ahead (mount 1.9×, remount 2.1×, changePos
+5.0×): first inflate and bulk rebuilds are real O(N) widget work and our
+per-node tree (gesture shell + a11y proxy + RF-parity chrome) is deeper than
+VNF's. Tap-select's pure-Dart cost is ~0.23ms at 450 nodes and rebuilds
+exactly one body; the ~72ms here is debug-mode per-frame framework tax
+(assertions/timeline/layout), not an optimizable term.
 
-Read it straight. Culling default-on is a clear same-machine win on the
-mount-class scenarios — mount ~31% faster, remount ~37%, tap-select ~33% —
-because only the on-screen band mounts instead of all 450 bodies. Drag is
-**flat** (p50 23 vs 21ms) with **no drag-start spike**: freezing the visible
-set on drag replaced the old wholesale un-cull that used to stall the first
-move. Bulk move + `fitView` is flat (~27s) because it repositions and
-re-fits every node — a genuine full-graph O(N) pass culling can't shortcut.
+**What closed the mount gap (Sept 2026).** The built-in default node
+synthesizes 2 handles, so 450 nodes mount 900 `Handle` widgets. Each was a
+`ConsumerWidget` doing 5 `.select()` watches wrapped in a nested `Consumer`
+doing 5 more — ~9000 provider subscriptions wired at mount, ~11.6s of a
+~13.2s handle cost. Collapsing those into 2 record-selects (invariant #6,
+below) took the fair mount from ~15s to ~2.65s and the built-in `default`
+node from ~9.7s to ~2.97s — the mount gap vs VNF fell from ~11.7× to ~1.9×.
+Keep handles cheap: a handle that watches more than it renders is the most
+expensive widget in a large graph.
 
-Versus VNF, mount/bulk-ops are still ~7-30x slower in this debug harness:
-that's our RF-parity chrome (first inflate and bulk rebuilds are real O(N)
-widget work, debug-slow) against a leaner node tree — culling narrows the
-mount gap but does not close it. On interactive drag lattice stays ~2x
-ahead (p50 23ms vs 52ms). Tap-select's pure-Dart cost is ~0.23ms at 450
-nodes and rebuilds exactly one body; the ~120ms here is debug-mode
-per-frame framework tax (assertions/timeline/layout), not an optimizable
-term — so it's left alone (measured, September 2026).
-
-Asymmetries documented in the bench headers (not hidden): VNF edges are
-port-to-port (every node carries 2 ports; lattice edges are portless);
-VNF changePos is 450x public `setNodePosition` (450 MobX actions) vs our
-single bulk `load`; VNF select flushes an extra 100ms pump for its
-double-tap timer.
+Asymmetries documented in the bench headers (not hidden): VNF changePos is
+450x public `setNodePosition` (450 MobX actions) vs our single bulk `load`;
+VNF select flushes an extra 100ms pump for its double-tap timer.
 
 ## Habits that keep it fast
 
@@ -100,8 +103,11 @@ double-tap timer.
 3. **Collapse with `hidden`, cull with options.** `hidden` nodes mount one
    `SizedBox`; `onlyRenderVisibleElements` (on by default) unmounts off-screen
    subtrees while keeping keyboard/screen-reader reach via the proxy layer.
-4. **Keep node chrome cheap.** Shadows, gradients, and animated edges cost
-   raster time on every repaint — fine at 50 nodes, felt at 5000.
+4. **Keep node chrome — and handles — cheap.** Shadows, gradients, and
+   animated edges cost raster time on every repaint — fine at 50 nodes, felt
+   at 5000. Handles multiply: 2 per node × N nodes, so a handle that opens
+   more provider subscriptions than it renders dominates mount (see the
+   Sept 2026 Handle collapse above). Merge its watches into one record select.
 5. **Large-graph recipe:** `onlyRenderVisibleElements: true` (already the
    default), `lodHideHandlesBelowZoom: 0.4`, `lodThumbnailBelowZoom: 0.35`,
    `syncViewportToState: SyncViewportMode.end` (the default).
