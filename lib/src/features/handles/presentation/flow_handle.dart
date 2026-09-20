@@ -2,7 +2,6 @@ import 'package:lattice/src/core/theme/components/cursor_theme.dart';
 import 'package:lattice/src/core/theme/components/handle_theme.dart';
 import 'package:lattice/src/core/theme/theme_extension.dart';
 import 'package:lattice/src/core/enums/enums.dart';
-import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
 import 'package:lattice/src/features/nodes/presentation/flow_no_drag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,39 +83,56 @@ class Handle extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final handleState = ref.watch(
-      internalControllerProvider.select(
-        (s) => s.handleStates[handleKey] ?? const HandleRuntimeState(),
+    // Invariant #6: merge multi-field selects into ONE record select — same
+    // rebuild semantics, but a single provider subscription instead of many.
+    // At 450 nodes × 2 handles the old 10-subscriptions-per-handle wired ~9000
+    // subscriptions at mount; this cuts it to ~4 (2 here + LOD/notifier reads),
+    // which is the bulk of the built-in-node mount cost. `effectiveHandles`
+    // is read once per emission (stored map for custom handles; the getter
+    // only synthesizes for built-in nodes with no explicit handles).
+    final (handleState, nodeConnectable, modelHandle, interactive) = ref.watch(
+      internalControllerProvider.select((s) {
+        final node = s.nodes[nodeId];
+        return (
+          s.handleStates[handleKey] ?? const HandleRuntimeState(),
+          node?.connectable,
+          node?.effectiveHandles[handleId],
+          s.interactive,
+        );
+      }),
+    );
+    final (globalConnectable, connectionMode, clickConnect) = ref.watch(
+      flowOptionsProvider.select(
+        (o) => (
+          o.nodeOptions.connectable,
+          o.connectionOptions.connectionMode,
+          o.connectionOptions.connectOnClick,
+        ),
       ),
     );
-    final nodeConnectable = ref.watch(
-      internalControllerProvider.select((s) => s.nodes[nodeId]?.connectable),
-    );
-    final modelConnectable = ref.watch(
-      internalControllerProvider.select(
-        (s) => s.nodes[nodeId]?.effectiveHandles[handleId]?.isConnectable,
-      ),
-    );
-    final globalConnectable = ref.watch(
-      flowOptionsProvider.select((o) => o.nodeOptions.connectable),
-    );
-    // Widget prop → model → node flag → global (null widget/type props
-    // fall through). Non-interactive masters everything off.
-    final interactive = ref.watch(
-      internalControllerProvider.select((s) => s.interactive),
-    );
+
+    // Widget prop → model → node flag → global (null props fall through).
+    // Non-interactive masters everything off (Lattice setInteractive) — applied
+    // uniformly, including when an explicit isConnectable override is present.
     final connectable =
         (isConnectable ??
-            modelConnectable ??
+            modelHandle?.isConnectable ??
             nodeConnectable ??
             globalConnectable) &&
         interactive;
+    final startOverride =
+        isConnectableStart ?? modelHandle?.isConnectableStart;
+    final canStart =
+        connectable &&
+        (startOverride ??
+            (connectionMode == ConnectionMode.loose ||
+                type == HandleType.source ||
+                type == HandleType.both));
 
     final controller = ref.read(internalControllerProvider.notifier);
-    final lodZoom = ref
-        .read(flowOptionsProvider)
-        .viewportOptions
-        .lodHideHandlesBelowZoom;
+    final options = ref.read(flowOptionsProvider);
+    final lodZoom = options.viewportOptions.lodHideHandlesBelowZoom;
+    final handleLabel = options.a11yOptions.labels.handleLabel;
 
     Widget buildHandle() {
       final baseTheme =
@@ -129,7 +145,53 @@ class Handle extends ConsumerWidget {
           ? handleBuilder!(context, handleState, theme, type)
           : _DefaultHandle(decoration: decoration);
 
-      return _handleInteractive(controller, handleCore);
+      // Expand hit target beyond the tiny visual so connect-drag is reliable.
+      final hitW = size.width < 20 ? 20.0 : size.width;
+      final hitH = size.height < 20 ? 20.0 : size.height;
+
+      // Pointer-driven connect (not GestureDetector pan): InteractiveViewer's
+      // ScaleGestureRecognizer wins the arena and would swallow onPan*.
+      // FlowNoDrag: beat the parent node pan so drag-to-connect isn't stolen.
+      final child = FlowNoDrag(
+        child: Semantics(
+          // Lattice `handle.ariaLabel` — each handle is its own node, like
+          // RF's labelled handle divs.
+          label: handleLabel,
+          container: true,
+          child: MouseRegion(
+            onEnter: (_) => controller.handle.setHandleHover(handleKey, true),
+            onExit: (_) => controller.handle.setHandleHover(handleKey, false),
+            cursor:
+                (context.flowCanvasTheme.cursor ??
+                        FlowCursorStyle.system(context))
+                    .handle,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (canStart || clickConnect) && connectable
+                  ? (event) => controller.connection.onConnectionPointerDown(
+                      nodeId,
+                      handleId,
+                      event,
+                    )
+                  : null,
+              child: SizedBox(
+                width: hitW,
+                height: hitH,
+                child: Center(
+                  child: SizedBox(
+                    width: size.width,
+                    height: size.height,
+                    child: handleCore,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      if (position == Offset.zero) return child;
+      return Transform.translate(offset: position, child: child);
     }
 
     if (lodZoom != null) {
@@ -145,105 +207,6 @@ class Handle extends ConsumerWidget {
     }
 
     return buildHandle();
-  }
-
-  Widget _handleInteractive(
-    FlowCanvasInternalController controller,
-    Widget handleCore,
-  ) {
-    return Consumer(
-      builder: (context, ref, _) {
-        final connOpts = ref.watch(flowOptionsProvider).connectionOptions;
-        final mode = connOpts.connectionMode;
-        final modelHandle = ref.watch(
-          internalControllerProvider.select(
-            (s) => s.nodes[nodeId]?.effectiveHandles[handleId],
-          ),
-        );
-        final bool? modelConnectable = modelHandle?.isConnectable;
-        final bool? nodeConnectable = ref.watch(
-          internalControllerProvider.select(
-            (s) => s.nodes[nodeId]?.connectable,
-          ),
-        );
-        final globalConnectable = ref.watch(
-          flowOptionsProvider.select((o) => o.nodeOptions.connectable),
-        );
-        final interactive = ref.watch(
-          internalControllerProvider.select((s) => s.interactive),
-        );
-        bool resolvedConnectable = nodeConnectable ?? globalConnectable;
-        if (isConnectable != null) {
-          resolvedConnectable = isConnectable!;
-        } else if (modelConnectable != null) {
-          resolvedConnectable = modelConnectable;
-        }
-        // Non-interactive masters everything off (Lattice setInteractive).
-        resolvedConnectable = resolvedConnectable && interactive;
-        if (isConnectable != null) {
-          resolvedConnectable = isConnectable!;
-        } else if (modelConnectable != null) {
-          resolvedConnectable = modelConnectable;
-        }
-        final startOverride =
-            isConnectableStart ?? modelHandle?.isConnectableStart;
-        final canStart =
-            resolvedConnectable &&
-            (startOverride ??
-                (mode == ConnectionMode.loose ||
-                    type == HandleType.source ||
-                    type == HandleType.both));
-        final clickConnect = connOpts.connectOnClick;
-
-        // Expand hit target beyond the tiny visual so connect-drag is reliable.
-        final hitW = size.width < 20 ? 20.0 : size.width;
-        final hitH = size.height < 20 ? 20.0 : size.height;
-
-        // Pointer-driven connect (not GestureDetector pan): InteractiveViewer's
-        // ScaleGestureRecognizer wins the arena and would swallow onPan*.
-        // FlowNoDrag: beat the parent node pan so drag-to-connect isn't stolen.
-        final child = FlowNoDrag(
-          child: Semantics(
-            // Lattice `handle.ariaLabel` — each handle is its own node,
-            // like RF's labelled handle divs.
-            label: ref.read(flowOptionsProvider).a11yOptions.labels.handleLabel,
-            container: true,
-            child: MouseRegion(
-              onEnter: (_) => controller.handle.setHandleHover(handleKey, true),
-              onExit: (_) => controller.handle.setHandleHover(handleKey, false),
-              cursor:
-                  (context.flowCanvasTheme.cursor ??
-                          FlowCursorStyle.system(context))
-                      .handle,
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (canStart || clickConnect) && resolvedConnectable
-                    ? (event) => controller.connection.onConnectionPointerDown(
-                        nodeId,
-                        handleId,
-                        event,
-                      )
-                    : null,
-                child: SizedBox(
-                  width: hitW,
-                  height: hitH,
-                  child: Center(
-                    child: SizedBox(
-                      width: size.width,
-                      height: size.height,
-                      child: handleCore,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-
-        if (position == Offset.zero) return child;
-        return Transform.translate(offset: position, child: child);
-      },
-    );
   }
 }
 

@@ -29,15 +29,74 @@ const int runs = 3;
 /// viewport culling on (same flag RF users opt into for large graphs).
 const bool benchCull = bool.fromEnvironment('LATTICE_BENCH_CULL');
 
+/// Node chrome variant, selected via `--dart-define=LATTICE_BENCH_NODE=...`:
+///
+/// - `fair` (default): `BaseNode` + decoration + 2 handles + centered text.
+///   Matches VNF's benchmark node (decoration + 2 ports + text) element-for-
+///   element — the only apples-to-apples comparison.
+/// - `bare`: builder returns just the `SizedBox+Text` body (no decoration, no
+///   handles). Isolates the cost of lattice's gesture shell + a11y proxy.
+/// - `chrome`: `BaseNode` + text but ZERO handles. Subtracted from `fair`,
+///   isolates the per-node handle-widget cost from the BaseNode chrome cost.
+/// - `default`: the built-in `default` node type (BaseNode + auto-handles, no
+///   text) — what a user gets if they don't supply a custom node.
+const String benchNodeVariant =
+    String.fromEnvironment('LATTICE_BENCH_NODE', defaultValue: 'fair');
+
+/// Shared 50x30 centered id label at fontSize 8 — byte-identical to the VNF
+/// counterpart's `nodeBuilder` body.
+Widget benchLabel(String id) =>
+    Center(child: Text(id, style: const TextStyle(fontSize: 8)));
+
+/// Two handles matching VNF's 2 ports (left target, right source), so the
+/// `fair` node renders the same handle count VNF renders port count.
+Map<String, FlowHandle> benchHandles() => const {
+      'target': FlowHandle(
+        id: 'target',
+        type: HandleType.target,
+        position: Offset(0, 15),
+        size: Size(6, 6),
+      ),
+      'source': FlowHandle(
+        id: 'source',
+        type: HandleType.source,
+        position: Offset(50, 15),
+        size: Size(6, 6),
+      ),
+    };
+
+NodeRegistry buildRegistry() {
+  final registry = NodeRegistry();
+  switch (benchNodeVariant) {
+    case 'bare':
+      registry.register(
+        'bench',
+        (node) => SizedBox(width: 50, height: 30, child: benchLabel(node.id)),
+      );
+    case 'fair':
+    case 'chrome':
+      registry.register(
+        'bench',
+        (node) => BaseNode(node: node, child: benchLabel(node.id)),
+      );
+    // 'default' uses the built-in type; no custom registration needed.
+  }
+  return registry;
+}
+
 Map<String, FlowNode<String>> buildNodes() {
+  final useDefault = benchNodeVariant == 'default';
   final nodes = <String, FlowNode<String>>{};
   for (var i = 0; i < nodeCount; i++) {
     nodes['node-$i'] = FlowNode<String>(
-      type: 'default',
+      type: useDefault ? 'default' : 'bench',
       id: 'node-$i',
       position: Offset((i % cols) * 100.0, (i ~/ cols) * 50.0),
       size: const Size(50, 30),
       data: 'node-$i',
+      // 'fair' attaches the 2 handles explicitly; 'default' synthesizes its
+      // own; 'bare' gets none.
+      handles: benchNodeVariant == 'fair' ? benchHandles() : const {},
     );
   }
   return nodes;
@@ -82,6 +141,7 @@ Future<FlowCanvasController> pumpCanvas(
         child: FlowCanvas(
           key: ValueKey('canvas-$run'),
           controller: controller,
+          nodeRegistry: buildRegistry(),
           options: FlowCanvasOptions(
             viewportOptions: ViewportOptions(
               minZoom: 0.2,
