@@ -35,6 +35,12 @@ class InteractionSession extends ChangeNotifier {
   /// path today.
   Set<String> _dragAffected = const {};
 
+  /// Ids whose visuals may change during the active drag (roots + descendants
+  /// + expandParent parents/siblings). Culling keeps these mounted through the
+  /// drag so a parent can drag an off-screen descendant into view. Empty when
+  /// no drag is active. See [_dragAffected].
+  Set<String> get dragAffected => _dragAffected;
+
   /// Per-node scope stamps, bumped only for affected ids (see [_dragAffected]).
   /// Cleared on [endDrag], so entries never outlive a gesture.
   final Map<String, int> _nodeStamps = {};

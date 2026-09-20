@@ -90,6 +90,13 @@ class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
   /// leaves this render layer so removed nodes don't leak.
   final Map<String, _NodeWidget> _widgets = {};
 
+  /// Ids kept by the last *normal* (non-drag) cull for this layer. Frozen at
+  /// drag-start and reused for the whole node drag so culling stays on without
+  /// re-querying the (mid-drag stale) spatial index. Prevents the drag-start
+  /// mass-mount: without it, disabling culling on drag mounted all N nodes in
+  /// one pump. See the drag-freeze branch in `buildStack`.
+  Set<String> _lastCulledIds = const {};
+
   @override
   Widget build(BuildContext context) {
     final ref = this.ref;
@@ -177,20 +184,31 @@ class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
         );
       }
 
-      final dragging = notifier.interactionSession.draggingNodeIds;
-
-      // Do not cull while dragging nodes: the spatial index is deferred until
-      // drag-end, so a spatial query mid-drag can drop widgets that are still
-      // on screen (looks "stuck" / unclickable once the element is gone).
-      final allowCull = vpOpts.onlyRenderVisibleElements &&
-          state.dragMode != DragMode.node &&
-          state.dragMode != DragMode.connection;
+      final session = notifier.interactionSession;
+      final dragging = session.draggingNodeIds;
 
       // Fall back to the LayoutBuilder size on the first frame, before
       // `viewportSize` is seeded post-frame (see [FlowNodesLayer.layoutSize]).
       final size = state.viewportSize ?? widget.layoutSize;
+      final cullEnabled =
+          vpOpts.onlyRenderVisibleElements && size != null && !size.isEmpty;
 
-      if (allowCull && size != null && !size.isEmpty) {
+      if (cullEnabled && state.dragMode == DragMode.node) {
+        // Drag freeze: keep culling on but do NOT query the spatial index —
+        // it holds stale pre-drag positions until drag-end, so a mid-drag
+        // query could drop still-visible widgets. Reuse the pre-drag visible
+        // set plus the ids whose visuals move this drag (roots + descendants,
+        // via [InteractionSession.dragAffected]) plus the selection. This
+        // avoids the drag-start mass-mount (previously all N mounted at once
+        // when culling was disabled wholesale on drag).
+        final keep = <String>{
+          ..._lastCulledIds,
+          ...session.dragAffected,
+          ...dragging,
+          ...state.selectedNodes,
+        };
+        entries = entries.where((e) => keep.contains(e.key)).toList();
+      } else if (cullEnabled && state.dragMode != DragMode.connection) {
         final rect = computeVisibleFlowRectFromCanvasTransform(
           notifier.transformationController.value,
           size,
@@ -217,6 +235,9 @@ class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
               defaultOrigin:
                   context.flowCanvasOptions.nodeOptions.nodeOrigin);
         }).toList();
+
+        // Freeze this layer's visible set for the next drag-start.
+        _lastCulledIds = entries.map((e) => e.key).toSet();
       }
 
       if (kDebugMode) {
