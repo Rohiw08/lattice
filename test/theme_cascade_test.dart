@@ -45,4 +45,48 @@ void main() {
       expect(merged.pathType, EdgePathType.step);
     });
   });
+
+  group('FlowEdgeLabelStyle cascade', () {
+    test('partial override inherits the global padding', () {
+      const globalPadding = EdgeInsets.all(16);
+      final global = FlowEdgeLabelStyle.light().copyWith(padding: globalPadding);
+      // Override that only intends to change the text color.
+      final override = FlowEdgeLabelStyle.text(color: Colors.red);
+
+      final merged = global.merge(override);
+
+      // padding was never set by the override → must stay 16.
+      expect(merged.padding, globalPadding);
+    });
+
+    testWidgets('FlowEdgeLabel applies theme padding (not just widget.padding)',
+        (tester) async {
+      const themePadding = EdgeInsets.all(20);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: FlowEdgeLabel(
+                id: 'l1',
+                position: Offset.zero,
+                // No widget.padding → must fall back to the theme's padding,
+                // not the hardcoded (8,4).
+                style: const FlowEdgeLabelStyle(
+                  textStyle: TextStyle(),
+                  decoration: BoxDecoration(),
+                  padding: themePadding,
+                ),
+                text: 'hi',
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final container = tester.widget<AnimatedContainer>(
+        find.byType(AnimatedContainer),
+      );
+      expect(container.padding, themePadding);
+    });
+  });
 }

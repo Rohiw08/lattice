@@ -134,8 +134,10 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
   /// The padding inside the label container.
   ///
   /// This space is added between the text and the label's border.
-  /// Defaults to 8 pixels horizontal and 4 pixels vertical.
-  final EdgeInsetsGeometry padding;
+  ///
+  /// If null, inherits from the layer below (global theme) when merged, and
+  /// falls back to 8 pixels horizontal / 4 pixels vertical when resolved.
+  final EdgeInsetsGeometry? padding;
 
   /// Creates a new [FlowEdgeLabelStyle].
   ///
@@ -150,8 +152,15 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
     this.selectedDecoration,
     this.disabledTextStyle,
     this.disabledDecoration,
-    this.padding = const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    this.padding,
   });
+
+  /// The default label padding used when no [padding] is set in the cascade.
+  static const EdgeInsetsGeometry defaultPadding =
+      EdgeInsets.symmetric(horizontal: 8, vertical: 4);
+
+  /// The resolved [padding], falling back to [defaultPadding] when unset.
+  EdgeInsetsGeometry get effectivePadding => padding ?? defaultPadding;
 
   /// Creates a transparent label style with just text.
   ///
@@ -170,10 +179,7 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
     FontWeight fontWeight = FontWeight.w500,
     Color? hoverColor,
     Color? selectedColor,
-    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-      horizontal: 8,
-      vertical: 4,
-    ),
+    EdgeInsetsGeometry? padding,
   }) {
     return FlowEdgeLabelStyle(
       textStyle: TextStyle(
@@ -216,10 +222,7 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
     Color textColor = Colors.black87,
     double fontSize = 12,
     BorderRadius borderRadius = const BorderRadius.all(Radius.circular(4)),
-    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-      horizontal: 8,
-      vertical: 4,
-    ),
+    EdgeInsetsGeometry? padding,
   }) {
     return FlowEdgeLabelStyle(
       textStyle: TextStyle(
@@ -286,6 +289,7 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
           ),
         ],
       ),
+      padding: defaultPadding,
     );
   }
 
@@ -325,6 +329,7 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
         border: Border.all(color: const Color(0xFF444444)),
         borderRadius: const BorderRadius.all(Radius.circular(5.0)),
       ),
+      padding: defaultPadding,
     );
   }
 
@@ -449,7 +454,7 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
       selectedDecoration: other.selectedDecoration ?? selectedDecoration,
       disabledTextStyle: other.disabledTextStyle ?? disabledTextStyle,
       disabledDecoration: other.disabledDecoration ?? disabledDecoration,
-      padding: other.padding,
+      padding: other.padding ?? padding,
     );
   }
 
@@ -645,10 +650,10 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
       disabledDecoration,
       defaultValue: null,
     ));
-    properties.add(DiagnosticsProperty<EdgeInsetsGeometry>(
+    properties.add(DiagnosticsProperty<EdgeInsetsGeometry?>(
       'padding',
       padding,
-      defaultValue: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      defaultValue: null,
     ));
   }
 

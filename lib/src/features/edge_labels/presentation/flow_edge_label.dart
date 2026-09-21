@@ -74,9 +74,9 @@ class FlowEdgeLabel extends ConsumerWidget {
     final textStyle = effectiveTheme.resolveTextStyle(states);
     final decoration = effectiveTheme.resolveDecoration(states);
 
-    // Use resolved padding from theme if not provided
-    final effectivePadding =
-        padding ?? const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0);
+    // Cascade: widget.padding (per-label override) → theme padding
+    // (local style → global) → component default.
+    final effectivePadding = padding ?? effectiveTheme.effectivePadding;
 
     return FractionalTranslation(
       translation: const Offset(-0.5, -0.5),
