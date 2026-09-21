@@ -45,6 +45,25 @@ Future<void> _pump(
   );
 }
 
+/// Number of node rects the thumbnail painter currently holds. Reads the live
+/// `items` off the mounted painter (via `dynamic`, the painter is internal),
+/// so it reflects what is actually painted — not just that the layer exists.
+int _thumbItemCount(WidgetTester tester) {
+  final painter = tester
+      .widget<CustomPaint>(find.byKey(const ValueKey('nodes-thumbnail')))
+      .painter;
+  return ((painter as dynamic).items as List).length;
+}
+
+/// Number of node rects the thumbnail paints with a selection outline.
+int _thumbSelectedCount(WidgetTester tester) {
+  final painter = tester
+      .widget<CustomPaint>(find.byKey(const ValueKey('nodes-thumbnail')))
+      .painter;
+  final items = (painter as dynamic).items as List;
+  return items.where((e) => (e as dynamic).selectedBorder != null).length;
+}
+
 void main() {
   group('thumbnail LOD', () {
     testWidgets('zoomed out past threshold paints instead of mounting',
@@ -96,7 +115,8 @@ void main() {
       expect(find.byType(BaseNode), findsNWidgets(2));
     });
 
-    testWidgets('graph edits while zoomed out keep painting', (tester) async {
+    testWidgets('graph edits while zoomed out repaint the thumbnail',
+        (tester) async {
       final controller = FlowCanvasController();
       await _pump(tester, controller: controller, thumbnailBelowZoom: 0.4);
       await tester.pump();
@@ -105,7 +125,13 @@ void main() {
         const FlowViewport(offset: Offset.zero, zoom: 0.2),
       );
       await tester.pump();
+      expect(find.byKey(const ValueKey('nodes-thumbnail')), findsOneWidget);
+      // Two seeded nodes, none selected.
+      expect(_thumbItemCount(tester), 2);
+      expect(_thumbSelectedCount(tester), 0);
 
+      // Adding a node while zoomed out must repaint the thumbnail — the layer
+      // reads the graph reactively, not once at mount.
       controller.nodes.addNode(
         const FlowNode<String>(
           id: 'c',
@@ -115,11 +141,43 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.byKey(const ValueKey('nodes-thumbnail')), findsOneWidget);
+      expect(_thumbItemCount(tester), 3);
 
+      // Selecting a node while zoomed out must repaint its outline.
       controller.selection.selectNode('a');
       await tester.pump();
-      expect(find.byKey(const ValueKey('nodes-thumbnail')), findsOneWidget);
+      expect(_thumbSelectedCount(tester), 1);
+    });
+
+    testWidgets('pan/zoom while zoomed out does not rebuild the painter',
+        (tester) async {
+      // The LOD cache invariant: below the threshold the cached layer moves via
+      // the canvas matrix, it must NOT repaint on every pan/zoom frame. If the
+      // layer watched the whole viewport (instead of just nodes + selection),
+      // it would rebuild each frame and defeat the optimization.
+      final controller = FlowCanvasController();
+      await _pump(tester, controller: controller, thumbnailBelowZoom: 0.4);
+      await tester.pump();
+
+      controller.viewport.setViewport(
+        const FlowViewport(offset: Offset.zero, zoom: 0.2),
+      );
+      await tester.pump();
+      final painterBefore = tester
+          .widget<CustomPaint>(find.byKey(const ValueKey('nodes-thumbnail')))
+          .painter;
+
+      // Pan and zoom (still below the threshold) — the graph is unchanged.
+      controller.viewport.setViewport(
+        const FlowViewport(offset: Offset(120, 90), zoom: 0.25),
+      );
+      await tester.pump();
+      final painterAfter = tester
+          .widget<CustomPaint>(find.byKey(const ValueKey('nodes-thumbnail')))
+          .painter;
+
+      // Same painter instance → no rebuild → the cache did its job.
+      expect(identical(painterBefore, painterAfter), isTrue);
     });
   });
 }

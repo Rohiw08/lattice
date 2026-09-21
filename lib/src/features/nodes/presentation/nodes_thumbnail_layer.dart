@@ -24,20 +24,31 @@ class NodesThumbnailLayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.read(internalControllerProvider);
+    // Watch (not read) exactly the two things the thumbnail draws — the node
+    // map and the selection — so graph edits and selection changes repaint it
+    // while zoomed out. Selecting the whole state would rebuild on every
+    // pan/zoom frame and defeat the LOD cache; the map/set carry stable
+    // identity, so this rebuilds only on real structural or selection changes.
+    final record = ref.watch(
+      internalControllerProvider.select(
+        (s) => (s.nodes, s.selectedNodes),
+      ),
+    );
+    final nodes = record.$1;
+    final selectedNodes = record.$2;
     final baseTheme =
         context.flowCanvasTheme.node ?? FlowNodeStyle.system(context);
 
     final items = <({Rect rect, Color fill, Color? selectedBorder, int zIndex})>[];
     final defaultOrigin =
         ref.read(flowOptionsProvider).nodeOptions.nodeOrigin;
-    for (final node in state.nodes.values) {
+    for (final node in nodes.values) {
       if (node.hidden ?? false) continue;
-      final rect = NodeLayout.absoluteRect(node, state.nodes,
+      final rect = NodeLayout.absoluteRect(node, nodes,
           defaultOrigin: defaultOrigin);
       final states = <FlowNodeState>{
         FlowNodeState.normal,
-        if (state.selectedNodes.contains(node.id)) FlowNodeState.selected,
+        if (selectedNodes.contains(node.id)) FlowNodeState.selected,
       };
       final style = node.style == null ? baseTheme : baseTheme.merge(node.style);
       final decoration = style.resolveDecoration(states);
