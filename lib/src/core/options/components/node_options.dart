@@ -265,22 +265,33 @@ class NodeOptions with Diagnosticable {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(FlagProperty('hidden',
-        value: hidden, defaultValue: false, ifTrue: 'HIDDEN'));    properties.add(FlagProperty('draggable',
+        value: hidden, defaultValue: false, ifTrue: 'HIDDEN'));
+    properties.add(FlagProperty('draggable',
         value: draggable, defaultValue: true, ifFalse: 'not draggable'));
     properties.add(FlagProperty('selectable',
         value: selectable, defaultValue: true, ifFalse: 'not selectable'));
     properties.add(FlagProperty('hoverable',
-        value: selectable, defaultValue: true, ifFalse: 'not hoverable'));
+        value: hoverable, defaultValue: true, ifFalse: 'not hoverable'));
     properties.add(FlagProperty('connectable',
         value: connectable, defaultValue: true, ifFalse: 'not connectable'));
     properties.add(FlagProperty('deletable',
         value: deletable, defaultValue: true, ifFalse: 'not deletable'));
+    properties.add(FlagProperty('resizable',
+        value: resizable, defaultValue: false, ifTrue: 'resizable'));
     properties.add(FlagProperty('focusable',
         value: focusable, defaultValue: true, ifFalse: 'not focusable'));
     properties.add(FlagProperty('elevateNodesOnSelected',
         value: elevateNodesOnSelected,
         defaultValue: false,
         ifTrue: 'elevates on select'));
+    properties.add(FlagProperty('expandParent',
+        value: expandParent, defaultValue: false, ifTrue: 'expands parent'));
+    properties.add(FlagProperty('selectNodesOnDrag',
+        value: selectNodesOnDrag,
+        defaultValue: true,
+        ifFalse: 'no select on drag'));
+    properties
+        .add(DiagnosticsProperty<Offset>('nodeOrigin', nodeOrigin));
   }
 }
 
