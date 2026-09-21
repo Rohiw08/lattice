@@ -209,7 +209,10 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
   /// The stroke style of the connection line in its default, active state.
   ///
   /// This is the base styling shown when drawing a connection.
-  final FlowConnectionStrokeStyle activeDecoration;
+  ///
+  /// If null, inherits from the layer below (global theme) when merged, and
+  /// falls back to the Lattice default (`#b1b1b7`, width 1) when resolved.
+  final FlowConnectionStrokeStyle? activeDecoration;
 
   /// The stroke style of the connection line when hovering over a valid target port.
   ///
@@ -223,8 +226,9 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
 
   /// The shape of the connection line's path.
   ///
-  /// Defaults to [EdgePathType.bezier] for smooth curves.
-  final EdgePathType pathType;
+  /// If null, inherits from the layer below (global theme) when merged, and
+  /// falls back to [EdgePathType.bezier] (smooth curves) when resolved.
+  final EdgePathType? pathType;
 
   /// The marker style for the start of the connection line (the source port).
   ///
@@ -248,19 +252,29 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
   /// The [activeDecoration] is required as it provides the base styling.
   /// All other properties are optional.
   const FlowConnectionStyle({
-    this.pathType = EdgePathType.bezier,
-    // Lattice defaults: `connectionline-stroke-default: #b1b1b7`
-    // and `connectionline-stroke-width-default: 1` (no end marker).
-    this.activeDecoration = const FlowConnectionStrokeStyle(
-      strokeWidth: 1.0,
-      color: Color(0xFFB1B1B7),
-    ),
+    this.pathType,
+    this.activeDecoration,
     this.validTargetDecoration,
     this.invalidTargetDecoration,
     this.startMarkerStyle,
     this.endMarkerStyle,
     this.connectionBuilder,
   });
+
+  /// The Lattice default stroke (`connectionline-stroke-default: #b1b1b7`,
+  /// `connectionline-stroke-width-default: 1`), used by [resolveStroke] when
+  /// no [activeDecoration] is set anywhere in the cascade.
+  static const FlowConnectionStrokeStyle defaultStroke =
+      FlowConnectionStrokeStyle(
+    strokeWidth: 1.0,
+    color: Color(0xFFB1B1B7),
+  );
+
+  /// The default path shape used when no [pathType] is set in the cascade.
+  static const EdgePathType defaultPathType = EdgePathType.bezier;
+
+  /// The resolved [pathType], falling back to [defaultPathType] when unset.
+  EdgePathType get effectivePathType => pathType ?? defaultPathType;
 
   /// Creates a connection style from simple color values.
   ///
@@ -271,7 +285,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
     Color? validColor,
     Color? invalidColor,
     double strokeWidth = 1.0,
-    EdgePathType pathType = EdgePathType.bezier,
+    EdgePathType? pathType,
   }) {
     FlowConnectionStrokeStyle stroke(Color c) =>
         FlowConnectionStrokeStyle(strokeWidth: strokeWidth, color: c);
@@ -288,6 +302,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
   /// Active `#b1b1b7` w1; valid `#555` w1.5; invalid `#ff6060` w1.5.
   factory FlowConnectionStyle.light() {
     return const FlowConnectionStyle(
+      pathType: EdgePathType.bezier,
       activeDecoration: FlowConnectionStrokeStyle(
         strokeWidth: 1.0,
         color: Color(0xFFB1B1B7),
@@ -309,6 +324,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
   /// valid `#bbb` w1.5; invalid `#ff6060` w1.5.
   factory FlowConnectionStyle.dark() {
     return const FlowConnectionStyle(
+      pathType: EdgePathType.bezier,
       activeDecoration: FlowConnectionStrokeStyle(
         strokeWidth: 1.0,
         color: Color(0xFFB1B1B7),
@@ -389,10 +405,10 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
   FlowConnectionStrokeStyle resolveStroke(ConnectionValidity validity) {
     return switch (validity) {
       ConnectionValidity.valid =>
-        validTargetDecoration ?? activeDecoration,
+        validTargetDecoration ?? activeDecoration ?? defaultStroke,
       ConnectionValidity.invalid =>
-        invalidTargetDecoration ?? activeDecoration,
-      ConnectionValidity.none => activeDecoration,
+        invalidTargetDecoration ?? activeDecoration ?? defaultStroke,
+      ConnectionValidity.none => activeDecoration ?? defaultStroke,
     };
   }
 
@@ -416,12 +432,12 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
   FlowConnectionStyle merge(FlowConnectionStyle? other) {
     if (other == null) return this;
     return FlowConnectionStyle(
-      activeDecoration: other.activeDecoration,
+      activeDecoration: other.activeDecoration ?? activeDecoration,
       validTargetDecoration:
           other.validTargetDecoration ?? validTargetDecoration,
       invalidTargetDecoration:
           other.invalidTargetDecoration ?? invalidTargetDecoration,
-      pathType: other.pathType,
+      pathType: other.pathType ?? pathType,
       startMarkerStyle: other.startMarkerStyle ?? startMarkerStyle,
       endMarkerStyle: other.endMarkerStyle ?? endMarkerStyle,
       connectionBuilder: other.connectionBuilder ?? connectionBuilder,

@@ -86,7 +86,7 @@ class ConnectionPainter extends CustomPainter {
 
     // Build the path using EdgePathCreator
     final path = EdgePathCreator.createPath(
-      style.pathType, // Use pathType from the main style
+      style.effectivePathType, // Resolved pathType (falls back to bezier)
       renderStart,
       renderEnd,
       sourcePosition: conn.sourcePosition,

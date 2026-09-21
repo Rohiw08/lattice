@@ -257,10 +257,10 @@ void main() {
     test('FlowConnectionStyle.colored falls back to color for validity', () {
       const color = Colors.orange;
       final style = FlowConnectionStyle.colored(color: color, strokeWidth: 2.5);
-      expect(style.activeDecoration.color, color);
+      expect(style.activeDecoration?.color, color);
       expect(style.validTargetDecoration?.color, color);
       expect(style.invalidTargetDecoration?.color, color);
-      expect(style.activeDecoration.strokeWidth, 2.5);
+      expect(style.activeDecoration?.strokeWidth, 2.5);
       final valid = style.resolveStroke(ConnectionValidity.valid);
       final invalid = style.resolveStroke(ConnectionValidity.invalid);
       final none = style.resolveStroke(ConnectionValidity.none);
