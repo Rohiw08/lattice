@@ -83,6 +83,37 @@ void main() {
     });
   });
 
+  group('FlowNodeResizerStyle cascade', () {
+    test('partial color override inherits the global geometry', () {
+      // Global sets rectangle handles, size 5, 1px accent border.
+      final global = FlowNodeResizerStyle.light();
+      // Override that only intends to recolor the handle fill.
+      final override = FlowNodeResizerStyle.colored(color: Colors.red);
+
+      final merged = global.merge(override);
+
+      // color WAS set by the override → must win.
+      expect(merged.color, Colors.red);
+      // Geometry was never set by the override → must inherit the global,
+      // not snap back to the constructor defaults (circle, 10, white border).
+      expect(merged.effectiveSize, 5.0);
+      expect(merged.effectiveShape, BoxShape.rectangle);
+      expect(merged.effectiveBorderColor, const Color(0xFF9E86ED));
+      expect(merged.effectiveBorderWidth, 1.0);
+    });
+
+    test('effective getters supply defaults when geometry is unset', () {
+      // A bare style sets only the required color → geometry getters must
+      // still return the documented component defaults, never null.
+      const bare = FlowNodeResizerStyle(color: Colors.blue);
+      expect(bare.effectiveSize, 10.0);
+      expect(bare.effectiveBorderWidth, 1.2);
+      expect(bare.effectiveBorderColor, Colors.white);
+      expect(bare.effectiveShape, BoxShape.circle);
+      expect(bare.effectiveLineDecoration, isA<BoxDecoration>());
+    });
+  });
+
   group('FlowEdgeLabelStyle cascade', () {
     test('partial override inherits the global padding', () {
       const globalPadding = EdgeInsets.all(16);

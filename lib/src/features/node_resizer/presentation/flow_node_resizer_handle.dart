@@ -103,14 +103,14 @@ class _NodeResizeHandleState extends State<NodeResizeHandle> {
                     },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                width: theme.size,
-                height: theme.size,
+                width: theme.effectiveSize,
+                height: theme.effectiveSize,
                 decoration: BoxDecoration(
                   color: color,
-                  shape: theme.shape,
+                  shape: theme.effectiveShape,
                   border: Border.all(
-                    color: theme.borderColor,
-                    width: theme.borderWidth,
+                    color: theme.effectiveBorderColor,
+                    width: theme.effectiveBorderWidth,
                   ),
                 ),
               ),

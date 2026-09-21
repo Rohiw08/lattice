@@ -24,20 +24,27 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
   /// Color of the handle when resizing is disabled.
   final Color? disabledColor;
 
-  /// Size (diameter) of the handle.
-  final double size;
+  /// Size (diameter) of the handle. Falls back to `10.0`.
+  ///
+  /// Null means "inherit from the layer below" on [merge]; resolved via
+  /// [effectiveSize] at read time. Same for the other geometry fields — so a
+  /// partial override (e.g. `FlowNodeResizerStyle(color: red)`) changes only
+  /// what it sets instead of resetting size/shape/border to defaults.
+  final double? size;
 
-  /// Width of the handle's border.
-  final double borderWidth;
+  /// Width of the handle's border. Falls back to `1.2`.
+  final double? borderWidth;
 
-  /// Color of the handle's border.
-  final Color borderColor;
+  /// Color of the handle's border. Falls back to white.
+  final Color? borderColor;
 
-  /// Shape of the handle.
-  final BoxShape shape;
+  /// Shape of the handle. Falls back to [BoxShape.circle].
+  final BoxShape? shape;
 
   /// Decoration for the box outlining the node being resized.
-  final BoxDecoration lineDecoration;
+  ///
+  /// Falls back to a transparent box with a faint [color]-tinted border.
+  final BoxDecoration? lineDecoration;
 
   const FlowNodeResizerStyle({
     required this.color,
@@ -45,12 +52,25 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
     this.activeColor,
     this.selectedColor,
     this.disabledColor,
-    this.size = 10.0,
-    this.borderWidth = 1.2,
-    this.borderColor = Colors.white,
-    this.shape = BoxShape.circle,
-    required this.lineDecoration,
+    this.size,
+    this.borderWidth,
+    this.borderColor,
+    this.shape,
+    this.lineDecoration,
   });
+
+  // Resolved values (cascade fallback). Consumers read these, never the raw
+  // nullable fields, so an unset field always paints its documented default.
+  double get effectiveSize => size ?? 10.0;
+  double get effectiveBorderWidth => borderWidth ?? 1.2;
+  Color get effectiveBorderColor => borderColor ?? Colors.white;
+  BoxShape get effectiveShape => shape ?? BoxShape.circle;
+  BoxDecoration get effectiveLineDecoration =>
+      lineDecoration ??
+      BoxDecoration(
+        color: Colors.transparent,
+        border: Border.all(color: color.withAlpha(100), width: 1.0),
+      );
 
   /// Creates a resizer style from simple color values.
   factory FlowNodeResizerStyle.colored({
@@ -59,12 +79,14 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
     Color? activeColor,
     Color? selectedColor,
     Color? disabledColor,
-    double size = 10.0,
-    double borderWidth = 1.2,
-    Color borderColor = Colors.white,
-    BoxShape shape = BoxShape.circle,
+    double? size,
+    double? borderWidth,
+    Color? borderColor,
+    BoxShape? shape,
     BoxDecoration? lineDecoration,
   }) {
+    // Only the color palette is forced; unset geometry stays null so it
+    // inherits on merge and falls back to defaults via the effectiveX getters.
     return FlowNodeResizerStyle(
       color: color,
       hoverColor: hoverColor,
@@ -75,14 +97,7 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
       borderWidth: borderWidth,
       borderColor: borderColor,
       shape: shape,
-      lineDecoration: lineDecoration ??
-          BoxDecoration(
-            color: Colors.transparent,
-            border: Border.all(
-              color: color.withAlpha(100),
-              width: 1.0,
-            ),
-          ),
+      lineDecoration: lineDecoration,
     );
   }
 
@@ -204,7 +219,11 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
     return color;
   }
 
-  /// Merges this style with another.
+  /// Merges this (parent) style with [other] (child).
+  ///
+  /// "Other wins, nulls inherit": a field the child leaves null keeps the
+  /// parent's value, so a partial override changes only what it sets.
+  /// [color] is required, so the child always provides it.
   FlowNodeResizerStyle merge(FlowNodeResizerStyle? other) {
     if (other == null) return this;
     return FlowNodeResizerStyle(
@@ -213,11 +232,11 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
       activeColor: other.activeColor ?? activeColor,
       selectedColor: other.selectedColor ?? selectedColor,
       disabledColor: other.disabledColor ?? disabledColor,
-      size: other.size,
-      borderWidth: other.borderWidth,
-      borderColor: other.borderColor,
-      shape: other.shape,
-      lineDecoration: other.lineDecoration,
+      size: other.size ?? size,
+      borderWidth: other.borderWidth ?? borderWidth,
+      borderColor: other.borderColor ?? borderColor,
+      shape: other.shape ?? shape,
+      lineDecoration: other.lineDecoration ?? lineDecoration,
     );
   }
 
@@ -262,10 +281,11 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
       disabledColor: Color.lerp(disabledColor, other.disabledColor, t),
       size: lerpDouble(size, other.size, t) ?? size,
       borderWidth: lerpDouble(borderWidth, other.borderWidth, t) ?? borderWidth,
-      borderColor: Color.lerp(borderColor, other.borderColor, t)!,
+      borderColor: Color.lerp(borderColor, other.borderColor, t) ?? borderColor,
       shape: t < 0.5 ? shape : other.shape,
       lineDecoration:
-          BoxDecoration.lerp(lineDecoration, other.lineDecoration, t)!,
+          BoxDecoration.lerp(lineDecoration, other.lineDecoration, t) ??
+              lineDecoration,
     );
   }
 
@@ -315,9 +335,9 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
     properties.add(DoubleProperty('size', size));
     properties.add(DoubleProperty('borderWidth', borderWidth));
     properties.add(ColorProperty('borderColor', borderColor));
-    properties.add(EnumProperty<BoxShape>('shape', shape));
+    properties.add(EnumProperty<BoxShape?>('shape', shape));
     properties.add(
-        DiagnosticsProperty<BoxDecoration>('lineDecoration', lineDecoration));
+        DiagnosticsProperty<BoxDecoration?>('lineDecoration', lineDecoration));
   }
 }
 

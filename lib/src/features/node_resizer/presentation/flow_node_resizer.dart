@@ -58,7 +58,7 @@ class FlowNodeResizer extends ConsumerWidget {
           child: Container(
             width: node.size.width,
             height: node.size.height,
-            decoration: resolved.lineDecoration,
+            decoration: resolved.effectiveLineDecoration,
           ),
         ),
         // Corner handles
