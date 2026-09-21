@@ -26,7 +26,8 @@ class SelectionRectanglePainter extends CustomPainter {
     canvas.drawRect(selectionRect!, _selectionFillPaint);
 
     if (style.borderColor != null) {
-      _selectionStrokePaint.strokeWidth = (style.borderWidth).clamp(0.5, 3.0);
+      _selectionStrokePaint.strokeWidth =
+          style.effectiveBorderWidth.clamp(0.5, 3.0);
       canvas.drawRect(selectionRect!, _selectionStrokePaint);
     }
   }

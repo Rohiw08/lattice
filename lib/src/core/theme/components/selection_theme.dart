@@ -76,44 +76,55 @@ class FlowSelectionStyle extends ThemeExtension<FlowSelectionStyle>
   /// Set to null for no border.
   final Color? borderColor;
 
-  /// Width of the selection box border.
+  /// Width of the selection box border. Falls back to `1.0`.
   ///
-  /// Only applies when [borderColor] is non-null.
-  final double borderWidth;
+  /// Null means "inherit from the layer below" on [merge]; resolved via
+  /// [effectiveBorderWidth]. Same for the other geometry fields — so a partial
+  /// override (e.g. `FlowSelectionStyle(borderColor: red)`) changes only what
+  /// it sets. Only applies when [borderColor] is non-null.
+  final double? borderWidth;
 
-  /// Border radius for rounded corners on the selection box.
-  ///
-  /// Use [BorderRadius.zero] for sharp corners.
-  final BorderRadius borderRadius;
+  /// Border radius for rounded corners on the selection box. Falls back to
+  /// [BorderRadius.zero].
+  final BorderRadius? borderRadius;
 
-  /// Length of each dash in the border (if dashed).
+  /// Length of each dash in the border (if dashed). Falls back to `5.0`.
   ///
   /// Set to 0 for a solid border. Only applies when [borderColor] is non-null.
-  final double dashLength;
+  final double? dashLength;
 
-  /// Length of gaps between dashes in the border.
+  /// Length of gaps between dashes in the border. Falls back to `5.0`.
   ///
   /// Ignored if [dashLength] is 0. Only applies when [borderColor] is non-null.
-  final double gapLength;
+  final double? gapLength;
 
   const FlowSelectionStyle({
     this.fillColor,
     this.borderColor,
-    this.borderWidth = 1.0,
-    this.borderRadius = BorderRadius.zero,
-    this.dashLength = 5.0,
-    this.gapLength = 5.0,
+    this.borderWidth,
+    this.borderRadius,
+    this.dashLength,
+    this.gapLength,
   });
+
+  // Resolved values (cascade fallback). Consumers read these, never the raw
+  // nullable fields, so an unset field always resolves its documented default.
+  double get effectiveBorderWidth => borderWidth ?? 1.0;
+  BorderRadius get effectiveBorderRadius => borderRadius ?? BorderRadius.zero;
+  double get effectiveDashLength => dashLength ?? 5.0;
+  double get effectiveGapLength => gapLength ?? 5.0;
 
   /// Creates a selection style from simple color values.
   factory FlowSelectionStyle.colored({
     required Color fillColor,
     required Color borderColor,
-    double borderWidth = 1.0,
-    BorderRadius borderRadius = BorderRadius.zero,
-    double dashLength = 5.0,
-    double gapLength = 5.0,
+    double? borderWidth,
+    BorderRadius? borderRadius,
+    double? dashLength,
+    double? gapLength,
   }) {
+    // Only the colors are forced; unset geometry stays null so it inherits on
+    // merge and falls back to defaults via the effectiveX getters.
     return FlowSelectionStyle(
       fillColor: fillColor,
       borderColor: borderColor,
@@ -202,30 +213,29 @@ class FlowSelectionStyle extends ThemeExtension<FlowSelectionStyle>
         : FlowSelectionStyle.light();
   }
 
-  /// Merges this style with another, preferring the other's non-null values.
+  /// Merges this (parent) style with [other] (child).
   ///
-  /// Only non-null values from [other] will override this style's values.
-  /// Primitive types (double) always override from [other].
+  /// "Other wins, nulls inherit": every field the child leaves null keeps the
+  /// parent's value, so a partial override changes only what it sets. Fields
+  /// both layers leave null resolve to their default via the `effectiveX`
+  /// getters.
   ///
   /// Example:
   /// ```
   /// final baseStyle = FlowSelectionStyle.light();
-  /// final customStyle = FlowSelectionStyle(
-  ///   fillColor: null,
-  ///   borderColor: Colors.purple,
-  /// );
+  /// final customStyle = FlowSelectionStyle(borderColor: Colors.purple);
   /// final merged = baseStyle.merge(customStyle);
-  /// // merged keeps baseStyle's fillColor but uses customStyle's borderColor
+  /// // merged keeps baseStyle's fillColor/geometry, uses purple borderColor
   /// ```
   FlowSelectionStyle merge(FlowSelectionStyle? other) {
     if (other == null) return this;
     return FlowSelectionStyle(
       fillColor: other.fillColor ?? fillColor,
       borderColor: other.borderColor ?? borderColor,
-      borderWidth: other.borderWidth,
-      borderRadius: other.borderRadius,
-      dashLength: other.dashLength,
-      gapLength: other.gapLength,
+      borderWidth: other.borderWidth ?? borderWidth,
+      borderRadius: other.borderRadius ?? borderRadius,
+      dashLength: other.dashLength ?? dashLength,
+      gapLength: other.gapLength ?? gapLength,
     );
   }
 
@@ -261,11 +271,14 @@ class FlowSelectionStyle extends ThemeExtension<FlowSelectionStyle>
     return FlowSelectionStyle(
       fillColor: Color.lerp(fillColor, other.fillColor, t),
       borderColor: Color.lerp(borderColor, other.borderColor, t),
-      borderWidth: lerpDouble(borderWidth, other.borderWidth, t) ?? borderWidth,
-      borderRadius: BorderRadius.lerp(borderRadius, other.borderRadius, t) ??
-          borderRadius,
-      dashLength: lerpDouble(dashLength, other.dashLength, t) ?? dashLength,
-      gapLength: lerpDouble(gapLength, other.gapLength, t) ?? gapLength,
+      // Interpolate resolved geometry so the animation runs between concrete
+      // defaults rather than flashing through null.
+      borderWidth:
+          lerpDouble(effectiveBorderWidth, other.effectiveBorderWidth, t),
+      borderRadius: BorderRadius.lerp(
+          effectiveBorderRadius, other.effectiveBorderRadius, t),
+      dashLength: lerpDouble(effectiveDashLength, other.effectiveDashLength, t),
+      gapLength: lerpDouble(effectiveGapLength, other.effectiveGapLength, t),
     );
   }
 
@@ -298,12 +311,12 @@ class FlowSelectionStyle extends ThemeExtension<FlowSelectionStyle>
     properties
         .add(ColorProperty('borderColor', borderColor, defaultValue: null));
     properties
-        .add(DoubleProperty('borderWidth', borderWidth, defaultValue: 1.0));
-    properties.add(DiagnosticsProperty<BorderRadius>(
+        .add(DoubleProperty('borderWidth', borderWidth, defaultValue: null));
+    properties.add(DiagnosticsProperty<BorderRadius?>(
         'borderRadius', borderRadius,
-        defaultValue: BorderRadius.zero));
-    properties.add(DoubleProperty('dashLength', dashLength, defaultValue: 5.0));
-    properties.add(DoubleProperty('gapLength', gapLength, defaultValue: 5.0));
+        defaultValue: null));
+    properties.add(DoubleProperty('dashLength', dashLength, defaultValue: null));
+    properties.add(DoubleProperty('gapLength', gapLength, defaultValue: null));
   }
 
   @override

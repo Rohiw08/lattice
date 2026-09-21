@@ -83,6 +83,40 @@ void main() {
     });
   });
 
+  group('FlowSelectionStyle cascade', () {
+    test('partial color override inherits the global geometry', () {
+      // Global: dashed border, custom width, rounded corners.
+      final global = FlowSelectionStyle.light().copyWith(
+        borderWidth: 3,
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        dashLength: 8,
+      );
+      // Override that only intends to recolor the border.
+      const override = FlowSelectionStyle(borderColor: Colors.red);
+
+      final merged = global.merge(override);
+
+      // borderColor WAS set → must win.
+      expect(merged.borderColor, Colors.red);
+      // Geometry was never set → must inherit the global, not snap back to
+      // the constructor defaults (width 1, zero radius, dash 5).
+      expect(merged.effectiveBorderWidth, 3);
+      expect(
+        merged.effectiveBorderRadius,
+        const BorderRadius.all(Radius.circular(12)),
+      );
+      expect(merged.effectiveDashLength, 8);
+    });
+
+    test('effective getters supply defaults when geometry is unset', () {
+      const bare = FlowSelectionStyle();
+      expect(bare.effectiveBorderWidth, 1.0);
+      expect(bare.effectiveBorderRadius, BorderRadius.zero);
+      expect(bare.effectiveDashLength, 5.0);
+      expect(bare.effectiveGapLength, 5.0);
+    });
+  });
+
   group('FlowBackgroundStyle cascade', () {
     test('partial variant override inherits the global background & gap', () {
       // Global: dark background, custom 40px gap.
