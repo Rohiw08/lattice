@@ -83,6 +83,49 @@ void main() {
     });
   });
 
+  group('FlowBackgroundStyle cascade', () {
+    test('partial variant override inherits the global background & gap', () {
+      // Global: dark background, custom 40px gap.
+      final global =
+          FlowBackgroundStyle.dark().copyWith(gap: 40, patternColor: Colors.teal);
+      // Override that only intends to switch the pattern to a grid.
+      const override = FlowBackgroundStyle(variant: BackgroundVariant.grid);
+
+      final merged = global.merge(override);
+
+      // variant WAS set → must win.
+      expect(merged.effectiveVariant, BackgroundVariant.grid);
+      // Everything else was left null → must inherit the dark global, not snap
+      // back to the light component defaults.
+      expect(merged.effectiveBackgroundColor, const Color(0xFF101012));
+      expect(merged.effectiveGap, 40);
+      expect(merged.effectivePatternColor, Colors.teal);
+    });
+
+    test('explicitly set values are never dropped by the merge', () {
+      // Regression for the old sentinel-comparison merge, which silently
+      // dropped any override value that happened to equal a hardcoded
+      // sentinel (e.g. gap 25.0, dotRadius 0.75). With nullable fields, any
+      // non-null override wins regardless of its value.
+      final global = FlowBackgroundStyle.light();
+      const override = FlowBackgroundStyle(gap: 25.0, dotRadius: 0.75);
+
+      final merged = global.merge(override);
+
+      expect(merged.effectiveGap, 25.0);
+      expect(merged.effectiveDotRadius, 0.75);
+    });
+
+    test('effective getters supply light defaults when unset', () {
+      const bare = FlowBackgroundStyle();
+      expect(bare.effectiveBackgroundColor, const Color(0xFFF7F9FB));
+      expect(bare.effectiveVariant, BackgroundVariant.dots);
+      expect(bare.effectivePatternColor, const Color(0xFF91919A));
+      expect(bare.effectiveGap, 20.0);
+      expect(bare.effectiveDotRadius, 0.5);
+    });
+  });
+
   group('FlowNodeResizerStyle cascade', () {
     test('partial color override inherits the global geometry', () {
       // Global sets rectangle handles, size 5, 1px accent border.

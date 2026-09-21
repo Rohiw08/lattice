@@ -27,7 +27,7 @@ class FlowBackground extends ConsumerWidget {
     return Positioned.fill(
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: style.backgroundColor,
+          color: style.effectiveBackgroundColor,
           gradient: style.gradient,
         ),
       ),

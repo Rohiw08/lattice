@@ -31,7 +31,7 @@ class FlowBackgroundPatternLayer extends ConsumerWidget {
           final visible = computeVisibleFlowRectFromCanvasTransform(
             matrix,
             viewportSize,
-            padding: style.gap * 2,
+            padding: style.effectiveGap * 2,
           );
 
           return CustomPaint(

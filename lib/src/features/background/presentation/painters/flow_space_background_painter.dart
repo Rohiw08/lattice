@@ -21,24 +21,24 @@ class FlowSpaceBackgroundPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (style.variant == BackgroundVariant.none) return;
-    final gap = style.gap;
+    if (style.effectiveVariant == BackgroundVariant.none) return;
+    final gap = style.effectiveGap;
     if (gap <= 0 || !gap.isFinite) return;
     if (visibleFlow.isEmpty || !visibleFlow.isFinite) return;
 
     final paint = Paint()
-      ..color = style.patternColor
-      ..strokeWidth = style.lineWidth
-      ..blendMode = style.blendMode
+      ..color = style.effectivePatternColor
+      ..strokeWidth = style.effectiveLineWidth
+      ..blendMode = style.effectiveBlendMode
       ..isAntiAlias = zoom > 0.4;
 
     final left = (visibleFlow.left / gap).floor() * gap;
     final top = (visibleFlow.top / gap).floor() * gap;
 
-    switch (style.variant) {
+    switch (style.effectiveVariant) {
       case BackgroundVariant.dots:
         paint.style = PaintingStyle.fill;
-        final r = style.dotRadius;
+        final r = style.effectiveDotRadius;
         for (var x = left; x <= visibleFlow.right; x += gap) {
           for (var y = top; y <= visibleFlow.bottom; y += gap) {
             canvas.drawCircle(Offset(x, y), r, paint);
@@ -62,7 +62,7 @@ class FlowSpaceBackgroundPainter extends CustomPainter {
         }
       case BackgroundVariant.cross:
         paint.style = PaintingStyle.stroke;
-        final half = style.crossSize / 2;
+        final half = style.effectiveCrossSize / 2;
         for (var x = left; x <= visibleFlow.right; x += gap) {
           for (var y = top; y <= visibleFlow.bottom; y += gap) {
             canvas.drawLine(Offset(x - half, y), Offset(x + half, y), paint);

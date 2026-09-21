@@ -45,49 +45,66 @@ import 'package:lattice/src/core/enums/enums.dart';
 @immutable
 class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
     with Diagnosticable {
-  /// The base background color of the canvas.
+  // Every field is nullable: `null` means "inherit from the layer below"
+  // (global theme) on [merge], and falls back to the documented default via
+  // the `effectiveX` getters when resolved. This lets a partial override
+  // (e.g. `FlowBackgroundStyle(variant: BackgroundVariant.grid)`) change only
+  // what it sets instead of resetting the whole style — matching React Flow's
+  // CSS-inheritance model and the repo's "other wins, nulls inherit" contract.
+  //
+  // The defaults below encode the light-theme values, so `.light()`
+  // (all-null) resolves to exactly the same appearance as before.
+
+  /// The base background color of the canvas. Falls back to `#F7F9FB`.
   ///
   /// This color fills the entire canvas area before the pattern is drawn.
-  final Color backgroundColor;
+  final Color? backgroundColor;
 
   /// The type of pattern to render (e.g., dots, grid, crosses).
   ///
-  /// Use [BackgroundVariant.none] for a solid color background.
-  final BackgroundVariant variant;
+  /// Use [BackgroundVariant.none] for a solid color background. Falls back to
+  /// [BackgroundVariant.dots].
+  final BackgroundVariant? variant;
 
-  /// The color of the pattern (grid lines, dots, etc.).
+  /// The color of the pattern (grid lines, dots, etc.). Falls back to
+  /// `#91919A`.
   ///
   /// This color is used to draw the pattern elements on top of [backgroundColor].
-  final Color patternColor;
+  final Color? patternColor;
 
-  /// The distance between pattern elements in logical pixels.
+  /// The distance between pattern elements in logical pixels. Falls back to
+  /// `20.0`.
   ///
   /// For dots: distance between dot centers.
   /// For grid: distance between grid lines.
   /// For crosses: distance between cross centers.
-  final double gap;
+  final double? gap;
 
-  /// The width of lines for grid or cross variants in logical pixels.
+  /// The width of lines for grid or cross variants in logical pixels. Falls
+  /// back to `1.0`.
   ///
   /// Only applies when [variant] is [BackgroundVariant.grid] or
   /// [BackgroundVariant.crosses].
-  final double lineWidth;
+  final double? lineWidth;
 
-  /// The radius of dots for the dot variant in logical pixels.
+  /// The radius of dots for the dot variant in logical pixels. Falls back to
+  /// `0.5`.
   ///
   /// Only applies when [variant] is [BackgroundVariant.dots].
-  final double dotRadius;
+  final double? dotRadius;
 
-  /// The size of cross elements for the cross variant in logical pixels.
+  /// The size of cross elements for the cross variant in logical pixels. Falls
+  /// back to `8.0`.
   ///
   /// Only applies when [variant] is [BackgroundVariant.crosses].
-  final double crossSize;
+  final double? crossSize;
 
-  /// Whether the background pattern should fade when zooming.
+  /// Whether the background pattern should fade when zooming. Falls back to
+  /// `true`.
   ///
   /// When true, the pattern opacity decreases at high zoom levels
   /// to reduce visual clutter.
-  final bool fadeOnZoom;
+  final bool? fadeOnZoom;
 
   /// The gradient overlay applied to the background, if any.
   ///
@@ -95,38 +112,55 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
   /// and below the pattern. Set to null for no gradient.
   final Gradient? gradient;
 
-  /// The offset to shift the pattern drawing position.
+  /// The offset to shift the pattern drawing position. Falls back to
+  /// [Offset.zero].
   ///
   /// Useful for creating animated or scrolling patterns.
-  /// Defaults to [Offset.zero].
-  final Offset patternOffset;
+  final Offset? patternOffset;
 
-  /// The blend mode used when painting the pattern.
+  /// The blend mode used when painting the pattern. Falls back to
+  /// [BlendMode.srcOver].
   ///
   /// Controls how the pattern color blends with the background.
-  /// Defaults to [BlendMode.srcOver].
-  final BlendMode blendMode;
+  final BlendMode? blendMode;
 
   /// Creates a flow canvas background style.
   ///
-  /// All parameters have sensible defaults for a light-themed
-  /// dotted background pattern.
+  /// Every field is optional; unset fields inherit on [merge] and otherwise
+  /// resolve to the light-themed dotted defaults via the `effectiveX` getters.
   const FlowBackgroundStyle({
-    this.backgroundColor = const Color(0xFFF7F9FB),
-    this.variant = BackgroundVariant.dots,
-    this.patternColor = const Color(0xFF91919A),
-    this.gap = 20.0,
-    this.lineWidth = 1.0,
-    this.dotRadius = 0.5,
-    this.crossSize = 8.0,
-    this.fadeOnZoom = true,
+    this.backgroundColor,
+    this.variant,
+    this.patternColor,
+    this.gap,
+    this.lineWidth,
+    this.dotRadius,
+    this.crossSize,
+    this.fadeOnZoom,
     this.gradient,
-    this.patternOffset = Offset.zero,
-    this.blendMode = BlendMode.srcOver,
-  })  : assert(gap > 0, 'Gap must be positive'),
-        assert(lineWidth >= 0, 'Line width cannot be negative'),
-        assert(dotRadius >= 0, 'Dot radius cannot be negative'),
-        assert(crossSize >= 0, 'Cross size cannot be negative');
+    this.patternOffset,
+    this.blendMode,
+  })  : assert(gap == null || gap > 0, 'Gap must be positive'),
+        assert(lineWidth == null || lineWidth >= 0,
+            'Line width cannot be negative'),
+        assert(
+            dotRadius == null || dotRadius >= 0, 'Dot radius cannot be negative'),
+        assert(crossSize == null || crossSize >= 0,
+            'Cross size cannot be negative');
+
+  // Resolved values (cascade fallback). Consumers read these, never the raw
+  // nullable fields, so an unset field always paints its documented default.
+  Color get effectiveBackgroundColor =>
+      backgroundColor ?? const Color(0xFFF7F9FB);
+  BackgroundVariant get effectiveVariant => variant ?? BackgroundVariant.dots;
+  Color get effectivePatternColor => patternColor ?? const Color(0xFF91919A);
+  double get effectiveGap => gap ?? 20.0;
+  double get effectiveLineWidth => lineWidth ?? 1.0;
+  double get effectiveDotRadius => dotRadius ?? 0.5;
+  double get effectiveCrossSize => crossSize ?? 8.0;
+  bool get effectiveFadeOnZoom => fadeOnZoom ?? true;
+  Offset get effectivePatternOffset => patternOffset ?? Offset.zero;
+  BlendMode get effectiveBlendMode => blendMode ?? BlendMode.srcOver;
 
   /// Creates a light mode background style with a dotted pattern.
   ///
@@ -289,10 +323,12 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
     );
   }
 
-  /// Merges this style with another [FlowBackgroundStyle].
+  /// Merges this (parent) style with [other] (child).
   ///
-  /// Only non-null properties from [other] are applied.
-  /// This follows Flutter's standard merge pattern (like [TextStyle.merge]).
+  /// "Other wins, nulls inherit": each field the child leaves null keeps the
+  /// parent's value, so a partial override changes only what it explicitly
+  /// sets. Fields both layers leave null resolve to their documented default
+  /// via the `effectiveX` getters.
   ///
   /// {@tool snippet}
   /// ```dart
@@ -301,34 +337,24 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
   ///   backgroundColor: Colors.blue.shade50,
   /// );
   /// final merged = base.merge(custom);
-  /// // Result: light theme with blue background
+  /// // Result: light theme with blue background; gap/variant/etc. inherited.
   /// ```
   /// {@end-tool}
-  ///
-  /// Note: This method cannot distinguish between explicitly set null values
-  /// and omitted properties. For explicit null support, use [copyWith].
   FlowBackgroundStyle merge(FlowBackgroundStyle? other) {
     if (other == null) return this;
 
-    // Only override if the value is different from defaults
-    // This mimics Flutter's TextStyle.merge behavior
-    return copyWith(
-      backgroundColor: other.backgroundColor != const Color(0xFFFAFAFA)
-          ? other.backgroundColor
-          : null,
-      variant: other.variant != BackgroundVariant.dots ? other.variant : null,
-      patternColor: other.patternColor != const Color(0xFF9D9D9D)
-          ? other.patternColor
-          : null,
-      gap: other.gap != 25.0 ? other.gap : null,
-      lineWidth: other.lineWidth != 1.0 ? other.lineWidth : null,
-      dotRadius: other.dotRadius != 0.75 ? other.dotRadius : null,
-      crossSize: other.crossSize != 8.0 ? other.crossSize : null,
-      fadeOnZoom: other.fadeOnZoom != true ? other.fadeOnZoom : null,
-      gradient: other.gradient,
-      patternOffset:
-          other.patternOffset != Offset.zero ? other.patternOffset : null,
-      blendMode: other.blendMode != BlendMode.srcOver ? other.blendMode : null,
+    return FlowBackgroundStyle(
+      backgroundColor: other.backgroundColor ?? backgroundColor,
+      variant: other.variant ?? variant,
+      patternColor: other.patternColor ?? patternColor,
+      gap: other.gap ?? gap,
+      lineWidth: other.lineWidth ?? lineWidth,
+      dotRadius: other.dotRadius ?? dotRadius,
+      crossSize: other.crossSize ?? crossSize,
+      fadeOnZoom: other.fadeOnZoom ?? fadeOnZoom,
+      gradient: other.gradient ?? gradient,
+      patternOffset: other.patternOffset ?? patternOffset,
+      blendMode: other.blendMode ?? blendMode,
     );
   }
 
@@ -387,18 +413,23 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
   ) {
     if (other is! FlowBackgroundStyle) return this;
 
+    // Interpolate the resolved (effective) values so the animation runs
+    // between concrete defaults rather than flashing through null.
     return FlowBackgroundStyle(
-      backgroundColor: Color.lerp(backgroundColor, other.backgroundColor, t)!,
-      variant: t < 0.5 ? variant : other.variant,
-      patternColor: Color.lerp(patternColor, other.patternColor, t)!,
-      gap: lerpDouble(gap, other.gap, t)!,
-      lineWidth: lerpDouble(lineWidth, other.lineWidth, t)!,
-      dotRadius: lerpDouble(dotRadius, other.dotRadius, t)!,
-      crossSize: lerpDouble(crossSize, other.crossSize, t)!,
-      fadeOnZoom: t < 0.5 ? fadeOnZoom : other.fadeOnZoom,
+      backgroundColor: Color.lerp(
+          effectiveBackgroundColor, other.effectiveBackgroundColor, t),
+      variant: t < 0.5 ? effectiveVariant : other.effectiveVariant,
+      patternColor:
+          Color.lerp(effectivePatternColor, other.effectivePatternColor, t),
+      gap: lerpDouble(effectiveGap, other.effectiveGap, t),
+      lineWidth: lerpDouble(effectiveLineWidth, other.effectiveLineWidth, t),
+      dotRadius: lerpDouble(effectiveDotRadius, other.effectiveDotRadius, t),
+      crossSize: lerpDouble(effectiveCrossSize, other.effectiveCrossSize, t),
+      fadeOnZoom: t < 0.5 ? effectiveFadeOnZoom : other.effectiveFadeOnZoom,
       gradient: Gradient.lerp(gradient, other.gradient, t),
-      patternOffset: Offset.lerp(patternOffset, other.patternOffset, t)!,
-      blendMode: t < 0.5 ? blendMode : other.blendMode,
+      patternOffset:
+          Offset.lerp(effectivePatternOffset, other.effectivePatternOffset, t),
+      blendMode: t < 0.5 ? effectiveBlendMode : other.effectiveBlendMode,
     );
   }
 
@@ -438,26 +469,27 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(ColorProperty('backgroundColor', backgroundColor));
-    properties.add(EnumProperty<BackgroundVariant>('variant', variant));
+    properties.add(EnumProperty<BackgroundVariant?>('variant', variant,
+        defaultValue: null));
     properties.add(ColorProperty('patternColor', patternColor));
-    properties.add(DoubleProperty('gap', gap, defaultValue: 25.0));
-    properties.add(DoubleProperty('lineWidth', lineWidth, defaultValue: 1.0));
-    properties.add(DoubleProperty('dotRadius', dotRadius, defaultValue: 0.75));
-    properties.add(DoubleProperty('crossSize', crossSize, defaultValue: 8.0));
+    properties.add(DoubleProperty('gap', gap, defaultValue: null));
+    properties.add(DoubleProperty('lineWidth', lineWidth, defaultValue: null));
+    properties.add(DoubleProperty('dotRadius', dotRadius, defaultValue: null));
+    properties.add(DoubleProperty('crossSize', crossSize, defaultValue: null));
     properties.add(
       FlagProperty(
         'fadeOnZoom',
         value: fadeOnZoom,
         ifTrue: 'fades on zoom',
         ifFalse: 'no fade',
-        defaultValue: true,
+        defaultValue: null,
       ),
     );
     properties.add(DiagnosticsProperty<Gradient?>('gradient', gradient,
         defaultValue: null));
-    properties.add(DiagnosticsProperty<Offset>('patternOffset', patternOffset,
-        defaultValue: Offset.zero));
-    properties.add(EnumProperty<BlendMode>('blendMode', blendMode,
-        defaultValue: BlendMode.srcOver));
+    properties.add(DiagnosticsProperty<Offset?>('patternOffset', patternOffset,
+        defaultValue: null));
+    properties.add(EnumProperty<BlendMode?>('blendMode', blendMode,
+        defaultValue: null));
   }
 }
