@@ -143,7 +143,52 @@ class EdgePainter extends CustomPainter with DiagnosticableTreeMixin {
       return;
     }
 
+    final dashPattern = strokeStyle.dashPattern;
+    if (dashPattern != null && dashPattern.isNotEmpty) {
+      canvas.drawPath(buildDashedPath(path, dashPattern), _edgePaint);
+      return;
+    }
+
     canvas.drawPath(path, _edgePaint);
+  }
+
+  /// Builds a dashed copy of [source] from a `[on, off, on, off, …]` pattern
+  /// of lengths in path units (matches SVG `stroke-dasharray`, which Flutter's
+  /// [Paint] has no native support for).
+  ///
+  /// The pattern cycles: an odd-length list repeats to an even one implicitly
+  /// (`[5]` → dash 5 / gap 5 / …). Returns [source] unchanged when the pattern
+  /// is empty or sums to zero (nothing to march), so callers can pass it
+  /// straight to [Canvas.drawPath].
+  @visibleForTesting
+  static Path buildDashedPath(Path source, List<double> pattern) {
+    if (pattern.isEmpty) return source;
+    var patternTotal = 0.0;
+    for (final segment in pattern) {
+      patternTotal += segment;
+    }
+    if (patternTotal <= 0) return source;
+
+    final dashed = Path();
+    for (final metric in source.computeMetrics()) {
+      var distance = 0.0;
+      var patternIndex = 0;
+      var drawing = true; // pattern[0] is the first "on" (dash) length.
+      while (distance < metric.length) {
+        final segmentLength = pattern[patternIndex % pattern.length];
+        final next = distance + segmentLength;
+        if (drawing && segmentLength > 0) {
+          dashed.addPath(
+            metric.extractPath(distance, next.clamp(0.0, metric.length)),
+            Offset.zero,
+          );
+        }
+        distance = next;
+        drawing = !drawing;
+        patternIndex++;
+      }
+    }
+    return dashed;
   }
 
   void _drawEdgeMarkers(
