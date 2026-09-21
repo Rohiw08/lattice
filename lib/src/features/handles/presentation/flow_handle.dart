@@ -101,8 +101,13 @@ class Handle extends ConsumerWidget {
         );
       }),
     );
-    final (globalConnectable, connectionMode, clickConnect, handleLabel) =
-        ref.watch(
+    final (
+      globalConnectable,
+      connectionMode,
+      clickConnect,
+      handleLabel,
+      lodZoom
+    ) = ref.watch(
       flowOptionsProvider.select(
         (o) => (
           o.nodeOptions.connectable,
@@ -113,6 +118,12 @@ class Handle extends ConsumerWidget {
           // never goes stale. FlowA11yLabels has identity equality, so a new
           // labels object always fires; a value-equal one is a no-op.
           o.a11yOptions.labels.handleLabel,
+          // Watched for the same reason: a runtime change to the LOD-hide
+          // threshold must rebuild mounted handles so they start/stop hiding.
+          // Read via ref.read, a handle mounted with a null threshold would
+          // never begin hiding, and one mounted with the wrapper would keep it
+          // after the option was cleared.
+          o.viewportOptions.lodHideHandlesBelowZoom,
         ),
       ),
     );
@@ -136,8 +147,6 @@ class Handle extends ConsumerWidget {
                 type == HandleType.both));
 
     final controller = ref.read(internalControllerProvider.notifier);
-    final options = ref.read(flowOptionsProvider);
-    final lodZoom = options.viewportOptions.lodHideHandlesBelowZoom;
 
     Widget buildHandle() {
       final baseTheme =
