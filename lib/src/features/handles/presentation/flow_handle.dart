@@ -101,12 +101,18 @@ class Handle extends ConsumerWidget {
         );
       }),
     );
-    final (globalConnectable, connectionMode, clickConnect) = ref.watch(
+    final (globalConnectable, connectionMode, clickConnect, handleLabel) =
+        ref.watch(
       flowOptionsProvider.select(
         (o) => (
           o.nodeOptions.connectable,
           o.connectionOptions.connectionMode,
           o.connectionOptions.connectOnClick,
+          // Watched (not ref.read): a runtime label change — e.g. a locale
+          // switch — must rebuild mounted handles so the screen-reader label
+          // never goes stale. FlowA11yLabels has identity equality, so a new
+          // labels object always fires; a value-equal one is a no-op.
+          o.a11yOptions.labels.handleLabel,
         ),
       ),
     );
@@ -132,7 +138,6 @@ class Handle extends ConsumerWidget {
     final controller = ref.read(internalControllerProvider.notifier);
     final options = ref.read(flowOptionsProvider);
     final lodZoom = options.viewportOptions.lodHideHandlesBelowZoom;
-    final handleLabel = options.a11yOptions.labels.handleLabel;
 
     Widget buildHandle() {
       final baseTheme =
