@@ -66,14 +66,15 @@ class KeyboardActionService {
             nodesDeletable: nodesDeletable);
         return newState;
       case KeyboardAction.moveUp:
+        // Flow space is +y-down, so "up" on screen is a NEGATIVE dy.
         return nodeService.moveSelectedNodes(
-            state, Offset(0, arrowMoveDelta.dy),
+            state, Offset(0, -arrowMoveDelta.dy),
             defaultOrigin: defaultOrigin,
             nodesDraggable: nodesDraggable,
             expandParentDefault: expandParentDefault);
       case KeyboardAction.moveDown:
         return nodeService.moveSelectedNodes(
-            state, Offset(0, -arrowMoveDelta.dy),
+            state, Offset(0, arrowMoveDelta.dy),
             defaultOrigin: defaultOrigin,
             nodesDraggable: nodesDraggable,
             expandParentDefault: expandParentDefault);
