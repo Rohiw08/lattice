@@ -528,6 +528,8 @@ class ViewportOptions with Diagnosticable {
         other.lodThumbnailBelowZoom == lodThumbnailBelowZoom &&
         other.translateExtent == translateExtent &&
         other.nodeExtent == nodeExtent &&
+        other.minNodeSize == minNodeSize &&
+        other.maxNodeSize == maxNodeSize &&
         other.preventScrolling == preventScrolling;
   }
 
@@ -562,6 +564,8 @@ class ViewportOptions with Diagnosticable {
         lodThumbnailBelowZoom,
         translateExtent,
         nodeExtent,
+        minNodeSize,
+        maxNodeSize,
         preventScrolling,
       ]);
 

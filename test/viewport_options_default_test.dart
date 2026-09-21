@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lattice/lattice.dart';
 
@@ -23,5 +24,38 @@ void main() {
           .onlyRenderVisibleElements,
       isFalse,
     );
+  });
+
+  // Equality must account for every field, or FlowCanvas.didUpdateWidget's
+  // `widget.options != oldWidget.options` gate silently drops a runtime change
+  // (the Riverpod override is never refreshed). minNodeSize is read live at
+  // resize time (NodesController), so an omitted field is a real bug.
+  group('equality covers node-size fields', () {
+    test('options differing only in minNodeSize are not equal', () {
+      const a = ViewportOptions(minNodeSize: Size(50, 50));
+      const b = ViewportOptions(minNodeSize: Size(150, 150));
+      expect(a == b, isFalse);
+      expect(a.hashCode == b.hashCode, isFalse);
+    });
+
+    test('options differing only in maxNodeSize are not equal', () {
+      const a = ViewportOptions(maxNodeSize: Size(400, 400));
+      const b = ViewportOptions(maxNodeSize: Size(800, 800));
+      expect(a == b, isFalse);
+      expect(a.hashCode == b.hashCode, isFalse);
+    });
+
+    test('identical node-size fields still compare equal', () {
+      const a = ViewportOptions(
+        minNodeSize: Size(50, 50),
+        maxNodeSize: Size(400, 400),
+      );
+      const b = ViewportOptions(
+        minNodeSize: Size(50, 50),
+        maxNodeSize: Size(400, 400),
+      );
+      expect(a == b, isTrue);
+      expect(a.hashCode == b.hashCode, isTrue);
+    });
   });
 }
