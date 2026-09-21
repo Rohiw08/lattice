@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- Theme cascade correctness (no API change, pre-1.0 behavior fix): partial
+  local `Flow*Style` overrides now change only the fields they set and inherit
+  the rest from the global theme (RF's CSS-inheritance model / the repo's
+  "other wins, nulls inherit" contract), instead of silently resetting unset
+  fields to component defaults. Fixed across `FlowConnectionStyle`,
+  `FlowEdgeLabelStyle`, `FlowMinimapStyle`, `FlowNodeResizerStyle`,
+  `FlowBackgroundStyle`, and `FlowSelectionStyle`: customizable fields are now
+  nullable (`null` = inherit), `merge()` is uniform `other.x ?? this.x`, and
+  defaults resolve at read time via `effectiveX` getters. `FlowBackgroundStyle`
+  additionally drops a broken sentinel-comparison merge that both leaked
+  defaults *and* silently dropped explicitly-set values equal to the sentinel
+  (e.g. `gap: 25.0`); `FlowEdgeLabelStyle` theme padding now actually applies
+  (it was read only from `widget.padding`). Pinned by `test/theme_cascade_test.dart`.
+- Handle mount cost (no API change): the built-in default node synthesizes 2
+  handles, so a 450-node graph mounts 900 `Handle` widgets. Each was a
+  `ConsumerWidget` running 5 `.select()` watches wrapped in a nested
+  `Consumer` running 5 more — ~9000 provider subscriptions wired at mount,
+  ~11.6s of a ~13.2s handle cost. Collapsed into 2 record-selects (one on the
+  controller, one on options) with the nested `Consumer` dropped; fair 450-node
+  mount fell ~15s → ~2.65s (built-in default node ~9.7s → ~2.97s), closing the
+  mount gap vs VNF from ~11.7× to ~1.9×. Also fixed a latent gating bug where a
+  non-interactive canvas could still start a connection from an explicitly
+  `isConnectable` handle (the override was re-applied after the `&& interactive`
+  mask). See PERFORMANCE.md invariant #6.
 - Breaking (pre-1.0) default: viewport culling is now **on** by default
   (`ViewportOptions.onlyRenderVisibleElements` flips `false` → `true`, both
   ctors). Off-screen node widgets aren't mounted, so large graphs are fast out
@@ -41,11 +65,17 @@
   new VNF counterpart bench at
   `vyuh_node_flow/packages/vyuh_node_flow/benchmark/bench_outside_450_test.dart`
   (same fixture/scenarios/harness/JSON shape, asymmetries documented in its
-  header). Post-fix p50s (see cull-fix and layer-cache entries above):
-  mount 15.5s vs 1.3s, drag-move 25ms vs 52ms, tap-select 136ms vs 20ms,
-  bulk move+fitView 34.2s vs 1.1s, remount 16.1s vs 1.1s. Numbers +
-  asymmetries recorded in `PERFORMANCE.md`; debug-harness caveats stand (no
-  rasterization, JIT first frames).
+  header). Both benches now render the *same* fair node (`BaseNode` + 2
+  handles + label; selectable via `--dart-define=LATTICE_BENCH_NODE=fair|
+  bare|chrome|default`) — an earlier run compared a bare lattice
+  `SizedBox+Text` against VNF's decorated 2-port node and wrongly read mount
+  as tied. Corrected same-machine p50s, each library at its culling default:
+  mount ~2.65s vs ~1.36s, drag-move p50 ~31ms (p95 ~80ms) vs ~52ms (p95
+  ~371ms), tap-select ~72ms vs ~16ms, bulk move+fitView ~5.16s vs ~1.03s,
+  remount ~2.31s vs ~1.11s. **Drag is the one interactive scenario and
+  lattice wins it — 4.6× steadier at the tail.** Full table + asymmetries in
+  `PERFORMANCE.md`; debug-harness caveats stand (no rasterization, JIT first
+  frames).
 - Culling verification (superseded by the default-flip entry above): the cull
   variant was validated working — tap-select + gesture drag commit correctly
   under it — before it became the default.
