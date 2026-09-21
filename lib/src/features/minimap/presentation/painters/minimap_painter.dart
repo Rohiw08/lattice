@@ -65,20 +65,20 @@ class MiniMapPainter extends CustomPainter {
     this.liveStamp = 0,
     this.defaultOrigin = Offset.zero,
     this.nodesSelectable = true,
-  })  : _backgroundPaint = Paint()..color = theme.backgroundColor,
-        _maskPaint = Paint()..color = theme.maskColor,
+  })  : _backgroundPaint = Paint()..color = theme.effectiveBackgroundColor,
+        _maskPaint = Paint()..color = theme.effectiveMaskColor,
         _maskStrokePaint = Paint()
-          ..color = theme.maskStrokeColor
-          ..strokeWidth = theme.maskStrokeWidth
+          ..color = theme.effectiveMaskStrokeColor
+          ..strokeWidth = theme.effectiveMaskStrokeWidth
           ..style = PaintingStyle.stroke,
         _nodePaint = Paint()..style = PaintingStyle.fill,
         _nodeStrokePaint = Paint()..style = PaintingStyle.stroke,
         _viewportStrokePaint = Paint()
-          ..color = theme.viewportBorderColor
-          ..strokeWidth = theme.viewportBorderWidth
+          ..color = theme.effectiveViewportBorderColor
+          ..strokeWidth = theme.effectiveViewportBorderWidth
           ..style = PaintingStyle.stroke,
         _viewportFillPaint = Paint()
-          ..color = theme.viewportColor
+          ..color = theme.effectiveViewportColor
           ..style = PaintingStyle.fill;
 
   Color _resolveNodeColor(FlowNode node) {
@@ -148,10 +148,10 @@ class MiniMapPainter extends CustomPainter {
         canvas.drawPath(transformedPath, _nodePaint);
 
         final strokeWidth =
-            nodeStrokeWidth?.call(node) ?? theme.nodeStrokeWidth;
+            nodeStrokeWidth?.call(node) ?? theme.effectiveNodeStrokeWidth;
         if (strokeWidth > 0) {
           _nodeStrokePaint.color =
-              (nodeStrokeColor?.call(node) ?? theme.nodeStrokeColor);
+              (nodeStrokeColor?.call(node) ?? theme.effectiveNodeStrokeColor);
           _nodeStrokePaint.strokeWidth = strokeWidth;
           canvas.drawPath(transformedPath, _nodeStrokePaint);
         }
@@ -171,17 +171,17 @@ class MiniMapPainter extends CustomPainter {
         );
         _nodePaint.color = _resolveNodeColor(node);
         final radius = nodeBorderRadius?.call(node) == null
-            ? theme.nodeBorderRadius
+            ? theme.effectiveNodeBorderRadius
             : BorderRadius.circular(nodeBorderRadius!.call(node));
 
         final rrect = RRect.fromRectAndRadius(adjustedRect, radius.topLeft);
         canvas.drawRRect(rrect, _nodePaint);
 
         final strokeWidth =
-            nodeStrokeWidth?.call(node) ?? theme.nodeStrokeWidth;
+            nodeStrokeWidth?.call(node) ?? theme.effectiveNodeStrokeWidth;
         if (strokeWidth > 0) {
           _nodeStrokePaint.color =
-              nodeStrokeColor?.call(node) ?? theme.nodeStrokeColor;
+              nodeStrokeColor?.call(node) ?? theme.effectiveNodeStrokeColor;
           _nodeStrokePaint.strokeWidth = strokeWidth;
           canvas.drawRRect(rrect, _nodeStrokePaint);
         }
@@ -229,7 +229,7 @@ class MiniMapPainter extends CustomPainter {
       return const MiniMapTransform(
           scale: 0, offset: Offset.zero, contentBounds: Rect.zero);
     }
-    final padding = theme.padding;
+    final padding = theme.effectivePadding;
     final paddedWidth = minimapSize.width - (padding * 2);
     final paddedHeight = minimapSize.height - (padding * 2);
     if (contentBounds.width <= 0 ||

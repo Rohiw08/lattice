@@ -139,14 +139,14 @@ class _FlowMiniMapState extends ConsumerState<FlowMiniMap> {
         width: widget.size.width,
         height: widget.size.height,
         decoration: BoxDecoration(
-          color: theme.backgroundColor,
-          borderRadius: theme.borderRadius,
-          border:
-              Border.all(color: theme.maskStrokeColor.withAlpha(125), width: 1),
-          boxShadow: theme.shadows,
+          color: theme.effectiveBackgroundColor,
+          borderRadius: theme.effectiveBorderRadius,
+          border: Border.all(
+              color: theme.effectiveMaskStrokeColor.withAlpha(125), width: 1),
+          boxShadow: theme.effectiveShadows,
         ),
         child: ClipRRect(
-          borderRadius: theme.borderRadius,
+          borderRadius: theme.effectiveBorderRadius,
           child: ListenableBuilder(
             listenable: Listenable.merge(
                 [controller.liveViewport, controller.interactionSession]),

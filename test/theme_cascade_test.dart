@@ -46,6 +46,43 @@ void main() {
     });
   });
 
+  group('FlowMinimapStyle cascade', () {
+    test('partial nodeColor override inherits the global background & mask', () {
+      final global = FlowMinimapStyle.dark();
+      // Override that only intends to recolor the nodes.
+      const override = FlowMinimapStyle(nodeColor: Colors.red);
+
+      final merged = global.merge(override);
+
+      // nodeColor WAS set by the override → must win.
+      expect(merged.nodeColor, Colors.red);
+      // Everything else was left null → must inherit the dark base, not snap
+      // back to the light component default (white background, etc.).
+      expect(merged.backgroundColor, const Color(0xFF141414));
+      expect(merged.maskColor, const Color(0x993A3A3A));
+      expect(merged.viewportBorderColor, const Color(0xFF555555));
+      expect(merged.selectedNodeColor, const Color(0xFF5B5B5B));
+    });
+
+    test('resolveNodeColor falls back to defaults when fields are unset', () {
+      // A bare style sets nothing → resolvers must still return the documented
+      // defaults via the effective getters, never null.
+      const bare = FlowMinimapStyle();
+      expect(
+        bare.resolveNodeColor({MinimapNodeState.normal}),
+        const Color(0xFF2196F3),
+      );
+      expect(
+        bare.resolveNodeColor({MinimapNodeState.selected}),
+        const Color(0xFFFF9800),
+      );
+      expect(
+        bare.resolveNodeColor({MinimapNodeState.disabled}),
+        const Color(0xFFBDBDBD),
+      );
+    });
+  });
+
   group('FlowEdgeLabelStyle cascade', () {
     test('partial override inherits the global padding', () {
       const globalPadding = EdgeInsets.all(16);

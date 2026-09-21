@@ -65,55 +65,66 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
   // ============================================================================
   // Overall minimap container styling
   // ============================================================================
+  //
+  // Every field is nullable: `null` means "inherit from the layer below"
+  // (global theme) when merged, and falls back to the documented default via
+  // the `effectiveX` getters when resolved. This lets a partial override
+  // (e.g. `FlowMinimapStyle(nodeColor: red)`) change only what it sets instead
+  // of resetting the whole style — matching React Flow's CSS-inheritance model
+  // and the repo's "other wins, nulls inherit" merge contract.
 
-  /// Padding inside the minimap container.
-  final double padding;
+  /// Padding inside the minimap container. Falls back to `0`.
+  final double? padding;
 
-  /// Background color of the minimap container.
-  final Color backgroundColor;
+  /// Background color of the minimap container. Falls back to white.
+  final Color? backgroundColor;
 
   /// Color of the mask overlay (areas outside nodes).
   ///
-  /// Typically semi-transparent to dim non-node areas.
-  final Color maskColor;
+  /// Typically semi-transparent to dim non-node areas. Falls back to
+  /// `#99F0F2F5`.
+  final Color? maskColor;
 
-  /// Stroke color for the mask border.
-  final Color maskStrokeColor;
+  /// Stroke color for the mask border. Falls back to `#9E9E9E`.
+  final Color? maskStrokeColor;
 
-  /// Width of the mask stroke.
-  final double maskStrokeWidth;
+  /// Width of the mask stroke. Falls back to `1.0`.
+  final double? maskStrokeWidth;
 
-  /// Border radius for the minimap container.
-  final BorderRadius borderRadius;
+  /// Border radius for the minimap container. Falls back to a 8px radius.
+  final BorderRadius? borderRadius;
 
   /// Shadow effects for the minimap container.
   ///
-  /// Provides depth and elevation to the minimap.
-  final List<BoxShadow> shadows;
+  /// Provides depth and elevation to the minimap. Falls back to a single
+  /// subtle drop shadow.
+  final List<BoxShadow>? shadows;
 
   // ============================================================================
   // Node styling within the minimap
   // ============================================================================
 
-  /// Color of nodes in their normal state.
-  final Color nodeColor;
+  /// Color of nodes in their normal state. Falls back to `#2196F3`.
+  final Color? nodeColor;
 
   /// Color of nodes when selected.
   ///
-  /// Should contrast with [nodeColor] for clear visual distinction.
-  final Color selectedNodeColor;
+  /// Should contrast with [nodeColor] for clear visual distinction. Falls
+  /// back to `#FF9800`.
+  final Color? selectedNodeColor;
 
-  /// Color of nodes when disabled (`selectable: false`).
-  final Color disabledNodeColor;
+  /// Color of nodes when disabled (`selectable: false`). Falls back to
+  /// `#BDBDBD`.
+  final Color? disabledNodeColor;
 
-  /// Stroke color for node borders.
-  final Color nodeStrokeColor;
+  /// Stroke color for node borders. Falls back to `#1976D2`.
+  final Color? nodeStrokeColor;
 
-  /// Width of node strokes.
-  final double nodeStrokeWidth;
+  /// Width of node strokes. Falls back to `1.0`.
+  final double? nodeStrokeWidth;
 
-  /// Border radius for nodes in the minimap.
-  final BorderRadius nodeBorderRadius;
+  /// Border radius for nodes in the minimap. Falls back to a 2px radius.
+  final BorderRadius? nodeBorderRadius;
 
   // ============================================================================
   // Viewport indicator styling
@@ -121,53 +132,81 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
 
   /// Fill color of the viewport rectangle.
   ///
-  /// Typically semi-transparent to show underlying nodes.
-  final Color viewportColor;
+  /// Typically semi-transparent to show underlying nodes. Falls back to
+  /// `#332196F3`.
+  final Color? viewportColor;
 
-  /// Border color of the viewport rectangle.
-  final Color viewportBorderColor;
+  /// Border color of the viewport rectangle. Falls back to `#2196F3`.
+  final Color? viewportBorderColor;
 
-  /// Width of the viewport border stroke.
-  final double viewportBorderWidth;
+  /// Width of the viewport border stroke. Falls back to `1.5`.
+  final double? viewportBorderWidth;
 
   /// Glow color around the viewport (for emphasis).
   ///
-  /// Set to transparent to disable glow effect.
-  final Color viewportGlowColor;
+  /// Set to transparent to disable glow effect. Falls back to transparent.
+  final Color? viewportGlowColor;
 
-  /// Blur radius of the viewport glow effect.
-  final double viewportGlowBlur;
+  /// Blur radius of the viewport glow effect. Falls back to `4.0`.
+  final double? viewportGlowBlur;
 
-  /// Border radius for the viewport rectangle.
-  final BorderRadius viewportBorderRadius;
+  /// Border radius for the viewport rectangle. Falls back to a 2px radius.
+  final BorderRadius? viewportBorderRadius;
 
   const FlowMinimapStyle({
-    this.padding = 0,
-    this.backgroundColor = Colors.white,
-    this.maskColor = const Color(0x99F0F2F5),
-    this.maskStrokeColor = const Color(0xFF9E9E9E),
-    this.maskStrokeWidth = 1.0,
-    this.borderRadius = const BorderRadius.all(Radius.circular(8.0)),
-    this.shadows = const [
-      BoxShadow(
-        color: Colors.black26,
-        blurRadius: 10,
-        offset: Offset(0, 4),
-      ),
-    ],
-    this.nodeColor = const Color(0xFF2196F3),
-    this.selectedNodeColor = const Color(0xFFFF9800),
-    this.disabledNodeColor = const Color(0xFFBDBDBD),
-    this.nodeStrokeColor = const Color(0xFF1976D2),
-    this.nodeStrokeWidth = 1.0,
-    this.nodeBorderRadius = const BorderRadius.all(Radius.circular(2.0)),
-    this.viewportColor = const Color(0x332196F3),
-    this.viewportBorderColor = const Color(0xFF2196F3),
-    this.viewportBorderWidth = 1.5,
-    this.viewportGlowColor = Colors.transparent,
-    this.viewportGlowBlur = 4.0,
-    this.viewportBorderRadius = const BorderRadius.all(Radius.circular(2.0)),
+    this.padding,
+    this.backgroundColor,
+    this.maskColor,
+    this.maskStrokeColor,
+    this.maskStrokeWidth,
+    this.borderRadius,
+    this.shadows,
+    this.nodeColor,
+    this.selectedNodeColor,
+    this.disabledNodeColor,
+    this.nodeStrokeColor,
+    this.nodeStrokeWidth,
+    this.nodeBorderRadius,
+    this.viewportColor,
+    this.viewportBorderColor,
+    this.viewportBorderWidth,
+    this.viewportGlowColor,
+    this.viewportGlowBlur,
+    this.viewportBorderRadius,
   });
+
+  // Resolved values (cascade fallback). Consumers read these, never the raw
+  // nullable fields, so an unset field always paints its documented default.
+  double get effectivePadding => padding ?? 0;
+  Color get effectiveBackgroundColor => backgroundColor ?? Colors.white;
+  Color get effectiveMaskColor => maskColor ?? const Color(0x99F0F2F5);
+  Color get effectiveMaskStrokeColor =>
+      maskStrokeColor ?? const Color(0xFF9E9E9E);
+  double get effectiveMaskStrokeWidth => maskStrokeWidth ?? 1.0;
+  BorderRadius get effectiveBorderRadius =>
+      borderRadius ?? const BorderRadius.all(Radius.circular(8.0));
+  List<BoxShadow> get effectiveShadows =>
+      shadows ??
+      const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))];
+  Color get effectiveNodeColor => nodeColor ?? const Color(0xFF2196F3);
+  Color get effectiveSelectedNodeColor =>
+      selectedNodeColor ?? const Color(0xFFFF9800);
+  Color get effectiveDisabledNodeColor =>
+      disabledNodeColor ?? const Color(0xFFBDBDBD);
+  Color get effectiveNodeStrokeColor =>
+      nodeStrokeColor ?? const Color(0xFF1976D2);
+  double get effectiveNodeStrokeWidth => nodeStrokeWidth ?? 1.0;
+  BorderRadius get effectiveNodeBorderRadius =>
+      nodeBorderRadius ?? const BorderRadius.all(Radius.circular(2.0));
+  Color get effectiveViewportColor => viewportColor ?? const Color(0x332196F3);
+  Color get effectiveViewportBorderColor =>
+      viewportBorderColor ?? const Color(0xFF2196F3);
+  double get effectiveViewportBorderWidth => viewportBorderWidth ?? 1.5;
+  Color get effectiveViewportGlowColor =>
+      viewportGlowColor ?? Colors.transparent;
+  double get effectiveViewportGlowBlur => viewportGlowBlur ?? 4.0;
+  BorderRadius get effectiveViewportBorderRadius =>
+      viewportBorderRadius ?? const BorderRadius.all(Radius.circular(2.0));
 
   /// Creates a minimap style from simple color values.
   ///
@@ -178,52 +217,45 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
     Color? selectedNodeColor,
     Color? disabledNodeColor,
     Color? nodeStrokeColor,
-    double nodeStrokeWidth = 1.0,
+    double? nodeStrokeWidth,
     Color? backgroundColor,
     Color? maskColor,
     Color? maskStrokeColor,
-    double maskStrokeWidth = 1.0,
+    double? maskStrokeWidth,
     Color? viewportColor,
     Color? viewportBorderColor,
-    double viewportBorderWidth = 1.5,
+    double? viewportBorderWidth,
     Color? viewportGlowColor,
-    double viewportGlowBlur = 4.0,
+    double? viewportGlowBlur,
     BorderRadius? borderRadius,
     BorderRadius? nodeBorderRadius,
     BorderRadius? viewportBorderRadius,
     List<BoxShadow>? shadows,
-    double padding = 0,
+    double? padding,
   }) {
+    // Only `nodeColor` (and the palette derived from it) is forced. Every
+    // other unset field stays null so it inherits on merge and falls back to
+    // its documented default via the `effectiveX` getters when standalone.
     return FlowMinimapStyle(
       padding: padding,
-      backgroundColor: backgroundColor ?? Colors.white,
-      maskColor: maskColor ?? const Color(0x99F0F2F5),
-      maskStrokeColor: maskStrokeColor ?? const Color(0xFF9E9E9E),
+      backgroundColor: backgroundColor,
+      maskColor: maskColor,
+      maskStrokeColor: maskStrokeColor,
       maskStrokeWidth: maskStrokeWidth,
-      borderRadius:
-          borderRadius ?? const BorderRadius.all(Radius.circular(8.0)),
-      shadows: shadows ??
-          const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
+      borderRadius: borderRadius,
+      shadows: shadows,
       nodeColor: nodeColor,
       selectedNodeColor: selectedNodeColor ?? nodeColor,
       disabledNodeColor: disabledNodeColor ?? nodeColor,
       nodeStrokeColor: nodeStrokeColor ?? nodeColor,
       nodeStrokeWidth: nodeStrokeWidth,
-      nodeBorderRadius:
-          nodeBorderRadius ?? const BorderRadius.all(Radius.circular(2.0)),
+      nodeBorderRadius: nodeBorderRadius,
       viewportColor: viewportColor ?? nodeColor.withValues(alpha: 0.2),
       viewportBorderColor: viewportBorderColor ?? nodeColor,
       viewportBorderWidth: viewportBorderWidth,
-      viewportGlowColor: viewportGlowColor ?? Colors.transparent,
+      viewportGlowColor: viewportGlowColor,
       viewportGlowBlur: viewportGlowBlur,
-      viewportBorderRadius:
-          viewportBorderRadius ?? const BorderRadius.all(Radius.circular(2.0)),
+      viewportBorderRadius: viewportBorderRadius,
     );
   }
 
@@ -346,37 +378,42 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
   /// Priority: disabled > selected > normal.
   Color resolveNodeColor(Set<MinimapNodeState> states) {
     if (states.contains(MinimapNodeState.disabled)) {
-      return disabledNodeColor;
+      return effectiveDisabledNodeColor;
     }
     if (states.contains(MinimapNodeState.selected)) {
-      return selectedNodeColor;
+      return effectiveSelectedNodeColor;
     }
-    return nodeColor;
+    return effectiveNodeColor;
   }
 
-  /// Merges this (parent) style with [other] (child), letting [other]'s non-null values override.
+  /// Merges this (parent) style with [other] (child).
+  ///
+  /// Each field follows "other wins, nulls inherit": a field the child leaves
+  /// null keeps the parent's value, so a partial override
+  /// (e.g. `FlowMinimapStyle(nodeColor: red)`) changes only what it sets.
   FlowMinimapStyle merge(FlowMinimapStyle? other) {
     if (other == null) return this;
     return FlowMinimapStyle(
-      padding: other.padding,
-      backgroundColor: other.backgroundColor,
-      maskColor: other.maskColor,
-      maskStrokeColor: other.maskStrokeColor,
-      maskStrokeWidth: other.maskStrokeWidth,
-      borderRadius: other.borderRadius,
-      shadows: other.shadows,
-      nodeColor: other.nodeColor,
-      selectedNodeColor: other.selectedNodeColor,
-      disabledNodeColor: other.disabledNodeColor,
-      nodeStrokeColor: other.nodeStrokeColor,
-      nodeStrokeWidth: other.nodeStrokeWidth,
-      nodeBorderRadius: other.nodeBorderRadius,
-      viewportColor: other.viewportColor,
-      viewportBorderColor: other.viewportBorderColor,
-      viewportBorderWidth: other.viewportBorderWidth,
-      viewportGlowColor: other.viewportGlowColor,
-      viewportGlowBlur: other.viewportGlowBlur,
-      viewportBorderRadius: other.viewportBorderRadius,
+      padding: other.padding ?? padding,
+      backgroundColor: other.backgroundColor ?? backgroundColor,
+      maskColor: other.maskColor ?? maskColor,
+      maskStrokeColor: other.maskStrokeColor ?? maskStrokeColor,
+      maskStrokeWidth: other.maskStrokeWidth ?? maskStrokeWidth,
+      borderRadius: other.borderRadius ?? borderRadius,
+      shadows: other.shadows ?? shadows,
+      nodeColor: other.nodeColor ?? nodeColor,
+      selectedNodeColor: other.selectedNodeColor ?? selectedNodeColor,
+      disabledNodeColor: other.disabledNodeColor ?? disabledNodeColor,
+      nodeStrokeColor: other.nodeStrokeColor ?? nodeStrokeColor,
+      nodeStrokeWidth: other.nodeStrokeWidth ?? nodeStrokeWidth,
+      nodeBorderRadius: other.nodeBorderRadius ?? nodeBorderRadius,
+      viewportColor: other.viewportColor ?? viewportColor,
+      viewportBorderColor: other.viewportBorderColor ?? viewportBorderColor,
+      viewportBorderWidth: other.viewportBorderWidth ?? viewportBorderWidth,
+      viewportGlowColor: other.viewportGlowColor ?? viewportGlowColor,
+      viewportGlowBlur: other.viewportGlowBlur ?? viewportGlowBlur,
+      viewportBorderRadius:
+          other.viewportBorderRadius ?? viewportBorderRadius,
     );
   }
 
@@ -514,7 +551,7 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
         maskStrokeColor,
         maskStrokeWidth,
         borderRadius,
-        Object.hashAll(shadows),
+        shadows == null ? null : Object.hashAll(shadows!),
         nodeColor,
         selectedNodeColor,
         disabledNodeColor,
@@ -540,7 +577,7 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
     properties.add(ColorProperty('maskStrokeColor', maskStrokeColor));
     properties.add(
         DoubleProperty('maskStrokeWidth', maskStrokeWidth, defaultValue: 1.0));
-    properties.add(DiagnosticsProperty<BorderRadius>(
+    properties.add(DiagnosticsProperty<BorderRadius?>(
         'borderRadius', borderRadius,
         defaultValue: null));
     properties.add(IterableProperty<BoxShadow>('shadows', shadows));
@@ -550,7 +587,7 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
     properties.add(ColorProperty('nodeStrokeColor', nodeStrokeColor));
     properties.add(
         DoubleProperty('nodeStrokeWidth', nodeStrokeWidth, defaultValue: 1.0));
-    properties.add(DiagnosticsProperty<BorderRadius>(
+    properties.add(DiagnosticsProperty<BorderRadius?>(
         'nodeBorderRadius', nodeBorderRadius,
         defaultValue: null));
     properties.add(ColorProperty('viewportColor', viewportColor));
@@ -560,7 +597,7 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
     properties.add(ColorProperty('viewportGlowColor', viewportGlowColor));
     properties.add(DoubleProperty('viewportGlowBlur', viewportGlowBlur,
         defaultValue: 4.0));
-    properties.add(DiagnosticsProperty<BorderRadius>(
+    properties.add(DiagnosticsProperty<BorderRadius?>(
         'viewportBorderRadius', viewportBorderRadius,
         defaultValue: null));
   }
