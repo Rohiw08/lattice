@@ -479,6 +479,13 @@ class ConnectionService {
       return false;
     }
 
+    // Typed-port compatibility: a handle's connectionGroup only connects to a
+    // matching group. A null group on either side is a wildcard. Symmetric, so
+    // one call covers both directions.
+    if (!sourceHandle.isCompatibleWithGroup(targetHandle.connectionGroup)) {
+      return false;
+    }
+
     final params = ConnectionParams(
       sourceNodeId: sourceNode.id,
       sourceHandleId: sourceHandle.id,
