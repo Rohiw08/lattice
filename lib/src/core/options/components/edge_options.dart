@@ -1,3 +1,4 @@
+import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
 import 'package:lattice/src/core/theme/components/edge_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -53,11 +54,12 @@ import 'package:lattice/src/core/options/options_extensions.dart';
 ///  * [FlowCanvasOptions], for global canvas options
 @immutable
 class EdgeOptions with Diagnosticable {
-  /// The type identifier for the edge (e.g., 'default', 'bezier', 'step').
+  /// Default path type applied to edges created by a drag/click connection
+  /// (Lattice `defaultEdgeOptions.type`).
   ///
-  /// If null, uses the default edge type. Custom types can be registered
-  /// and used for different visual styles or behaviors.
-  final String? type;
+  /// If null, connection-created edges use [EdgePathType.bezier]. A per-edge
+  /// `FlowEdge.type` always wins over this global default.
+  final EdgePathType? type;
 
   /// Whether the edge is hidden from view.
   ///
@@ -211,7 +213,7 @@ class EdgeOptions with Diagnosticable {
   /// );
   /// ```
   EdgeOptions copyWith({
-    String? type,
+    EdgePathType? type,
     bool? hidden,
     bool? deletable,
     bool? selectable,
@@ -316,7 +318,8 @@ class EdgeOptions with Diagnosticable {
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(StringProperty('type', type, defaultValue: null));
+    properties
+        .add(EnumProperty<EdgePathType>('type', type, defaultValue: null));
     properties.add(FlagProperty('hidden',
         value: hidden, defaultValue: false, ifTrue: 'HIDDEN'));
     properties.add(FlagProperty('deletable',

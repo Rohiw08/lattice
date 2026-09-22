@@ -226,6 +226,7 @@ class ConnectionService {
     bool Function(ConnectionParams connection)? isValidConnection,
     bool autoCreateEdge = true,
     bool nodesConnectable = true,
+    EdgePathType defaultEdgeType = EdgePathType.bezier,
   }) {
     final connection = state.activeConnection;
     if (connection == null) return state;
@@ -278,6 +279,7 @@ class ConnectionService {
           targetNodeId: connection.toNodeId!,
           targetHandleId: connection.toHandleId!,
           factory: edgeFactory,
+          defaultEdgeType: defaultEdgeType,
         );
         final newEdges = Map<String, FlowEdge>.from(state.edges)
           ..[newEdge.id] = newEdge;
@@ -522,6 +524,7 @@ class ConnectionService {
     required String targetNodeId,
     required String targetHandleId,
     EdgeFactory? factory,
+    EdgePathType defaultEdgeType = EdgePathType.bezier,
   }) {
     final edgeId = IdGenerator.generateEdgeId();
     if (factory != null) {
@@ -539,6 +542,7 @@ class ConnectionService {
       sourceHandleId: sourceHandleId,
       targetNodeId: targetNodeId,
       targetHandleId: targetHandleId,
+      type: defaultEdgeType,
     );
   }
 

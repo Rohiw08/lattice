@@ -57,6 +57,8 @@ class ConnectionController {
 
   ViewportOptions get _vpOpts => _ref.read(flowOptionsProvider).viewportOptions;
 
+  EdgeOptions get _edgeOpts => _ref.read(flowOptionsProvider).edgeOptions;
+
   Offset get _nodeOrigin =>
       _ref.read(flowOptionsProvider).nodeOptions.nodeOrigin;
 
@@ -460,6 +462,7 @@ class ConnectionController {
         isValidConnection: _isValid,
         autoCreateEdge: _connOpts.autoCreateEdge,
         nodesConnectable: _nodesConnectable,
+        defaultEdgeType: _edgeOpts.type ?? EdgePathType.bezier,
       );
       final newEdges = newState.edges.keys.toSet().difference(
         s.edges.keys.toSet(),
@@ -745,6 +748,7 @@ class ConnectionController {
         isValidConnection: _isValid,
         autoCreateEdge: _connOpts.autoCreateEdge,
         nodesConnectable: _nodesConnectable,
+        defaultEdgeType: _edgeOpts.type ?? EdgePathType.bezier,
       );
       final newEdges = newState.edges.keys.toSet().difference(
         s.edges.keys.toSet(),
