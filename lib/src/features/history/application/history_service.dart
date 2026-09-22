@@ -5,8 +5,7 @@ import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
 import 'package:lattice/src/features/nodes/domain/models/node.dart';
 
-/// Linear undo/redo as full state checkpoints. For large graphs, prefer future
-/// compact steps (`canvas_undo_command.dart`).
+/// Linear undo/redo as full state checkpoints.
 class HistoryService {
   final List<FlowCanvasState> _undoStack = <FlowCanvasState>[];
   final List<FlowCanvasState> _redoStack = <FlowCanvasState>[];

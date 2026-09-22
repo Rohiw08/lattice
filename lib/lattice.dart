@@ -111,9 +111,6 @@ export 'src/features/dataflow/domain/node_connection.dart';
 export 'src/features/dataflow/application/flow_dataflow.dart';
 export 'src/features/dataflow/presentation/flow_data_handle.dart';
 
-// --- History extension point ---
-export 'src/features/history/domain/canvas_undo_command.dart';
-
 // --- Stress / benchmark helpers ---
 export 'src/features/nodes/domain/synthetic_graph.dart';
 
