@@ -76,6 +76,13 @@ class _FlowCanvasInteractiveSurfaceState
   /// True while InteractiveViewer / aux pan is actively moving the viewport.
   bool _viewportInteracting = false;
 
+  /// Primary-button down time/position of the last tap, for manual
+  /// double-click detection (Lattice `zoomOnDoubleClick`). Tracked on the
+  /// translucent [Listener] so it never delays node/edge single taps the way
+  /// a competing double-tap recognizer in the gesture arena would.
+  Duration? _lastPrimaryDownTime;
+  Offset? _lastPrimaryDownGlobal;
+
   @override
   void initState() {
     super.initState();
@@ -196,6 +203,50 @@ class _FlowCanvasInteractiveSurfaceState
     if ((event.position - downGlobal).distance > _contextMenuSlop) return;
     final controller = ref.read(internalControllerProvider.notifier);
     controller.fireContextMenuAt(event.position);
+  }
+
+  /// Lattice `zoomOnDoubleClick`: a second primary tap within the double-tap
+  /// window (and slop) zooms in, centered on the pointer. Detected manually
+  /// from pointer-downs so it adds no arena delay to node/edge taps.
+  void _maybeHandleDoubleClickZoom(PointerDownEvent event) {
+    if (event.buttons & kPrimaryButton == 0) return;
+    final v = ref.read(flowOptionsProvider).viewportOptions;
+    if (!v.zoomOnDoubleClick) return;
+
+    final internal = ref.read(internalControllerProvider);
+    if (internal.isPanZoomLocked || internal.dragMode != DragMode.none) {
+      _lastPrimaryDownTime = null;
+      _lastPrimaryDownGlobal = null;
+      return;
+    }
+
+    final last = _lastPrimaryDownTime;
+    final lastPos = _lastPrimaryDownGlobal;
+    final isDouble = last != null &&
+        lastPos != null &&
+        event.timeStamp - last <= kDoubleTapTimeout &&
+        (event.position - lastPos).distance <= kDoubleTapSlop;
+
+    if (!isDouble) {
+      _lastPrimaryDownTime = event.timeStamp;
+      _lastPrimaryDownGlobal = event.position;
+      return;
+    }
+
+    _lastPrimaryDownTime = null;
+    _lastPrimaryDownGlobal = null;
+
+    final controller = ref.read(internalControllerProvider.notifier);
+    final local =
+        controller.viewport.viewportPositionFromGlobal(event.position);
+    if (local == null) return;
+    controller.viewport.zoom(
+      focalPoint: local,
+      minZoom: v.minZoom,
+      maxZoom: v.maxZoom,
+      // Gentle step in; controller applies (1 + zoomFactor) as the multiplier.
+      zoomFactor: 0.2,
+    );
   }
 
   void _onPointerSignal(PointerSignalEvent signal) {
@@ -330,6 +381,7 @@ class _FlowCanvasInteractiveSurfaceState
           onPointerDown: isLocked ? null : (PointerDownEvent event) {
             _trackSecondaryDown(event);
             _maybeStartAuxiliaryPan(event);
+            _maybeHandleDoubleClickZoom(event);
           },
           onPointerUp: isLocked ? null : _maybeFireContextMenu,
           onPointerSignal: isLocked ? null : _onPointerSignal,
