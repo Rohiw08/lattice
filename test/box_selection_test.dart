@@ -88,4 +88,61 @@ void main() {
     );
     expect(state.selectedNodes, {'a'});
   });
+
+  test('membership-unchanged frame updates rect but preserves selection flags',
+      () {
+    var state = selection.startBoxSelection(base, Offset.zero);
+    // First frame: box selects only node a (b starts at x=200).
+    state = selection.updateBoxSelection(
+      state,
+      Offset.zero,
+      const Offset(150, 50),
+      nodeIndex,
+      edgeIndex,
+      selectionMode: SelectionMode.partial,
+    );
+    expect(state.selectedNodes, {'a'});
+    expect(state.nodeStates['a']!.selected, isTrue);
+
+    // Second frame: box grows but still selects only a → fast path. The rect
+    // must update while the selection + runtime flags are preserved untouched.
+    final grown = selection.updateBoxSelection(
+      state,
+      Offset.zero,
+      const Offset(180, 50),
+      nodeIndex,
+      edgeIndex,
+      selectionMode: SelectionMode.partial,
+    );
+    expect(grown.selectedNodes, {'a'});
+    expect(grown.nodeStates['a']!.selected, isTrue);
+    expect(grown.selectionRect, const Rect.fromLTRB(0, 0, 180, 50));
+  });
+
+  test('shrinking membership clears the deselected node flag', () {
+    var state = selection.startBoxSelection(base, Offset.zero);
+    state = selection.updateBoxSelection(
+      state,
+      Offset.zero,
+      const Offset(250, 50),
+      nodeIndex,
+      edgeIndex,
+      selectionMode: SelectionMode.partial,
+    );
+    expect(state.selectedNodes, {'a', 'b'});
+
+    // Box shrinks to drop b → membership changed → full path re-runs and must
+    // flip b's runtime flag back off.
+    state = selection.updateBoxSelection(
+      state,
+      Offset.zero,
+      const Offset(150, 50),
+      nodeIndex,
+      edgeIndex,
+      selectionMode: SelectionMode.partial,
+    );
+    expect(state.selectedNodes, {'a'});
+    expect(state.nodeStates['a']!.selected, isTrue);
+    expect(state.nodeStates['b']!.selected, isFalse);
+  });
 }

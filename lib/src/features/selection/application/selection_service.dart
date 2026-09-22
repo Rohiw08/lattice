@@ -250,6 +250,16 @@ class SelectionService {
     }
     final newSelectedEdges = edgesInArea;
 
+    // Fast path: the marquee moved but the selected membership did not change.
+    // The runtime `selected` flags in nodeStates/edgeStates are already correct
+    // from the frame membership last changed, so only the rect needs updating.
+    // This skips the two O(N+E) runtime-map clones below on every frame where
+    // the box sweeps without crossing a node boundary (the common case).
+    if (_sameMembership(newSelectedNodes, state.selectedNodes) &&
+        _sameMembership(newSelectedEdges, state.selectedEdges)) {
+      return state.copyWith(selectionRect: newSelectionRect);
+    }
+
     final newNodeStates = Map<String, NodeRuntimeState>.from(state.nodeStates);
     final newEdgeStates = Map<String, EdgeRuntimeState>.from(state.edgeStates);
 
@@ -294,4 +304,11 @@ class SelectionService {
       selectionRect: Rect.zero,
     );
   }
+
+  /// True when [a] and [b] contain exactly the same ids (order-independent).
+  ///
+  /// Dart `Set` `==` is identity-based, so membership must be compared by
+  /// content. O(min(|a|, |b|)) — cheap relative to the map clones it guards.
+  static bool _sameMembership(Set<String> a, Set<String> b) =>
+      a.length == b.length && a.containsAll(b);
 }
