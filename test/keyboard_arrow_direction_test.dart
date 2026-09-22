@@ -1,4 +1,3 @@
-import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
