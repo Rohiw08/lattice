@@ -211,6 +211,11 @@ class _FlowCanvasInteractiveSurfaceState
     final v = ref.read(flowOptionsProvider).viewportOptions;
     final controller = ref.read(internalControllerProvider.notifier);
 
+    // Lattice `preventScrolling` (default true): when false, don't claim the
+    // wheel — let it fall through to an ancestor scrollable so the page can
+    // scroll while the pointer is over the canvas.
+    if (!v.preventScrolling) return;
+
     // Lattice `onPaneScroll` (flow coords), for processed scrolls only.
     final onPaneScroll =
         ref.read(flowCanvasCallbacksProvider).onPaneScroll;
@@ -243,10 +248,24 @@ class _FlowCanvasInteractiveSurfaceState
     }
 
     if (v.panOnScroll) {
-      final delta = GestureBindings.normalizedPanOnScroll(
+      final raw = GestureBindings.normalizedPanOnScroll(
         signal,
         speed: v.panOnScrollSpeed,
       );
+      // Lattice `panOnScrollMode`: lock to one axis. A vertical-only wheel
+      // still pans along the locked axis (fall back to the other component).
+      Offset delta;
+      switch (v.panOnScrollMode) {
+        case PanOnScrollMode.horizontal:
+          delta = Offset(raw.dx != 0 ? raw.dx : raw.dy, 0);
+          break;
+        case PanOnScrollMode.vertical:
+          delta = Offset(0, raw.dy != 0 ? raw.dy : raw.dx);
+          break;
+        case PanOnScrollMode.free:
+          delta = raw;
+          break;
+      }
       controller.panLiveBy(-delta);
       controller.commitLiveViewportToState();
     }
@@ -326,7 +345,12 @@ class _FlowCanvasInteractiveSurfaceState
             maxScale: v.maxZoom,
             scaleFactor: wheelZoomFactor,
             panEnabled: panEnabled,
-            scaleEnabled: !isLocked && dragMode != DragMode.selection,
+            // `zoomOnPinch` gates touch pinch-to-zoom. InteractiveViewer routes
+            // trackpad-scroll-scale through the same recognizer, so keep it on
+            // when `zoomOnScroll` wants trackpad zoom even if pinch is off.
+            scaleEnabled: !isLocked &&
+                dragMode != DragMode.selection &&
+                (v.zoomOnPinch || trackpadScrollCausesScale),
             trackpadScrollCausesScale: trackpadScrollCausesScale,
             onInteractionStart: (_) {
               setState(() => _viewportInteracting = true);
