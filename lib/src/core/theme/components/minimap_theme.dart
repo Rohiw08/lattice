@@ -142,17 +142,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
   /// Width of the viewport border stroke. Falls back to `1.5`.
   final double? viewportBorderWidth;
 
-  /// Glow color around the viewport (for emphasis).
-  ///
-  /// Set to transparent to disable glow effect. Falls back to transparent.
-  final Color? viewportGlowColor;
-
-  /// Blur radius of the viewport glow effect. Falls back to `4.0`.
-  final double? viewportGlowBlur;
-
-  /// Border radius for the viewport rectangle. Falls back to a 2px radius.
-  final BorderRadius? viewportBorderRadius;
-
   const FlowMinimapStyle({
     this.padding,
     this.backgroundColor,
@@ -170,9 +159,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
     this.viewportColor,
     this.viewportBorderColor,
     this.viewportBorderWidth,
-    this.viewportGlowColor,
-    this.viewportGlowBlur,
-    this.viewportBorderRadius,
   });
 
   // Resolved values (cascade fallback). Consumers read these, never the raw
@@ -202,11 +188,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
   Color get effectiveViewportBorderColor =>
       viewportBorderColor ?? const Color(0xFF2196F3);
   double get effectiveViewportBorderWidth => viewportBorderWidth ?? 1.5;
-  Color get effectiveViewportGlowColor =>
-      viewportGlowColor ?? Colors.transparent;
-  double get effectiveViewportGlowBlur => viewportGlowBlur ?? 4.0;
-  BorderRadius get effectiveViewportBorderRadius =>
-      viewportBorderRadius ?? const BorderRadius.all(Radius.circular(2.0));
 
   /// Creates a minimap style from simple color values.
   ///
@@ -225,11 +206,8 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
     Color? viewportColor,
     Color? viewportBorderColor,
     double? viewportBorderWidth,
-    Color? viewportGlowColor,
-    double? viewportGlowBlur,
     BorderRadius? borderRadius,
     BorderRadius? nodeBorderRadius,
-    BorderRadius? viewportBorderRadius,
     List<BoxShadow>? shadows,
     double? padding,
   }) {
@@ -253,9 +231,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
       viewportColor: viewportColor ?? nodeColor.withValues(alpha: 0.2),
       viewportBorderColor: viewportBorderColor ?? nodeColor,
       viewportBorderWidth: viewportBorderWidth,
-      viewportGlowColor: viewportGlowColor,
-      viewportGlowBlur: viewportGlowBlur,
-      viewportBorderRadius: viewportBorderRadius,
     );
   }
 
@@ -280,8 +255,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
       viewportColor: Colors.white,
       viewportBorderColor: Color(0xFFF0F0F0),
       viewportBorderWidth: 1.0,
-      viewportGlowColor: Colors.transparent,
-      viewportBorderRadius: BorderRadius.zero,
       shadows: [],
     );
   }
@@ -307,8 +280,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
       viewportColor: Colors.transparent,
       viewportBorderColor: Color(0xFF555555),
       viewportBorderWidth: 1.0,
-      viewportGlowColor: Colors.transparent,
-      viewportBorderRadius: BorderRadius.zero,
       shadows: [],
     );
   }
@@ -338,7 +309,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
       nodeStrokeColor: colorScheme.primaryContainer,
       viewportColor: colorScheme.primary.withValues(alpha: 0.2),
       viewportBorderColor: colorScheme.primary,
-      viewportGlowColor: colorScheme.primary.withValues(alpha: 0.15),
       shadows: [
         BoxShadow(
           color: colorScheme.shadow.withValues(alpha: 0.15),
@@ -410,10 +380,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
       viewportColor: other.viewportColor ?? viewportColor,
       viewportBorderColor: other.viewportBorderColor ?? viewportBorderColor,
       viewportBorderWidth: other.viewportBorderWidth ?? viewportBorderWidth,
-      viewportGlowColor: other.viewportGlowColor ?? viewportGlowColor,
-      viewportGlowBlur: other.viewportGlowBlur ?? viewportGlowBlur,
-      viewportBorderRadius:
-          other.viewportBorderRadius ?? viewportBorderRadius,
     );
   }
 
@@ -435,9 +401,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
     Color? viewportColor,
     Color? viewportBorderColor,
     double? viewportBorderWidth,
-    Color? viewportGlowColor,
-    double? viewportGlowBlur,
-    BorderRadius? viewportBorderRadius,
   }) {
     return FlowMinimapStyle(
       padding: padding ?? this.padding,
@@ -456,9 +419,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
       viewportColor: viewportColor ?? this.viewportColor,
       viewportBorderColor: viewportBorderColor ?? this.viewportBorderColor,
       viewportBorderWidth: viewportBorderWidth ?? this.viewportBorderWidth,
-      viewportGlowColor: viewportGlowColor ?? this.viewportGlowColor,
-      viewportGlowBlur: viewportGlowBlur ?? this.viewportGlowBlur,
-      viewportBorderRadius: viewportBorderRadius ?? this.viewportBorderRadius,
     );
   }
 
@@ -506,15 +466,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
       viewportBorderWidth:
           lerpDouble(viewportBorderWidth, other.viewportBorderWidth, t) ??
               viewportBorderWidth,
-      viewportGlowColor:
-          Color.lerp(viewportGlowColor, other.viewportGlowColor, t) ??
-              viewportGlowColor,
-      viewportGlowBlur:
-          lerpDouble(viewportGlowBlur, other.viewportGlowBlur, t) ??
-              viewportGlowBlur,
-      viewportBorderRadius: BorderRadius.lerp(
-              viewportBorderRadius, other.viewportBorderRadius, t) ??
-          viewportBorderRadius,
     );
   }
 
@@ -537,10 +488,7 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
         other.nodeBorderRadius == nodeBorderRadius &&
         other.viewportColor == viewportColor &&
         other.viewportBorderColor == viewportBorderColor &&
-        other.viewportBorderWidth == viewportBorderWidth &&
-        other.viewportGlowColor == viewportGlowColor &&
-        other.viewportGlowBlur == viewportGlowBlur &&
-        other.viewportBorderRadius == viewportBorderRadius;
+        other.viewportBorderWidth == viewportBorderWidth;
   }
 
   @override
@@ -561,11 +509,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
         viewportColor,
         viewportBorderColor,
         viewportBorderWidth,
-        Object.hash(
-          viewportGlowColor,
-          viewportGlowBlur,
-          viewportBorderRadius,
-        ),
       );
 
   @override
@@ -594,12 +537,6 @@ class FlowMinimapStyle extends ThemeExtension<FlowMinimapStyle>
     properties.add(ColorProperty('viewportBorderColor', viewportBorderColor));
     properties.add(DoubleProperty('viewportBorderWidth', viewportBorderWidth,
         defaultValue: 1.5));
-    properties.add(ColorProperty('viewportGlowColor', viewportGlowColor));
-    properties.add(DoubleProperty('viewportGlowBlur', viewportGlowBlur,
-        defaultValue: 4.0));
-    properties.add(DiagnosticsProperty<BorderRadius?>(
-        'viewportBorderRadius', viewportBorderRadius,
-        defaultValue: null));
   }
 
   @override

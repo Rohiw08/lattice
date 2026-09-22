@@ -99,13 +99,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
   /// Only applies when [variant] is [BackgroundVariant.crosses].
   final double? crossSize;
 
-  /// Whether the background pattern should fade when zooming. Falls back to
-  /// `true`.
-  ///
-  /// When true, the pattern opacity decreases at high zoom levels
-  /// to reduce visual clutter.
-  final bool? fadeOnZoom;
-
   /// The gradient overlay applied to the background, if any.
   ///
   /// When provided, this gradient is drawn on top of [backgroundColor]
@@ -136,7 +129,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
     this.lineWidth,
     this.dotRadius,
     this.crossSize,
-    this.fadeOnZoom,
     this.gradient,
     this.patternOffset,
     this.blendMode,
@@ -158,7 +150,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
   double get effectiveLineWidth => lineWidth ?? 1.0;
   double get effectiveDotRadius => dotRadius ?? 0.5;
   double get effectiveCrossSize => crossSize ?? 8.0;
-  bool get effectiveFadeOnZoom => fadeOnZoom ?? true;
   Offset get effectivePatternOffset => patternOffset ?? Offset.zero;
   BlendMode get effectiveBlendMode => blendMode ?? BlendMode.srcOver;
 
@@ -351,7 +342,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
       lineWidth: other.lineWidth ?? lineWidth,
       dotRadius: other.dotRadius ?? dotRadius,
       crossSize: other.crossSize ?? crossSize,
-      fadeOnZoom: other.fadeOnZoom ?? fadeOnZoom,
       gradient: other.gradient ?? gradient,
       patternOffset: other.patternOffset ?? patternOffset,
       blendMode: other.blendMode ?? blendMode,
@@ -380,7 +370,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
     double? lineWidth,
     double? dotRadius,
     double? crossSize,
-    bool? fadeOnZoom,
     Gradient? gradient,
     Offset? patternOffset,
     BlendMode? blendMode,
@@ -393,7 +382,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
       lineWidth: lineWidth ?? this.lineWidth,
       dotRadius: dotRadius ?? this.dotRadius,
       crossSize: crossSize ?? this.crossSize,
-      fadeOnZoom: fadeOnZoom ?? this.fadeOnZoom,
       gradient: gradient ?? this.gradient,
       patternOffset: patternOffset ?? this.patternOffset,
       blendMode: blendMode ?? this.blendMode,
@@ -425,7 +413,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
       lineWidth: lerpDouble(effectiveLineWidth, other.effectiveLineWidth, t),
       dotRadius: lerpDouble(effectiveDotRadius, other.effectiveDotRadius, t),
       crossSize: lerpDouble(effectiveCrossSize, other.effectiveCrossSize, t),
-      fadeOnZoom: t < 0.5 ? effectiveFadeOnZoom : other.effectiveFadeOnZoom,
       gradient: Gradient.lerp(gradient, other.gradient, t),
       patternOffset:
           Offset.lerp(effectivePatternOffset, other.effectivePatternOffset, t),
@@ -444,7 +431,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
         other.lineWidth == lineWidth &&
         other.dotRadius == dotRadius &&
         other.crossSize == crossSize &&
-        other.fadeOnZoom == fadeOnZoom &&
         other.gradient == gradient &&
         other.patternOffset == patternOffset &&
         other.blendMode == blendMode;
@@ -459,7 +445,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
         lineWidth,
         dotRadius,
         crossSize,
-        fadeOnZoom,
         gradient,
         patternOffset,
         blendMode,
@@ -476,15 +461,6 @@ class FlowBackgroundStyle extends ThemeExtension<FlowBackgroundStyle>
     properties.add(DoubleProperty('lineWidth', lineWidth, defaultValue: null));
     properties.add(DoubleProperty('dotRadius', dotRadius, defaultValue: null));
     properties.add(DoubleProperty('crossSize', crossSize, defaultValue: null));
-    properties.add(
-      FlagProperty(
-        'fadeOnZoom',
-        value: fadeOnZoom,
-        ifTrue: 'fades on zoom',
-        ifFalse: 'no fade',
-        defaultValue: null,
-      ),
-    );
     properties.add(DiagnosticsProperty<Gradient?>('gradient', gradient,
         defaultValue: null));
     properties.add(DiagnosticsProperty<Offset?>('patternOffset', patternOffset,
