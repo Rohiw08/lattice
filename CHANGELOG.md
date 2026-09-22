@@ -381,4 +381,4 @@
 - Viewport helpers: `fitView`, culling for large graphs, snap-to-grid.
 - Overlays: background, minimap, panel, controls, edge labels, node resizer.
 - Theming via `FlowCanvasTheme` + per-component `Flow*Style`.
-- Persistence via `CanvasDocument` (`toJson` / `load`), undo / redo history, clipboard copy / paste.
+- Persistence: bare-state `toJson` / `load`, or versioned `saveDocument` / `loadDocument` (`CanvasDocument` envelope with schema migration). Undo / redo history, clipboard copy / paste.

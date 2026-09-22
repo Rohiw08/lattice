@@ -124,6 +124,20 @@ class FlowCanvasController {
   /// Symmetric counterpart to [load] for save/restore workflows.
   Map<String, dynamic> toJson() => _internal.currentState.toJson();
 
+  /// Serializes the canvas as a versioned document envelope (`{v, state}`).
+  ///
+  /// Prefer this over [toJson] for on-disk save files: the version tag lets
+  /// [loadDocument] migrate graphs written by an older schema. Restore with
+  /// [loadDocument]. Use plain [toJson]/[load] when you don't need versioning.
+  Map<String, dynamic> saveDocument() =>
+      CanvasDocument.fromState(_internal.currentState).toJson();
+
+  /// Restores a canvas from a versioned document produced by [saveDocument],
+  /// applying any schema migration for the document's version. Resets undo
+  /// history, exactly like [load].
+  void loadDocument(Map<String, dynamic> json) =>
+      _internal.load(CanvasDocument.fromJson(json).state);
+
   /// Returns the canvas state serialized for multiplayer sync: like [toJson]
   /// but strips per-client UI state (selection), which must never be shared.
   /// Pair with [applyRemote] on the receiving side.
