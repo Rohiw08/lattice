@@ -509,6 +509,7 @@ class NodesController {
       direction,
       _resizeTravel,
       minSize: minSize,
+      maxSize: options.viewportOptions.maxNodeSize,
       baseRect: _resizeBaseRect,
       defaultOrigin: options.nodeOptions.nodeOrigin,
       expandParentDefault: options.nodeOptions.expandParent,

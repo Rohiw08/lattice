@@ -364,6 +364,7 @@ FlowCanvasState updateNode(
     ResizeDirection direction,
     Offset delta, {
     Size minSize = const Size(50, 50),
+    Size? maxSize,
     Rect? baseRect,
     Offset defaultOrigin = Offset.zero,
     bool expandParentDefault = false,
@@ -439,7 +440,8 @@ FlowCanvasState updateNode(
     // edges absorb width/height clamps. With no per-node constraints this
     // reproduces the old edge clamps exactly.
     final effectiveMin = node.minSize ?? minSize;
-    final effectiveMax = node.maxSize;
+    // Per-node maxSize wins; else the global ViewportOptions.maxNodeSize.
+    final effectiveMax = node.maxSize ?? maxSize;
     var width = newRight - newLeft;
     var height = newBottom - newTop;
     if (node.keepAspectRatio && rect.width > 0 && rect.height > 0) {
