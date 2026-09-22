@@ -32,8 +32,13 @@ class FlowSpaceBackgroundPainter extends CustomPainter {
       ..blendMode = style.effectiveBlendMode
       ..isAntiAlias = zoom > 0.4;
 
-    final left = (visibleFlow.left / gap).floor() * gap;
-    final top = (visibleFlow.top / gap).floor() * gap;
+    // Phase-shift the lattice by the themed pattern offset (RF Background
+    // `offset`), keeping full coverage of the visible region.
+    final offset = style.effectivePatternOffset;
+    final left =
+        ((visibleFlow.left - offset.dx) / gap).floor() * gap + offset.dx;
+    final top =
+        ((visibleFlow.top - offset.dy) / gap).floor() * gap + offset.dy;
 
     switch (style.effectiveVariant) {
       case BackgroundVariant.dots:
