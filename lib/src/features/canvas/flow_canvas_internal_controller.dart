@@ -234,6 +234,17 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
   /// [DragMode.node] because [NodesController] updates paths incrementally.
   FlowCanvasState _commitGeometry(
       FlowCanvasState oldState, FlowCanvasState candidate) {
+    // Edge geometry is a pure function of node positions/sizes and the edge
+    // set — all held in the `nodes` and `edges` maps. Freezed `copyWith`
+    // reuses the reference of every field it does not replace, so a selection,
+    // hover, viewport, or other non-structural emission carries the *same* map
+    // instances. Identical references ⇒ no edge path can have changed ⇒ skip
+    // the O(N+E) change-detection scan outright. This is the common case for
+    // clicks/hovers on large graphs.
+    if (identical(oldState.nodes, candidate.nodes) &&
+        identical(oldState.edges, candidate.edges)) {
+      return candidate;
+    }
     // Edge geometry is invariant during these two hot-path drag modes, so the
     // per-frame O(N+E) change-detection scan is pure waste — skip it:
     //  - DragMode.node: NodesController updates affected edge paths
