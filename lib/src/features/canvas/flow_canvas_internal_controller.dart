@@ -234,7 +234,15 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
   /// [DragMode.node] because [NodesController] updates paths incrementally.
   FlowCanvasState _commitGeometry(
       FlowCanvasState oldState, FlowCanvasState candidate) {
-    if (candidate.dragMode == DragMode.node) {
+    // Edge geometry is invariant during these two hot-path drag modes, so the
+    // per-frame O(N+E) change-detection scan is pure waste — skip it:
+    //  - DragMode.node: NodesController updates affected edge paths
+    //    incrementally, so the controller-driven scan would only redo its work.
+    //  - DragMode.selection: a marquee frame only toggles selection flags and
+    //    the selection rect; no node moves and no edge changes (auto-pan pans
+    //    the live matrix, not state), so no edge path can change.
+    if (candidate.dragMode == DragMode.node ||
+        candidate.dragMode == DragMode.selection) {
       return candidate;
     }
     final changed = edgeGeometry.updateGeometryIfNeeded(candidate,
