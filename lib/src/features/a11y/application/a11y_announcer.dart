@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 /// Per-canvas screen-reader announcement bus.
 ///
-/// Controllers post polite live-region messages here (keyboard moves,
+/// Controllers post live-region messages here (keyboard moves,
 /// deletions); [FlowA11yLiveRegion] renders the latest message into an
 /// `assertive` live region. Owned by [FlowCanvasInternalController] —
 /// one bus per canvas, disposed with it.
