@@ -3,7 +3,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// Chrome for edge reconnect / updater endpoints (Lattice `.xy-flow__edgeupdater`).
+/// Chrome for edge reconnect / updater endpoints (React Flow `.xy-flow__edgeupdater`).
 ///
 /// Thin style — fill + border only, no interaction states (like
 /// [FlowSelectionStyle] / [FlowBackgroundStyle]).
@@ -38,7 +38,7 @@ class FlowEdgeReconnectStyle extends ThemeExtension<FlowEdgeReconnectStyle>
     );
   }
 
-  /// Light: Lattice handle greys (`#1a192b` fill, white border).
+  /// Light: React Flow handle greys (`#1a192b` fill, white border).
   factory FlowEdgeReconnectStyle.light() {
     return const FlowEdgeReconnectStyle(
       color: Color(0xFF1A192B),
@@ -47,7 +47,7 @@ class FlowEdgeReconnectStyle extends ThemeExtension<FlowEdgeReconnectStyle>
     );
   }
 
-  /// Dark: inverted Lattice handle greys.
+  /// Dark: inverted React Flow handle greys.
   factory FlowEdgeReconnectStyle.dark() {
     return const FlowEdgeReconnectStyle(
       color: Color(0xFFBEBEBE),

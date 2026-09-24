@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Lightweight connection descriptor (Lattice `Connection`).
+/// Lightweight connection descriptor (React Flow `Connection`).
 ///
 /// Used by [FlowCanvasCallbacks.onConnection] / [isValidConnection] and for
 /// controlled edge creation when [ConnectionOptions.autoCreateEdge] is false.

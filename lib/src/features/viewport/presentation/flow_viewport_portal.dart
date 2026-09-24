@@ -5,7 +5,7 @@ import 'package:lattice/src/core/providers/providers.dart';
 /// Renders [child] at a flow-space [position], panning and zooming with the
 /// graph.
 ///
-/// Lattice `<ViewportPortal />` counterpart. Place it in
+/// React Flow `<ViewportPortal />` counterpart. Place it in
 /// [FlowCanvas.overlays]: unlike [FlowPanel] (screen-fixed), the child sticks
 /// to the canvas — the canonical host for multiplayer presence (remote
 /// cursors, peer viewport frames) and canvas-anchored annotations.

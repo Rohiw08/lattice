@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Localizable screen-reader strings (≈ Lattice `ariaLabelConfig`).
+/// Localizable screen-reader strings (≈ React Flow `ariaLabelConfig`).
 ///
 /// Pass custom text (or localized strings) via [A11yOptions]:
 ///
@@ -79,7 +79,7 @@ class FlowA11yLabels {
       : 'Deleted $count selected elements';
 }
 
-/// Accessibility behavior for the canvas (≈ Lattice a11y props).
+/// Accessibility behavior for the canvas (≈ React Flow a11y props).
 ///
 /// - [announcements]: live-region announcements for keyboard moves and
 ///   deletions (default on).

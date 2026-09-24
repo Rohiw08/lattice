@@ -123,7 +123,7 @@ class _FlowCanvasDeselectLayerState
         if (event.pointer != _downPointer || downLocal == null) return;
         _downPointer = null;
         _downLocal = null;
-        // A marquee/pan always exceeds the slop; a tap does not (Lattice
+        // A marquee/pan always exceeds the slop; a tap does not (React Flow
         // onPaneClick fires alongside deselect).
         if ((event.localPosition - downLocal).distance > _paneClickSlop) {
           return;

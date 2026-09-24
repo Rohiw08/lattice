@@ -15,8 +15,8 @@ typedef TypedNodePropsBuilder<T> = Widget Function(NodeProps<T> props);
 
 /// Maps [FlowNode.type] strings to widget builders.
 ///
-/// By default registers Lattice–compatible built-ins:
-/// `input`, `default`, `output`, `group`. Like Lattice v12, the built-in widgets
+/// By default registers React Flow–compatible built-ins:
+/// `input`, `default`, `output`, `group`. Like React Flow v12, the built-in widgets
 /// render **no label** — your node widget decides what `props.data` looks like.
 ///
 /// ### Custom nodes
@@ -48,7 +48,7 @@ typedef TypedNodePropsBuilder<T> = Widget Function(NodeProps<T> props);
 class NodeRegistry {
   final Map<String, NodePropsWidgetBuilder> _builders;
 
-  /// Creates a registry with Lattice built-in node types registered.
+  /// Creates a registry with React Flow built-in node types registered.
   NodeRegistry() : _builders = {} {
     _registerDefaultTypes();
   }
@@ -56,7 +56,7 @@ class NodeRegistry {
   /// Creates an empty registry with no built-in types.
   NodeRegistry.empty() : _builders = {};
 
-  /// Registers Lattice built-in node types (`input`, `default`, `output`, `group`).
+  /// Registers React Flow built-in node types (`input`, `default`, `output`, `group`).
   void _registerDefaultTypes() {
     register(BuiltInNodeType.input, (n) => InputNode(node: n));
     register(

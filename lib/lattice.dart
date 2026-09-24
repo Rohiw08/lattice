@@ -43,10 +43,10 @@ export 'src/features/viewport/domain/viewport.dart';
 // --- Background Plugin ---
 export 'src/features/background/presentation/flow_background.dart';
 
-// --- Panel Plugin (Lattice Panel) ---
+// --- Panel Plugin (React Flow Panel) ---
 export 'src/features/panel/presentation/flow_panel.dart';
 
-// --- Viewport Portal (Lattice ViewportPortal) ---
+// --- Viewport Portal (React Flow ViewportPortal) ---
 export 'src/features/viewport/presentation/flow_viewport_portal.dart';
 
 // --- Minimap Plugin ---
@@ -60,10 +60,10 @@ export 'src/features/control_panel/presentation/control_button.dart';
 export 'src/features/edge_labels/presentation/flow_edge_label.dart';
 export 'src/features/edge_labels/presentation/flow_edge_label_portal.dart';
 
-// --- Toolbars (Lattice NodeToolbar / EdgeToolbar) ---
+// --- Toolbars (React Flow NodeToolbar / EdgeToolbar) ---
 export 'src/features/toolbar/presentation/flow_toolbars.dart';
 
-// --- Node resizer (Lattice NodeResizer / NodeResizeControl) ---
+// --- Node resizer (React Flow NodeResizer / NodeResizeControl) ---
 export 'src/features/node_resizer/presentation/flow_node_resizer.dart';
 export 'src/features/node_resizer/presentation/flow_node_resize_control.dart';
 
@@ -113,5 +113,5 @@ export 'src/features/dataflow/presentation/flow_data_handle.dart';
 // --- Stress / benchmark helpers ---
 export 'src/features/nodes/domain/synthetic_graph.dart';
 
-// --- Connection params (Lattice Connection) ---
+// --- Connection params (React Flow Connection) ---
 export 'src/features/connections/domain/models/connection_params.dart';

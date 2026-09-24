@@ -10,11 +10,11 @@ import 'package:lattice/src/core/enums/enums.dart';
 /// Configuration options for viewport behavior and user interactions.
 ///
 /// Controls panning, zooming, selection, and other viewport interactions.
-/// These options closely match Lattice's interaction props.
+/// These options closely match React Flow's interaction props.
 ///
-/// ## Lattice Compatibility
+/// ## React Flow Compatibility
 ///
-/// This maps to Lattice's interaction props [web:241]:
+/// This maps to React Flow's interaction props:
 /// - Pan: `panOnDrag`, `panOnScroll`, `panOnScrollSpeed`, `panOnScrollMode`
 /// - Zoom: `zoomOnScroll`, `zoomOnPinch`, `zoomOnDoubleClick`, `minZoom`, `maxZoom`
 /// - Selection: `selectionOnDrag`, `selectionMode`, `elementsSelectable`
@@ -60,7 +60,7 @@ class ViewportOptions with Diagnosticable {
   /// If provided, sets the starting viewport state. Use `fitView` to
   /// automatically fit content instead.
   ///
-  /// Lattice equivalent: `defaultViewport` prop.
+  /// React Flow equivalent: `defaultViewport` prop.
   final FlowViewport? defaultViewport;
 
   /// Whether to fit the view to show all nodes on initial render.
@@ -68,7 +68,7 @@ class ViewportOptions with Diagnosticable {
   /// When true, automatically calculates viewport to fit all nodes.
   /// Use `fitViewOptions` to customize the fit behavior.
   ///
-  /// Lattice equivalent: `fitView` prop.
+  /// React Flow equivalent: `fitView` prop.
   /// Defaults to false.
   final bool fitView;
 
@@ -76,7 +76,7 @@ class ViewportOptions with Diagnosticable {
   ///
   /// Controls padding, zoom limits, and animation for fit operations.
   ///
-  /// Lattice equivalent: `fitViewOptions` prop.
+  /// React Flow equivalent: `fitViewOptions` prop.
   final FitViewOptions fitViewOptions;
 
   // ==========================================================================
@@ -87,7 +87,7 @@ class ViewportOptions with Diagnosticable {
   ///
   /// Users cannot zoom out beyond this level. Must be greater than 0.
   ///
-  /// Lattice equivalent: `minZoom` prop.
+  /// React Flow equivalent: `minZoom` prop.
   /// Defaults to 0.5.
   final double minZoom;
 
@@ -102,19 +102,19 @@ class ViewportOptions with Diagnosticable {
   // Pan Interactions
   // ==========================================================================
 
-  /// Mouse buttons that pan the viewport when dragged (Lattice style).
+  /// Mouse buttons that pan the viewport when dragged (React Flow style).
   ///
-  /// Uses Lattice button indices: `0` left, `1` middle, `2` right
+  /// Uses React Flow button indices: `0` left, `1` middle, `2` right
   /// ([PanMouseButton]).
   ///
-  /// - `{0}` — left-drag pans (default, same as Lattice `panOnDrag={true}`)
-  /// - `{}` — no drag-pan (same as Lattice `panOnDrag={false}`)
+  /// - `{0}` — left-drag pans (default, same as React Flow `panOnDrag={true}`)
+  /// - `{}` — no drag-pan (same as React Flow `panOnDrag={false}`)
   /// - `{1, 2}` — middle + right pan (Figma-style with [selectionOnDrag])
   ///
   /// Left-button pan uses [InteractiveViewer]. Middle/right use a custom
   /// pointer pan so they work alongside [selectionOnDrag].
   ///
-  /// Lattice equivalent: `panOnDrag` (`boolean | number[]`).
+  /// React Flow equivalent: `panOnDrag` (`boolean | number[]`).
   final Set<int> panOnDrag;
 
   /// Whether scrolling pans the viewport instead of zooming.
@@ -122,16 +122,16 @@ class ViewportOptions with Diagnosticable {
   /// When true, scrolling moves the canvas. Set `zoomOnScroll` to false
   /// to prevent scroll from zooming.
   ///
-  /// Lattice equivalent: `panOnScroll` prop.
+  /// React Flow equivalent: `panOnScroll` prop.
   /// Defaults to false.
   final bool panOnScroll;
 
   /// Speed multiplier for pan-on-scroll.
   ///
   /// Higher values pan faster. Only applies when `panOnScroll` is true.
-  /// Lattice default: 0.5
+  /// React Flow default: 0.5
   ///
-  /// Lattice equivalent: `panOnScrollSpeed` prop.
+  /// React Flow equivalent: `panOnScrollSpeed` prop.
   /// Defaults to 0.5.
   final double panOnScrollSpeed;
 
@@ -153,7 +153,7 @@ class ViewportOptions with Diagnosticable {
   ///
   /// When true, scrolling zooms in/out. Disable this if using `panOnScroll`.
   ///
-  /// Lattice equivalent: `zoomOnScroll` prop.
+  /// React Flow equivalent: `zoomOnScroll` prop.
   /// Defaults to true.
   final bool zoomOnScroll;
 
@@ -161,7 +161,7 @@ class ViewportOptions with Diagnosticable {
   ///
   /// When true, two-finger pinch gestures control zoom on mobile/tablet.
   ///
-  /// Lattice equivalent: `zoomOnPinch` prop.
+  /// React Flow equivalent: `zoomOnPinch` prop.
   /// Defaults to true.
   final bool zoomOnPinch;
 
@@ -169,7 +169,7 @@ class ViewportOptions with Diagnosticable {
   ///
   /// When true, double-clicking zooms in at the click position.
   ///
-  /// Lattice equivalent: `zoomOnDoubleClick` prop.
+  /// React Flow equivalent: `zoomOnDoubleClick` prop.
   /// Defaults to true.
   final bool zoomOnDoubleClick;
 
@@ -182,7 +182,7 @@ class ViewportOptions with Diagnosticable {
   /// When true, click-and-drag creates a selection box immediately.
   /// When false, requires a modifier key (typically Shift) to select.
   ///
-  /// Lattice equivalent: `selectionOnDrag` prop.
+  /// React Flow equivalent: `selectionOnDrag` prop.
   /// Defaults to false.
   final bool selectionOnDrag;
 
@@ -191,8 +191,8 @@ class ViewportOptions with Diagnosticable {
   /// - `full`: Node must be fully inside the box
   /// - `partial`: Node partially inside is selected
   ///
-  /// Lattice equivalent: `selectionMode` prop.
-  /// Defaults to `full` (Lattice default).
+  /// React Flow equivalent: `selectionMode` prop.
+  /// Defaults to `full` (React Flow default).
   final SelectionMode selectionMode;
 
   // ==========================================================================
@@ -204,7 +204,7 @@ class ViewportOptions with Diagnosticable {
   /// When true, viewport automatically pans when dragging a connection
   /// near the edge of the canvas.
   ///
-  /// Lattice equivalent: `autoPanOnConnect` prop.
+  /// React Flow equivalent: `autoPanOnConnect` prop.
   /// Defaults to true.
   final bool autoPanOnConnect;
 
@@ -213,7 +213,7 @@ class ViewportOptions with Diagnosticable {
   /// When true, viewport automatically pans when dragging nodes
   /// near the edge of the canvas.
   ///
-  /// Lattice equivalent: `autoPanOnNodeDrag` prop.
+  /// React Flow equivalent: `autoPanOnNodeDrag` prop.
   /// Defaults to true.
   final bool autoPanOnNodeDrag;
 
@@ -222,16 +222,16 @@ class ViewportOptions with Diagnosticable {
   /// When true, dragging a selection marquee past the viewport edge pans
   /// the canvas and extends the selection into the revealed area.
   ///
-  /// Lattice equivalent: `autoPanOnSelection` prop.
+  /// React Flow equivalent: `autoPanOnSelection` prop.
   /// Defaults to true.
   final bool autoPanOnSelection;
 
   /// Speed of auto-panning in pixels per frame.
   ///
   /// Higher values pan faster during auto-pan operations.
-  /// Lattice default: 15
+  /// React Flow default: 15
   ///
-  /// Lattice equivalent: `autoPanSpeed` prop.
+  /// React Flow equivalent: `autoPanSpeed` prop.
   /// Defaults to 15.0.
   final double autoPanSpeed;
 
@@ -329,7 +329,7 @@ class ViewportOptions with Diagnosticable {
 
   /// Creates viewport options with the specified parameters.
   ///
-  /// All parameters have sensible defaults matching Lattice's behavior.
+  /// All parameters have sensible defaults matching React Flow's behavior.
   const ViewportOptions({
     this.defaultViewport,
     this.fitView = false,

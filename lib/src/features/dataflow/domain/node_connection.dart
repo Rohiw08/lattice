@@ -76,7 +76,7 @@ class FlowNodeConnection {
       '-> $targetNodeId/${targetHandleId ?? '-'} via $edgeId)';
 }
 
-/// A `{ nodeId, handleId }` pair addressing one handle (Lattice
+/// A `{ nodeId, handleId }` pair addressing one handle (React Flow
 /// `NodeHandle`). Replaces `"$nodeId/$handleId"` string keys at API
 /// boundaries; the index keeps the packed form internally.
 @immutable

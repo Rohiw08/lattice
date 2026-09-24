@@ -184,7 +184,7 @@ double flowLuminance({required int r, required int g, required int b}) =>
 bool isLightColor({required int r, required int g, required int b}) =>
     flowLuminance(r: r, g: g, b: b) >= 128;
 
-/// Live connection snapshot (Lattice `useConnection`).
+/// Live connection snapshot (React Flow `useConnection`).
 ///
 /// `inProgress` mirrors an active rubber-band drag; `isValid` mirrors the
 /// current hover validity. Points are the pending connection's flow-space
@@ -241,7 +241,7 @@ class FlowConnectionInfo {
       );
 }
 
-/// Custom connection-line widget (Lattice `connectionLineComponent`).
+/// Custom connection-line widget (React Flow `connectionLineComponent`).
 ///
 /// Rendered in flow space over the rubber-band while a connection drag is
 /// active (replacing the painted line — return an empty widget to hide it).
@@ -253,7 +253,7 @@ typedef FlowConnectionLineBuilder = Widget Function(
   FlowConnectionInfo info,
 );
 
-/// Reactive live-connection view (Lattice `useConnection`).
+/// Reactive live-connection view (React Flow `useConnection`).
 ///
 /// Rebuilds only when the pending connection or its hover validity changes —
 /// use it to color handles or style a custom connection line while drawing.
@@ -281,7 +281,7 @@ FlowConnectionInfo watchConnection(WidgetRef ref) {
   );
 }
 
-/// Whether the graph finished initializing (Lattice `useNodesInitialized`).
+/// Whether the graph finished initializing (React Flow `useNodesInitialized`).
 ///
 /// Lattice nodes carry explicit sizes (no DOM measuring), so there is no
 /// async measure pass: initialization completes with the first layout.

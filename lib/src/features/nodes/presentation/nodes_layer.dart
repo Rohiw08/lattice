@@ -55,7 +55,7 @@ final nodesProvider = Provider<NodeKeys>((ref) {
 
 /// Renders nodes for a single [NodeRenderLayer] band.
 ///
-/// Within the band, paint order follows Lattice: ascending `zIndex`, with an
+/// Within the band, paint order follows React Flow: ascending `zIndex`, with an
 /// optional +[kSelectedNodeZBoost] when [NodeOptions.elevateNodesOnSelected].
 class FlowNodesLayer extends ConsumerStatefulWidget {
   const FlowNodesLayer({
@@ -285,7 +285,7 @@ class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
   }
 }
 
-/// Ancestor geometry hash for [nodeId] (Lattice relative children ride along
+/// Ancestor geometry hash for [nodeId] (React Flow relative children ride along
 /// when an ancestor moves/resizes). Excludes selection/hover/runtime so
 /// gesture recognizers are not remounted by unrelated state changes.
 int _ancestorHash(Map<String, FlowNode> nodes, String nodeId) {
@@ -350,7 +350,7 @@ class _NodeWidgetState extends ConsumerState<_NodeWidget> {
   @override
   Widget build(BuildContext context) {
     final ref = this.ref;
-    // Single subscription: node record + ancestor geometry hash (Lattice
+    // Single subscription: node record + ancestor geometry hash (React Flow
     // relative children). One select instead of two halves the per-emission
     // subscription tax across N shells; rebuild semantics are identical.
     final record = ref.watch(

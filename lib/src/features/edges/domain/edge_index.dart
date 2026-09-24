@@ -8,7 +8,7 @@ import 'package:lattice/src/features/edges/domain/model/edge.dart';
 /// This class is **mutable**: all mutation operations (add/remove)
 /// update the internal maps directly.
 ///
-/// Design inspired by Lattice's edge caching.
+/// Design inspired by React Flow's edge caching.
 class EdgeIndex {
   /// Maps node IDs → connected edge IDs (both directions).
   final Map<String, Set<String>> _nodeToEdges;

@@ -43,9 +43,9 @@ abstract class FlowCanvasState with _$FlowCanvasState {
     // Viewport
     @Default(FlowViewport()) FlowViewport viewport,
     @SizeConverter() Size? viewportSize,
-    @Default(false) bool isPanZoomLocked, // full canvas freeze (not Lattice interactive-only)
+    @Default(false) bool isPanZoomLocked, // full canvas freeze (not React Flow interactive-only)
 
-    /// Master element-interaction switch (Lattice `setInteractive` /
+    /// Master element-interaction switch (React Flow `setInteractive` /
     /// Controls `showInteractive`): node drag/select, edge select,
     /// connection starts, and marquee selection. Viewport pan/zoom,
     /// pointer observations, and programmatic APIs are unaffected.

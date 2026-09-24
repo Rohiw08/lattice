@@ -74,7 +74,7 @@ class SelectionService {
 
   /// Selects / toggles a node.
   ///
-  /// Lattice rules:
+  /// React Flow rules:
   /// - [addToSelection] true (multi-select key held): add if unselected, remove
   ///   if selected; leave other selections alone.
   /// - [addToSelection] false: replace selection with this node. Re-clicking an
@@ -93,7 +93,7 @@ class SelectionService {
       return addNodeToSelection(state, nodeId);
     }
 
-    // Exclusive: already selected → keep current selection (Lattice).
+    // Exclusive: already selected → keep current selection (React Flow).
     if (isAlreadySelected) return state;
 
     final deselectedState = deselectAll(state);
@@ -108,7 +108,7 @@ class SelectionService {
     );
   }
 
-  /// Selects / toggles an edge (same Lattice multi vs exclusive rules as nodes).
+  /// Selects / toggles an edge (same React Flow multi vs exclusive rules as nodes).
   FlowCanvasState toggleEdgeSelection(
     FlowCanvasState state,
     String edgeId, {
@@ -216,7 +216,7 @@ class SelectionService {
     final newSelectionRect = Rect.fromPoints(origin, position);
     var newSelectedNodes = nodeIndex.queryNodesInRect(newSelectionRect);
 
-    // Unselectable nodes never join a marquee (Lattice `selectable`).
+    // Unselectable nodes never join a marquee (React Flow `selectable`).
     newSelectedNodes = newSelectedNodes.where((id) {
       final node = state.nodes[id];
       return node != null && (node.selectable ?? nodesSelectable);

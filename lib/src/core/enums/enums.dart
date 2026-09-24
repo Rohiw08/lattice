@@ -7,9 +7,9 @@ enum DragMode {
   connection,
 }
 
-/// Lattice `panOnDrag` mouse button indices.
+/// React Flow `panOnDrag` mouse button indices.
 ///
-/// Lattice: `0` left, `1` middle, `2` right. Use with [ViewportOptions.panOnDrag].
+/// React Flow: `0` left, `1` middle, `2` right. Use with [ViewportOptions.panOnDrag].
 abstract final class PanMouseButton {
   static const int left = 0;
   static const int middle = 1;
@@ -35,13 +35,13 @@ enum EdgePathType {
   straight,
   smoothStep,
 
-  /// Midpoint-control cubic (Lattice `simplebezier`).
+  /// Midpoint-control cubic (React Flow `simplebezier`).
   simpleBezier,
 }
 
-/// Lattice node `extent` values we support on [FlowNode].
+/// React Flow node `extent` values we support on [FlowNode].
 ///
-/// `null` on the node means unbounded (Lattice default — child may leave parent).
+/// `null` on the node means unbounded (React Flow default — child may leave parent).
 /// [parent] clamps the child inside its parent’s bounds.
 enum FlowNodeExtent {
   parent,
@@ -55,36 +55,36 @@ enum BackgroundVariant {
   none,
 }
 
-/// Lattice [`PanelPosition`](panel position presets).
+/// React Flow [`PanelPosition`](panel position presets).
 ///
 /// Used by [FlowPanel] (and optionally MiniMap / Controls) to pin UI above the
 /// viewport without transforming with pan/zoom.
 enum PanelPosition {
-  /// Lattice `top-left`
+  /// React Flow `top-left`
   topLeft,
 
-  /// Lattice `top-center`
+  /// React Flow `top-center`
   topCenter,
 
-  /// Lattice `top-right`
+  /// React Flow `top-right`
   topRight,
 
-  /// Lattice `bottom-left`
+  /// React Flow `bottom-left`
   bottomLeft,
 
-  /// Lattice `bottom-center`
+  /// React Flow `bottom-center`
   bottomCenter,
 
-  /// Lattice `bottom-right`
+  /// React Flow `bottom-right`
   bottomRight,
 
-  /// Lattice `center-left`
+  /// React Flow `center-left`
   centerLeft,
 
-  /// Lattice `center-right`
+  /// React Flow `center-right`
   centerRight;
 
-  /// Lattice string form (`top-left`, …).
+  /// React Flow string form (`top-left`, …).
   String get kebabName => switch (this) {
         PanelPosition.topLeft => 'top-left',
         PanelPosition.topCenter => 'top-center',
@@ -96,7 +96,7 @@ enum PanelPosition {
         PanelPosition.centerRight => 'center-right',
       };
 
-  /// Parse Lattice / kebab-case names (`top-left`, `topLeft`).
+  /// Parse React Flow / kebab-case names (`top-left`, `topLeft`).
   static PanelPosition? tryParse(String value) {
     final normalized = value.trim().toLowerCase().replaceAll('_', '-');
     return switch (normalized) {
@@ -168,7 +168,7 @@ enum SelectionMode {
   full,
 }
 
-/// How the canvas manages z-order automatically (Lattice `zIndexMode`).
+/// How the canvas manages z-order automatically (React Flow `zIndexMode`).
 ///
 /// - [auto] (default): selection elevation ([NodeOptions.elevateNodesOnSelected])
 ///   plus the subflow rule (children render strictly above their parent).

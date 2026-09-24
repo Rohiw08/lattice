@@ -129,7 +129,7 @@ class FlowControlsStyle extends ThemeExtension<FlowControlsStyle>
 
   /// Creates a light theme control style.
   ///
-  /// Lattice: `#fefefe` background, `#eee` 1px border, no radius,
+  /// React Flow: `#fefefe` background, `#eee` 1px border, no radius,
   /// shadow `0 0 2px 1px rgba(0,0,0,0.08)`.
   factory FlowControlsStyle.light() {
     return FlowControlsStyle.colored(
@@ -149,7 +149,7 @@ class FlowControlsStyle extends ThemeExtension<FlowControlsStyle>
 
   /// Creates a dark theme control style.
   ///
-  /// Lattice `.dark`: `#2b2b2b` background, `#5b5b5b` 1px border,
+  /// React Flow `.dark`: `#2b2b2b` background, `#5b5b5b` 1px border,
   /// no radius, same shadow as light.
   factory FlowControlsStyle.dark() {
     return FlowControlsStyle.colored(

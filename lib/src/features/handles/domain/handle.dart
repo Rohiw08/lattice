@@ -109,7 +109,7 @@ abstract class FlowHandle with _$FlowHandle {
     /// Default is true.
     @Default(true) bool isConnectable,
 
-    /// Whether a connection drag may START here (Lattice `isConnectableStart`).
+    /// Whether a connection drag may START here (React Flow `isConnectableStart`).
     ///
     /// Null (default) derives from [type]: sources (and `both`) start in
     /// strict mode, anything starts in loose mode. Set explicitly to allow a
@@ -117,14 +117,14 @@ abstract class FlowHandle with _$FlowHandle {
     /// so. Serialized.
     bool? isConnectableStart,
 
-    /// Whether a connection drag may LAND here (Lattice `isConnectableEnd`).
+    /// Whether a connection drag may LAND here (React Flow `isConnectableEnd`).
     ///
     /// Null (default) derives from [type]: targets (and `both`) land in
     /// strict mode, anything lands in loose mode. Set explicitly to turn a
     /// handle into a start-only or end-only port. Serialized.
     bool? isConnectableEnd,
 
-    /// Per-handle connection validator (Lattice per-`Handle`
+    /// Per-handle connection validator (React Flow per-`Handle`
     /// `isValidConnection`).
     ///
     /// Runs inside the connection service alongside the canvas-wide
@@ -132,7 +132,7 @@ abstract class FlowHandle with _$FlowHandle {
     @JsonKey(includeFromJson: false, includeToJson: false)
     bool Function(ConnectionParams connection)? isValidConnection,
 
-    /// Fired when an edge involving this handle is created (Lattice per-
+    /// Fired when an edge involving this handle is created (React Flow per-
     /// `Handle` `onConnect`). Not serialized.
     @JsonKey(includeFromJson: false, includeToJson: false)
     void Function(ConnectionParams connection)? onConnect,

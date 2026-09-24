@@ -6,11 +6,11 @@ import 'package:lattice/src/core/enums/enums.dart';
 /// Configuration options for keyboard interactions in the flow canvas.
 ///
 /// Controls keyboard shortcuts, navigation, and accessibility features
-/// similar to Lattice's keyboard handling.
+/// similar to React Flow's keyboard handling.
 ///
-/// ## Lattice Compatibility
+/// ## React Flow Compatibility
 ///
-/// Lattice provides built-in keyboard support [web:302]:
+/// React Flow provides built-in keyboard support:
 /// - Tab navigation through nodes/edges
 /// - Enter/Space to select
 /// - Escape to clear selection
@@ -53,7 +53,7 @@ import 'package:lattice/src/core/enums/enums.dart';
 ///
 /// ## Accessibility
 ///
-/// Follows Lattice's accessibility patterns [web:302]:
+/// Follows React Flow's accessibility patterns:
 /// - Tab navigation between focusable elements
 /// - Screen reader support via ARIA labels
 /// - Keyboard operability for all interactive elements
@@ -61,13 +61,13 @@ import 'package:lattice/src/core/enums/enums.dart';
 /// See also:
 ///
 ///  * [KeyboardAction], for available actions
-///  * Lattice Accessibility: accessible canvas patterns
+///  * React Flow Accessibility: accessible canvas patterns
 @immutable
 class KeyboardOptions with Diagnosticable {
   /// Whether keyboard interactions are enabled.
   ///
   /// When false, all keyboard shortcuts are disabled, similar to
-  /// Lattice's `disableKeyboardA11y` prop.
+  /// React Flow's `disableKeyboardA11y` prop.
   ///
   /// Defaults to true.
   final bool enabled;
@@ -75,7 +75,7 @@ class KeyboardOptions with Diagnosticable {
   /// Speed multiplier for arrow key node movement in logical pixels.
   ///
   /// Each arrow key press moves the selected node(s) by this distance.
-  /// Lattice uses a default of ~10px with Shift increasing speed.
+  /// React Flow uses a default of ~10px with Shift increasing speed.
   ///
   /// Must be positive. Typical values: 5-20.
   /// Defaults to 10.0.
@@ -107,7 +107,7 @@ class KeyboardOptions with Diagnosticable {
   /// ```
   final Map<ShortcutActivator, KeyboardAction> shortcuts;
 
-  /// Keys that enable multi-select via click (Lattice `multiSelectionKeyCode`).
+  /// Keys that enable multi-select via click (React Flow `multiSelectionKeyCode`).
   ///
   /// While any of these keys is held, clicking a node/edge **adds** it to the
   /// selection (or removes it if already selected) instead of replacing.
@@ -116,16 +116,16 @@ class KeyboardOptions with Diagnosticable {
   /// - empty set → multi-select click disabled
   final Set<LogicalKeyboardKey>? multiSelectionKeys;
 
-  /// Keys that enable drag-box selection (Lattice `selectionKeyCode`).
+  /// Keys that enable drag-box selection (React Flow `selectionKeyCode`).
   ///
   /// While held, dragging on the pane draws a selection rectangle instead of
-  /// panning. Default is Shift (Lattice default).
+  /// panning. Default is Shift (React Flow default).
   ///
   /// - `null` → [defaultSelectionKeys] (Shift)
   /// - empty set → key-gated box select disabled (use [ViewportOptions.selectionOnDrag])
   final Set<LogicalKeyboardKey>? selectionKeys;
 
-  /// Keys that turn pointer drags into viewport pans (Lattice
+  /// Keys that turn pointer drags into viewport pans (React Flow
   /// `panActivationKeyCode`).
   ///
   /// While held, left-drag pans the viewport instead of dragging nodes,
@@ -137,7 +137,7 @@ class KeyboardOptions with Diagnosticable {
   /// - empty set → space-pan disabled
   final Set<LogicalKeyboardKey>? panActivationKeys;
 
-  /// Keys that gate mouse-wheel zoom (Lattice `zoomActivationKeyCode`).
+  /// Keys that gate mouse-wheel zoom (React Flow `zoomActivationKeyCode`).
   ///
   /// - `null` (default) → platform default (Meta on macOS, Control
   ///   elsewhere), matching React Flow: wheel zooms only while held,
@@ -195,22 +195,22 @@ class KeyboardOptions with Diagnosticable {
     );
   }
 
-  /// Platform default for [multiSelectionKeys] (Lattice: Meta on macOS, Control else).
+  /// Platform default for [multiSelectionKeys] (React Flow: Meta on macOS, Control else).
   static Set<LogicalKeyboardKey> defaultMultiSelectionKeys() {
     return defaultTargetPlatform == TargetPlatform.macOS
         ? {LogicalKeyboardKey.meta}
         : {LogicalKeyboardKey.control};
   }
 
-  /// Default for [selectionKeys] (Lattice: Shift).
+  /// Default for [selectionKeys] (React Flow: Shift).
   static Set<LogicalKeyboardKey> defaultSelectionKeys() =>
       {LogicalKeyboardKey.shift};
 
-  /// Default for [panActivationKeys] (Lattice: Space).
+  /// Default for [panActivationKeys] (React Flow: Space).
   static Set<LogicalKeyboardKey> defaultPanActivationKeys() =>
       {LogicalKeyboardKey.space};
 
-  /// Platform default for [zoomActivationKeys] (Lattice
+  /// Platform default for [zoomActivationKeys] (React Flow
   /// `zoomActivationKeyCode`: Meta on macOS, Control elsewhere).
   static Set<LogicalKeyboardKey> defaultZoomActivationKeys() {
     return defaultTargetPlatform == TargetPlatform.macOS
@@ -226,11 +226,11 @@ class KeyboardOptions with Diagnosticable {
   Set<LogicalKeyboardKey> get effectiveSelectionKeys =>
       selectionKeys ?? defaultSelectionKeys();
 
-  /// Whether a multi-selection modifier is currently held (Lattice `multiSelectionActive`).
+  /// Whether a multi-selection modifier is currently held (React Flow `multiSelectionActive`).
   bool get isMultiSelectionActive =>
       isAnyMultiSelectionKeyPressed(effectiveMultiSelectionKeys);
 
-  /// Whether the box-selection key is held (Lattice `selectionKeyPressed`).
+  /// Whether the box-selection key is held (React Flow `selectionKeyPressed`).
   bool get isSelectionKeyActive =>
       isAnyMultiSelectionKeyPressed(effectiveSelectionKeys);
 
@@ -248,7 +248,7 @@ class KeyboardOptions with Diagnosticable {
   bool get isPanActivationHeld =>
       enabled && isPanActivationKeyActive;
 
-  /// Whether mouse-wheel zoom is currently allowed (Lattice
+  /// Whether mouse-wheel zoom is currently allowed (React Flow
   /// `zoomActivationKeyCode`). Null option means the platform default;
   /// an empty set never allows it. Read live (no rebuild needed), like
   /// the other key checks.
@@ -348,7 +348,7 @@ class KeyboardOptions with Diagnosticable {
 
   /// Creates keyboard options with all features disabled.
   ///
-  /// Similar to Lattice's `disableKeyboardA11y={true}`.
+  /// Similar to React Flow's `disableKeyboardA11y={true}`.
   /// Use this for read-only diagrams or when implementing custom
   /// keyboard handling.
   ///

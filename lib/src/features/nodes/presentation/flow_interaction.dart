@@ -20,7 +20,7 @@ abstract final class FlowInteraction {
   /// [FlowDragHandle] subtree.
   ///
   /// Used by the node-drag gate: when [FlowNode.dragHandle] is set, a drag
-  /// may only start from a drag-handle region (Lattice `dragHandle`).
+  /// may only start from a drag-handle region (React Flow `dragHandle`).
   static bool isDragHandleAt(Offset position) {
     final result = HitTestResult();
     final views = GestureBinding.instance.platformDispatcher.views;
@@ -46,7 +46,7 @@ abstract final class FlowInteraction {
   }
 }
 
-/// Lattice `nodrag` — do not start a **node** drag from this subtree.
+/// React Flow `nodrag` — do not start a **node** drag from this subtree.
 ///
 /// **Usually not needed** for buttons / fields / ink wells — node drag already
 /// yields to those automatically. Use for custom [Listener]-only widgets.
@@ -81,7 +81,7 @@ class FlowNoDrag extends StatelessWidget {
   }
 }
 
-/// Lattice `nopan` — do not pan the **viewport** when dragging here.
+/// React Flow `nopan` — do not pan the **viewport** when dragging here.
 ///
 /// Useful on non-draggable nodes or overlays where a drag would otherwise
 /// move the canvas.
@@ -135,7 +135,7 @@ class RenderFlowNoPan extends RenderProxyBox {
   }
 }
 
-/// Lattice `dragHandle` — start a **node** drag only from this subtree.
+/// React Flow `dragHandle` — start a **node** drag only from this subtree.
 ///
 /// Set [FlowNode.dragHandle] on the node, then wrap the region that should
 /// act as the grab area (a grip icon, a header bar). Presses anywhere else on
@@ -193,7 +193,7 @@ class RenderFlowDragHandle extends RenderProxyBox {
   }
 }
 
-/// Lattice `nowheel` — do not zoom/pan the canvas on mouse wheel here.
+/// React Flow `nowheel` — do not zoom/pan the canvas on mouse wheel here.
 ///
 /// Wrap scrollable content inside a node so wheel scrolls the child instead
 /// of zooming the viewport.

@@ -4,7 +4,7 @@ import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:lattice/src/features/viewport/domain/viewport.dart';
 import 'package:flutter/foundation.dart';
 
-/// `{ nodes, edges, viewport }` snapshot (Lattice `ReactFlowJsonObject`).
+/// `{ nodes, edges, viewport }` snapshot (React Flow `ReactFlowJsonObject`).
 typedef ReactFlowJsonObject = ({
   List<FlowNode> nodes,
   List<FlowEdge> edges,

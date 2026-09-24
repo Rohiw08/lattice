@@ -344,7 +344,7 @@ class FlowEdgeLayer extends ConsumerWidget {
     return IgnorePointer(child: paintStack);
   }
 
-  /// Custom connection-line widget (Lattice `connectionLineComponent`).
+  /// Custom connection-line widget (React Flow `connectionLineComponent`).
   ///
   /// Laid out in the line's flow-space bounding box (RF renders in pane
   /// space instead) and pointer-transparent like the painted line.

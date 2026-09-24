@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lattice/src/core/options/components/keyboard_options.dart';
 
-/// Rebuilds while any of [keys] is held (Lattice `useKeyPress`).
+/// Rebuilds while any of [keys] is held (React Flow `useKeyPress`).
 ///
 /// Modifier-aware via [KeyboardOptions.isAnyMultiSelectionKeyPressed], so
 /// `{LogicalKeyboardKey.control}` matches either Control key:

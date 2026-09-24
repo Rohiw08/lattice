@@ -12,10 +12,10 @@ class FlowNodeResizer extends ConsumerWidget {
   final String nodeId;
   final bool isVisible;
 
-  /// Per-instance style override (Lattice `handleStyle`/`lineStyle`).
+  /// Per-instance style override (React Flow `handleStyle`/`lineStyle`).
   final FlowNodeResizerStyle? style;
 
-  /// Shorthand tint (Lattice `color`): fills handles and the outline.
+  /// Shorthand tint (React Flow `color`): fills handles and the outline.
   final Color? color;
 
   const FlowNodeResizer({

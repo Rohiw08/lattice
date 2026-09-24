@@ -240,9 +240,9 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
 
   /// Creates a light theme label style.
   ///
-  /// Lattice: black 12px/600 text on white, `#f2f2f2` 5px-radius
+  /// React Flow: black 12px/600 text on white, `#f2f2f2` 5px-radius
   /// border; hover `#fff` border with `0 0 10px 5px rgba(0,0,0,0.08)`
-  /// shadow. No selected state in Lattice — mirrors hover.
+  /// shadow. No selected state in React Flow — mirrors hover.
   factory FlowEdgeLabelStyle.light() {
     return FlowEdgeLabelStyle(
       textStyle: const TextStyle(
@@ -295,8 +295,8 @@ class FlowEdgeLabelStyle extends ThemeExtension<FlowEdgeLabelStyle>
 
   /// Creates a dark theme label style.
   ///
-  /// Lattice `.dark`: `#f8f8f8` text on `#141414` with `#444`
-  /// 5px-radius border. No selected state in Lattice — mirrors hover.
+  /// React Flow `.dark`: `#f8f8f8` text on `#141414` with `#444`
+  /// 5px-radius border. No selected state in React Flow — mirrors hover.
   factory FlowEdgeLabelStyle.dark() {
     return FlowEdgeLabelStyle(
       textStyle: const TextStyle(

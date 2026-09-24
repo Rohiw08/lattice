@@ -35,11 +35,11 @@ class ConnectionController {
   final Ref _ref;
   final GlobalKey _viewportKey;
 
-  /// Click-to-connect first handle (Lattice `connectOnClick` / `connectionClickStartHandle`).
+  /// Click-to-connect first handle (React Flow `connectOnClick` / `connectionClickStartHandle`).
   String? _clickFromNodeId;
   String? _clickFromHandleId;
 
-  /// Active edge reconnect (Lattice edgesReconnectable).
+  /// Active edge reconnect (React Flow edgesReconnectable).
   String? _reconnectingEdgeId;
   HandleTypeEnd? _reconnectEnd;
 
@@ -242,9 +242,9 @@ class ConnectionController {
     }
   }
 
-  /// Handle click — Lattice `connectOnClick`.
+  /// Handle click — React Flow `connectOnClick`.
   ///
-  /// Lattice does **not** show a rubber-band after the first click; it only stores
+  /// React Flow does **not** show a rubber-band after the first click; it only stores
   /// `connectionClickStartHandle` and highlights the handle (`clickconnecting`).
   /// The edge is created on the second handle click.
   void onHandleTap(String nodeId, String handleId) {
@@ -283,7 +283,7 @@ class ConnectionController {
       return;
     }
 
-    // ── Same handle again: cancel click-connect (Lattice clears start handle).
+    // ── Same handle again: cancel click-connect (React Flow clears start handle).
     if (_clickFromNodeId == nodeId && _clickFromHandleId == handleId) {
       _clearClickConnect();
       _callbacks.onConnectEnd?.call(null);
@@ -337,7 +337,7 @@ class ConnectionController {
     // onConnect-style observers; the gated result drives edge creation.
     final originalParams = params;
 
-    // Lattice `onBeforeConnect` (same contract as the drag path): false
+    // React Flow `onBeforeConnect` (same contract as the drag path): false
     // cancels, a FlowEdge inserts as-is, ConnectionParams rewrite endpoints.
     // No callback keeps default behavior.
     FlowEdge? prebuilt;
@@ -549,7 +549,7 @@ class ConnectionController {
     _reconnectEnd = end;
     _callbacks.onReconnectStart?.call(edgeId, end);
 
-    // Hide the old edge while the rubber-band is active (Lattice behavior).
+    // Hide the old edge while the rubber-band is active (React Flow behavior).
     _setEdgeReconnecting(edgeId, true);
 
     // Line originates from the fixed end.
@@ -659,7 +659,7 @@ class ConnectionController {
         before.connectionState is HoveringConnectionState &&
         (before.connectionState as HoveringConnectionState).isValid;
 
-    // Lattice `onBeforeConnect`: false cancels; a FlowEdge inserts as-is;
+    // React Flow `onBeforeConnect`: false cancels; a FlowEdge inserts as-is;
     // ConnectionParams proceed with rewritten endpoints (re-validated by
     // the drop path below). No callback (or a pass-through return) keeps
     // default behavior. Observers below report the attempted connection,
@@ -783,7 +783,7 @@ class ConnectionController {
     _clearClickConnect();
   }
 
-  /// Fires per-handle `onConnect` callbacks (Lattice per-`Handle`
+  /// Fires per-handle `onConnect` callbacks (React Flow per-`Handle`
   /// `onConnect`) for a freshly created edge's endpoint handles.
   void _fireHandleConnectCallbacks(ConnectionParams params) {
     final state = _controller.currentState;
@@ -858,7 +858,7 @@ class ConnectionController {
         newTargetHandleId = oldEdge.targetHandleId;
       }
 
-      // Lattice `onBeforeReconnect`: candidate = old edge with the dragged
+      // React Flow `onBeforeReconnect`: candidate = old edge with the dragged
       // end rewritten. false cancels (edge snaps back); a FlowEdge commits
       // in its place under the old id. No callback keeps default behavior.
       final candidate = oldEdge.copyWith(
@@ -957,7 +957,7 @@ class ConnectionController {
     _clickFromHandleId = null;
   }
 
-  // ── Auto-pan during connection (Lattice autoPanOnConnect) ───────────────
+  // ── Auto-pan during connection (React Flow autoPanOnConnect) ───────────────
 
   void _handleAutoPan(Offset globalPosition) {
     final viewportSize = _controller.currentState.viewportSize;

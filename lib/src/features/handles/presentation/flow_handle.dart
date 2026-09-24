@@ -28,7 +28,7 @@ typedef HandleBuilder =
 /// FlowCanvasInternalController via Riverpod to manage its state (hovered, active, etc.)
 /// and initiate connections. It relies on its parent widget for positioning.
 ///
-/// Per-handle connectability (Lattice per-`Handle` `isConnectable` /
+/// Per-handle connectability (React Flow per-`Handle` `isConnectable` /
 /// `isConnectableStart` / `isConnectableEnd`) resolves widget prop →
 /// [FlowHandle] model → node flag. Widget props gate this handle's drag
 /// start and dimming locally; landing validation and `onConnect` run in the
@@ -45,10 +45,10 @@ class Handle extends ConsumerWidget {
   /// Local override for drag-start + dimming (see class docs).
   final bool? isConnectable;
 
-  /// Local start-role override (Lattice `isConnectableStart`).
+  /// Local start-role override (React Flow `isConnectableStart`).
   final bool? isConnectableStart;
 
-  /// Local end-role override (Lattice `isConnectableEnd`).
+  /// Local end-role override (React Flow `isConnectableEnd`).
   final bool? isConnectableEnd;
 
   const Handle({
@@ -129,7 +129,7 @@ class Handle extends ConsumerWidget {
     );
 
     // Widget prop → model → node flag → global (null props fall through).
-    // Non-interactive masters everything off (Lattice setInteractive) — applied
+    // Non-interactive masters everything off (React Flow setInteractive) — applied
     // uniformly, including when an explicit isConnectable override is present.
     final connectable =
         (isConnectable ??
@@ -168,7 +168,7 @@ class Handle extends ConsumerWidget {
       // FlowNoDrag: beat the parent node pan so drag-to-connect isn't stolen.
       final child = FlowNoDrag(
         child: Semantics(
-          // Lattice `handle.ariaLabel` — each handle is its own node, like
+          // React Flow `handle.ariaLabel` — each handle is its own node, like
           // RF's labelled handle divs.
           label: handleLabel,
           container: true,

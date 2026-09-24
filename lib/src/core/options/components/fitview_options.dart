@@ -7,9 +7,9 @@ import 'package:lattice/src/core/enums/enums.dart';
 /// These options control how the canvas should be transformed when calling
 /// `fitView()` to ensure all nodes (or a subset) are visible within the viewport.
 ///
-/// ## Lattice Compatibility
+/// ## React Flow Compatibility
 ///
-/// This closely matches Lattice's `FitViewOptions`:
+/// This closely matches React Flow's `FitViewOptions`:
 /// ```
 /// {
 ///   padding?: Padding;
@@ -68,7 +68,7 @@ class FitViewOptions with Diagnosticable {
   /// The padding ensures there's space between the viewport edges and the
   /// fitted nodes. This prevents nodes from being flush against the edges.
   ///
-  /// Lattice Note: Lattice 12.5+ supports complex padding (px, %, per-side).
+  /// React Flow Note: React Flow 12.5+ supports complex padding (px, %, per-side).
   /// This implementation uses Flutter's EdgeInsets for consistency.
   final EdgeInsets padding;
 
@@ -103,10 +103,10 @@ class FitViewOptions with Diagnosticable {
   /// Duration of the animated transition to the fitted view.
   ///
   /// Set to a positive value for an animated glide. [Duration.zero] (the
-  /// default, matching Lattice) fits instantly.
+  /// default, matching React Flow) fits instantly.
   /// Typical animated values: 200-500ms for snappy feel, 500-1000ms smooth.
   ///
-  /// Lattice equivalent: `duration` (milliseconds, default 0 = instant).
+  /// React Flow equivalent: `duration` (milliseconds, default 0 = instant).
   /// Defaults to [Duration.zero].
   final Duration duration;
 
@@ -119,7 +119,7 @@ class FitViewOptions with Diagnosticable {
   /// - [Curves.easeOut] - Fast start, slow end
   /// - [Curves.easeInOutCubic] - Very smooth
   ///
-  /// Lattice equivalent: `ease` function.
+  /// React Flow equivalent: `ease` function.
   final Curve ease;
 
   /// Interpolation method for the animation.
@@ -128,7 +128,7 @@ class FitViewOptions with Diagnosticable {
   /// - [FitViewInterpolation.smooth] - Smooth curved path (default)
   /// - [FitViewInterpolation.linear] - Straight-line path
   ///
-  /// Lattice equivalent: `interpolate: "smooth" | "linear"`.
+  /// React Flow equivalent: `interpolate: "smooth" | "linear"`.
   final FitViewInterpolation interpolate;
 
   /// Specific node IDs to fit, or empty to fit all nodes.
@@ -145,7 +145,7 @@ class FitViewOptions with Diagnosticable {
   /// )
   /// ```
   ///
-  /// Lattice equivalent: `nodes` array.
+  /// React Flow equivalent: `nodes` array.
   final List<String> nodes;
 
   /// Creates fit view options with the specified parameters.

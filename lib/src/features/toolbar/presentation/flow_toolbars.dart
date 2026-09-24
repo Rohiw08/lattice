@@ -6,7 +6,7 @@ import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart
 import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:lattice/src/features/nodes/domain/node_layout.dart';
 
-/// Alignment of a toolbar along its anchor edge (Lattice `align`).
+/// Alignment of a toolbar along its anchor edge (React Flow `align`).
 enum FlowToolbarAlign {
   /// Start of the edge (left for top/bottom, top for left/right).
   start,
@@ -63,7 +63,7 @@ abstract final class FlowToolbarAnchor {
       };
 }
 
-/// Floating toolbar attached to a node (Lattice `<NodeToolbar />`).
+/// Floating toolbar attached to a node (React Flow `<NodeToolbar />`).
 ///
 /// Place in `FlowCanvas(overlays: [...])`. Tracks the node through pan, zoom,
 /// and live drags at a constant screen size (it never scales with the
@@ -168,7 +168,7 @@ class FlowNodeToolbar extends ConsumerWidget {
   }
 }
 
-/// Floating toolbar attached to an edge (Lattice `<EdgeToolbar />`).
+/// Floating toolbar attached to an edge (React Flow `<EdgeToolbar />`).
 ///
 /// Place in `FlowCanvas(overlays: [...])`. Anchors to the edge's path-bounds
 /// center (or [flowPoint] when given) at a constant screen size. [isVisible]

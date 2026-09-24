@@ -4,7 +4,7 @@ import 'package:lattice/src/features/connections/domain/models/connection_params
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
 import 'package:lattice/src/features/nodes/domain/models/node.dart';
 
-/// Pure edge/nodes collection utils (Lattice `addEdge` / `reconnectEdge` /
+/// Pure edge/nodes collection utils (React Flow `addEdge` / `reconnectEdge` /
 /// `applyNodeChanges` / `applyEdgeChanges`), Map-flavored.
 ///
 /// React Flow's versions take arrays; lattice state is `Map<String, …>`
@@ -14,7 +14,7 @@ import 'package:lattice/src/features/nodes/domain/models/node.dart';
 /// Pair with the controllers (`EdgesController.addEdge`, …) for the
 /// stateful path.
 
-/// Whether an equivalent connection already exists (Lattice
+/// Whether an equivalent connection already exists (React Flow
 /// `connectionExists` inside `addEdge`): same source/target, and same
 /// handles when set.
 bool edgeConnectionExists(FlowEdge edge, Iterable<FlowEdge> edges) {
@@ -27,7 +27,7 @@ bool edgeConnectionExists(FlowEdge edge, Iterable<FlowEdge> edges) {
           (el.targetHandleId == null && edge.targetHandleId == null)));
 }
 
-/// Deterministic edge id for a connection (Lattice `getEdgeId`):
+/// Deterministic edge id for a connection (React Flow `getEdgeId`):
 /// `flow-edge__<source>[<handle>]-<target>[<handle>]`.
 ///
 /// Use it when a stable id matters (tests, multiplayer, recipes);
@@ -42,7 +42,7 @@ String edgeIdForConnection(ConnectionParams connection) {
   return 'flow-edge__$source-$target';
 }
 
-/// Adds [edge] unless an equivalent connection already exists (Lattice
+/// Adds [edge] unless an equivalent connection already exists (React Flow
 /// `addEdge` dedup: same source/target/handles, even under another id).
 ///
 /// Create the edge with `FlowEdge.fromConnection(params, id:
@@ -58,7 +58,7 @@ Map<String, FlowEdge> addEdge(
   return {...edges, edge.id: edge};
 }
 
-/// Rewrites [oldEdgeId]'s endpoints with [connection] (Lattice
+/// Rewrites [oldEdgeId]'s endpoints with [connection] (React Flow
 /// `reconnectEdge(oldEdge, newConnection, edges)`).
 ///
 /// Unchanged map when the edge is missing. [shouldReplaceId] (RF default
@@ -91,7 +91,7 @@ Map<String, FlowEdge> reconnectEdge(
   return next;
 }
 
-/// Applies [NodeChange]s to a node map (Lattice `applyNodeChanges`).
+/// Applies [NodeChange]s to a node map (React Flow `applyNodeChanges`).
 ///
 /// Handles add/remove/position/dimensions. Selection is separate state
 /// (`selectedNodes`), not a node field, so there is no select-change
@@ -136,7 +136,7 @@ Map<String, FlowNode> applyNodeChanges(
   return next;
 }
 
-/// Applies [EdgeChange]s to an edge map (Lattice `applyEdgeChanges`).
+/// Applies [EdgeChange]s to an edge map (React Flow `applyEdgeChanges`).
 Map<String, FlowEdge> applyEdgeChanges(
   Map<String, FlowEdge> edges,
   List<EdgeChange> changes,

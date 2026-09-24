@@ -20,75 +20,75 @@ import 'package:lattice/src/features/nodes/domain/models/node.dart';
 /// collide easily with app models — prefer `FlowNode`/`FlowEdge` in new
 /// code, or `hide` these on import.
 
-/// Lattice `Node` (see [FlowNode]).
+/// React Flow `Node` (see [FlowNode]).
 typedef Node<T> = FlowNode<T>;
 
-/// Lattice `Edge` (see [FlowEdge]).
+/// React Flow `Edge` (see [FlowEdge]).
 typedef Edge = FlowEdge;
 
-/// Lattice `Position` (see [HandlePosition]).
+/// React Flow `Position` (see [HandlePosition]).
 typedef Position = HandlePosition;
 
-/// Lattice `NodeOrigin`: anchor fractions (`Offset.zero` = top-left,
+/// React Flow `NodeOrigin`: anchor fractions (`Offset.zero` = top-left,
 /// `Offset(0.5, 0.5)` = center).
 typedef NodeOrigin = Offset;
 
-/// Lattice `MarkerType`.
+/// React Flow `MarkerType`.
 typedef MarkerType = EdgeMarkerType;
 
-/// Lattice `HandleConnection` (see [FlowNodeConnection]).
+/// React Flow `HandleConnection` (see [FlowNodeConnection]).
 typedef HandleConnection = FlowNodeConnection;
 
-/// Lattice `IsValidConnection`.
+/// React Flow `IsValidConnection`.
 typedef IsValidConnection = bool Function(ConnectionParams connection);
 
-/// Lattice `OnConnect`.
+/// React Flow `OnConnect`.
 typedef OnConnect = void Function(FlowEdge edge);
 
-/// Lattice `OnConnectStart`.
+/// React Flow `OnConnectStart`.
 typedef OnConnectStart = void Function(String sourceNodeId, String sourceHandleId);
 
-/// Lattice `OnConnectEnd`.
+/// React Flow `OnConnectEnd`.
 typedef OnConnectEnd = void Function(FlowEdge? edge);
 
-/// Lattice `OnReconnect`.
+/// React Flow `OnReconnect`.
 typedef OnReconnect = void Function(FlowEdge oldEdge, ConnectionParams connection);
 
-/// Lattice `OnReconnectStart`.
+/// React Flow `OnReconnectStart`.
 typedef OnReconnectStart = void Function(String edgeId, HandleTypeEnd end);
 
-/// Lattice `OnReconnectEnd`.
+/// React Flow `OnReconnectEnd`.
 typedef OnReconnectEnd = void Function(FlowEdge? edge);
 
-/// Lattice `OnBeforeConnect`.
+/// React Flow `OnBeforeConnect`.
 typedef OnBeforeConnect = Object? Function(ConnectionParams connection);
 
-/// Lattice `OnBeforeReconnect`.
+/// React Flow `OnBeforeReconnect`.
 typedef OnBeforeReconnect = Object? Function(FlowEdge newEdge, FlowEdge oldEdge);
 
-/// Lattice `OnNodesChange`.
+/// React Flow `OnNodesChange`.
 typedef OnNodesChange = void Function(List<NodeChange> changes);
 
-/// Lattice `OnEdgesChange`.
+/// React Flow `OnEdgesChange`.
 typedef OnEdgesChange = void Function(List<EdgeChange> changes);
 
-/// Lattice `OnSelectionChange`.
+/// React Flow `OnSelectionChange`.
 typedef OnSelectionChange = void Function(CanvasSelection selection);
 
-/// Lattice `OnViewportChange`.
+/// React Flow `OnViewportChange`.
 typedef OnViewportChange = void Function(CanvasViewportInfo info);
 
-/// Lattice `OnDelete`.
+/// React Flow `OnDelete`.
 typedef OnDelete = void Function(FlowDeletedElements deleted);
 
-/// Lattice `OnNodesDelete`.
+/// React Flow `OnNodesDelete`.
 typedef OnNodesDelete = void Function(List<FlowNode> nodes);
 
-/// Lattice `OnEdgesDelete`.
+/// React Flow `OnEdgesDelete`.
 typedef OnEdgesDelete = void Function(List<FlowEdge> edges);
 
-/// Lattice `OnBeforeDelete`.
+/// React Flow `OnBeforeDelete`.
 typedef OnBeforeDelete = FlowDeletePlan? Function(FlowDeleteCandidates candidates);
 
-/// Lattice `OnInit`.
+/// React Flow `OnInit`.
 typedef OnInit = void Function(FlowCanvasController controller);

@@ -441,7 +441,7 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
   }
 
   /// Routes a secondary-button tap to node/edge/pane context callbacks
-  /// (Lattice `onNodeContextMenu`/`onEdgeContextMenu`/`onPaneContextMenu`).
+  /// (React Flow `onNodeContextMenu`/`onEdgeContextMenu`/`onPaneContextMenu`).
   ///
   /// Topmost visible node wins, then edge stroke, then empty pane. Called
   /// from the viewport surface when a secondary press releases without
@@ -468,7 +468,7 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
       }
     }
     if (top != null) {
-      // Lattice `onSelectionContextMenu`: right-clicking a selected node
+      // React Flow `onSelectionContextMenu`: right-clicking a selected node
       // also notifies with the selection (alongside onNodeContextMenu).
       final selected = state.selectedNodes;
       if (selected.contains(top.id)) {
@@ -564,7 +564,7 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
 
   /// Removes nodes (with descendants) and edges in a single undo step.
   ///
-  /// Lattice `deleteElements` counterpart. Connected edges of removed nodes
+  /// React Flow `deleteElements` counterpart. Connected edges of removed nodes
   /// go away too; `deletable: false` nodes survive (and keep their edges
   /// unless explicitly listed). Explicitly listed edges with
   /// `deletable: false` are kept.
@@ -700,7 +700,7 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
     _onStateChanged(oldState, finalized);
   }
 
-  /// Flips the master element-interaction switch (Lattice `setInteractive`
+  /// Flips the master element-interaction switch (React Flow `setInteractive`
   /// / Controls `showInteractive`). Transient write (no history entry):
   /// node drag/select, edge select, connection starts, and marquees stop
   /// while false; viewport, observations, and programmatic APIs keep

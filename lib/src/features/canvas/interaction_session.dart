@@ -11,7 +11,7 @@ class InteractionSession extends ChangeNotifier {
   final Set<String> activeEdgeIds = {};
 
   /// Live **stored** positions for dragged nodes, expandParent-grown parents,
-  /// and shifted siblings (Lattice `handleExpandParent` keeps siblings in place).
+  /// and shifted siblings (React Flow `handleExpandParent` keeps siblings in place).
   final Map<String, Offset> livePositions = {};
 
   /// Live sizes for nodes whose dimensions change mid-drag (expandParent

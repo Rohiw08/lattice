@@ -44,7 +44,7 @@ class NodeOptions with Diagnosticable {
   /// All boolean parameters default to common interactive settings:
   /// - Most interactions enabled (draggable, selectable, connectable, deletable, focusable)
   /// - `resizable` defaults off (RF parity: resizing is opt-in per node)
-  /// - Visual effects: [elevateNodesOnSelected] defaults on (Lattice).
+  /// - Visual effects: [elevateNodesOnSelected] defaults on (React Flow).
   const NodeOptions({
     this.hidden = false,
     this.draggable = true,
@@ -83,7 +83,7 @@ class NodeOptions with Diagnosticable {
   /// Hidden nodes still exist in the graph but are not rendered.
   /// Useful for temporarily hiding nodes without removing them.
   ///
-  /// Lattice equivalent: `hidden`.
+  /// React Flow equivalent: `hidden`.
   /// Defaults to false.
   final bool hidden;
 
@@ -92,7 +92,7 @@ class NodeOptions with Diagnosticable {
   /// When false, the node is fixed in place and cannot be moved
   /// by dragging, though it can still be moved programmatically.
   ///
-  /// Lattice equivalent: `draggable`.
+  /// React Flow equivalent: `draggable`.
   /// Defaults to true.
   final bool draggable;
 
@@ -101,7 +101,7 @@ class NodeOptions with Diagnosticable {
   /// When false, the node cannot be interacted with for selection.
   /// Useful for background or decorative nodes.
   ///
-  /// Lattice equivalent: `selectable`.
+  /// React Flow equivalent: `selectable`.
   /// Defaults to true.
   final bool selectable;
 
@@ -118,7 +118,7 @@ class NodeOptions with Diagnosticable {
   /// When false, users cannot create new connections to or from this node.
   /// Existing connections remain, but no new ones can be made.
   ///
-  /// Lattice equivalent: `connectable`.
+  /// React Flow equivalent: `connectable`.
   /// Defaults to true.
   final bool connectable;
 
@@ -127,7 +127,7 @@ class NodeOptions with Diagnosticable {
   /// When false, prevents deletion via keyboard shortcuts or UI actions.
   /// The node can still be removed programmatically.
   ///
-  /// Lattice equivalent: `deletable`.
+  /// React Flow equivalent: `deletable`.
   /// Defaults to true.
   final bool deletable;
 
@@ -143,8 +143,8 @@ class NodeOptions with Diagnosticable {
   /// When true, the node can be focused and respond to keyboard events
   /// like Delete or arrow keys for navigation.
   ///
-  /// Lattice equivalent: `focusable`.
-  /// Defaults to true (Lattice defaults to false).
+  /// React Flow equivalent: `focusable`.
+  /// Defaults to true (React Flow defaults to false).
   final bool focusable;
 
   /// Whether to elevate the node visually when selected.
@@ -152,7 +152,7 @@ class NodeOptions with Diagnosticable {
   /// When true, selected nodes are rendered on top of other nodes,
   /// making them more prominent. This typically increases their z-index.
   ///
-  /// Lattice equivalent: `elevateNodesOnSelect`.
+  /// React Flow equivalent: `elevateNodesOnSelect`.
   /// Defaults to true.
   final bool elevateNodesOnSelected;
 
@@ -160,14 +160,14 @@ class NodeOptions with Diagnosticable {
   final bool expandParent;
 
   /// Whether starting a drag on an unselected node selects it first
-  /// (Lattice `selectNodesOnDrag`).
+  /// (React Flow `selectNodesOnDrag`).
   ///
   /// When false, dragging an unselected node moves it without selecting,
   /// and any existing selection is cleared first (matching RF). Taps still
   /// select. Defaults to true.
   final bool selectNodesOnDrag;
 
-  /// Canvas-wide node origin (Lattice `nodeOrigin`).
+  /// Canvas-wide node origin (React Flow `nodeOrigin`).
   ///
   /// Fractions of the node size (`0..1` per axis) marking the node's anchor
   /// point: `Offset.zero` (default) is top-left, `Offset(0.5, 0.5)` centers

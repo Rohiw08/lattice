@@ -48,13 +48,13 @@ class FlowMiniMap extends ConsumerStatefulWidget {
   final MiniMapNodeOnClick? onClickNode;
 
   /// Fired when empty minimap space is tapped, with the flow position
-  /// (Lattice `onClick`). The viewport still centers there first.
+  /// (React Flow `onClick`). The viewport still centers there first.
   final void Function(Offset flowPosition)? onClick;
 
-  /// Screen-reader label for the minimap (≈ Lattice `ariaLabel`).
+  /// Screen-reader label for the minimap (≈ React Flow `ariaLabel`).
   ///
   /// Null (default) falls back to
-  /// `A11yOptions.labels.minimapLabel` (≈ Lattice `minimap.ariaLabel`).
+  /// `A11yOptions.labels.minimapLabel` (≈ React Flow `minimap.ariaLabel`).
   /// Set [includeInSemantics] false to exclude the minimap from the
   /// semantics tree.
   final String? semanticLabel;

@@ -463,7 +463,7 @@ class ConnectionService {
     if (targetHandle.isConnectableEnd == false) return false;
 
     if (mode == ConnectionMode.strict) {
-      // Lattice Strict: only source → target (unless the handle explicitly
+      // React Flow Strict: only source → target (unless the handle explicitly
       // opts into the other role via isConnectableStart/End).
       if (sourceHandle.type == HandleType.target &&
           sourceHandle.isConnectableStart != true) {

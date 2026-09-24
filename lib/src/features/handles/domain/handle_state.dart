@@ -12,7 +12,7 @@ abstract class HandleRuntimeState with _$HandleRuntimeState {
     /// Whether the handle is being hovered over.
     @Default(false) bool hovered,
 
-    /// Click-to-connect source (`connectOnClick` / Lattice `clickconnecting`).
+    /// Click-to-connect source (`connectOnClick` / React Flow `clickconnecting`).
     @Default(false) bool selected,
 
     /// Whether this handle is currently active in a connection drag.

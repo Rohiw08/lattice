@@ -103,7 +103,7 @@ class FlowNodeResizerStyle extends ThemeExtension<FlowNodeResizerStyle>
 
   factory FlowNodeResizerStyle.light() {
     // xy-theme: 5px handles, `#ffffff` fill, 1px `#9e86ed` border + lines.
-    // Lattice has no state variants.
+    // React Flow has no state variants.
     const color = Color(0xFFFFFFFF);
     const accent = Color(0xFF9E86ED);
     return FlowNodeResizerStyle(

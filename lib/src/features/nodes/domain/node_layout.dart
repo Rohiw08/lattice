@@ -2,15 +2,15 @@ import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:flutter/painting.dart';
 
-/// Lattice–compatible node layout helpers.
+/// React Flow–compatible node layout helpers.
 ///
 /// When [FlowNode.parentId] is set, [FlowNode.position] is **relative** to the
-/// parent's stored position (Lattice sub-flow default). [FlowNode.position]
+/// parent's stored position (React Flow sub-flow default). [FlowNode.position]
 /// always marks the node's **anchor point** — the point inside the node at
 /// its origin (see [resolveOrigin]). Flow-space drawing, hit-testing, and
 /// edges use the visual rect from [absoluteRect], which shifts the anchor by
 /// the origin; stored positions, drag math, and snapping stay in anchor
-/// space, exactly like Lattice `XYDrag`.
+/// space, exactly like React Flow `XYDrag`.
 abstract final class NodeLayout {
   const NodeLayout._();
 
@@ -93,7 +93,7 @@ abstract final class NodeLayout {
   }
 
   /// Clamp a **parent-relative anchor** so the child's *visual rect* stays
-  /// inside the parent (Lattice `extent: 'parent'`).
+  /// inside the parent (React Flow `extent: 'parent'`).
   ///
   /// [childOrigin] is the child's resolved origin; the default (`Offset.zero`)
   /// reproduces the old top-left behavior exactly.
@@ -118,10 +118,10 @@ abstract final class NodeLayout {
   }
 
   /// Union rect of a parent + child when the child sits past the parent's
-  /// edge (Lattice `expandParent`): grow the parent so the child fits.
+  /// edge (React Flow `expandParent`): grow the parent so the child fits.
   ///
   /// Returns the new parent position/size and the child position snapped to
-  /// the parent's new origin (Lattice clamps the dragged child to `>= 0` relative).
+  /// the parent's new origin (React Flow clamps the dragged child to `>= 0` relative).
   /// `null` when the child already fits inside the parent.
   static ({Offset parentPosition, Size parentSize, Offset childPosition})?
       expandParentFit({

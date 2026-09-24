@@ -10,7 +10,7 @@ import 'package:flutter/painting.dart';
 
 typedef NodeBounds = ({Rect rect, List<FlowNode> nodes});
 
-/// Bounds of [nodes] (Lattice top-level `getNodesBounds`).
+/// Bounds of [nodes] (React Flow top-level `getNodesBounds`).
 ///
 /// Builds the lookup internally, so parented nodes resolve. Origin-aware
 /// via [defaultOrigin] (canvas `NodeOptions.nodeOrigin` when unset
@@ -34,7 +34,7 @@ NodeBounds getNodesBounds(
 class ViewportService {
   ViewportService();
 
-  // --- Flow ↔ viewport (same math as Lattice screen ↔ flow with “viewport” = pane local) ---
+  // --- Flow ↔ viewport (same math as React Flow screen ↔ flow with “viewport” = pane local) ---
 
   /// Viewer-local point → flow (graph) coordinates.
   Offset viewportToFlow(FlowCanvasState state, Offset viewport) {
@@ -46,7 +46,7 @@ class ViewportService {
     return flow * state.viewport.zoom + state.viewport.offset;
   }
 
-  /// Clamps [FlowViewport.offset] to [translateExtent] (Lattice `translateExtent`).
+  /// Clamps [FlowViewport.offset] to [translateExtent] (React Flow `translateExtent`).
   FlowViewport clampViewport(FlowViewport viewport, CoordinateExtent extent) {
     if (extent.isInfinite) return viewport;
     return viewport.copyWith(
@@ -163,7 +163,7 @@ class ViewportService {
     );
   }
 
-  /// Pure viewport computation behind [fitViewportToBounds] (Lattice
+  /// Pure viewport computation behind [fitViewportToBounds] (React Flow
   /// `getViewportForBounds`): what viewport would fit [bounds] into
   /// [viewportSize], without touching state. Returns null when there is
   /// nothing to fit.
@@ -209,7 +209,7 @@ class ViewportService {
     );
   }
 
-  /// Fits an explicit flow-space [bounds] rect (Lattice `fitBounds`).
+  /// Fits an explicit flow-space [bounds] rect (React Flow `fitBounds`).
   ///
   /// Shared math behind [fitView]; zoom floors/ceilings combine the viewport
   /// limits with the optional overrides (viewport wins ties, as in fitView).
@@ -237,7 +237,7 @@ class ViewportService {
 
   // --- UTILITY METHODS ---
 
-  /// Bounds of [nodes] (Lattice top-level `getNodesBounds`).
+  /// Bounds of [nodes] (React Flow top-level `getNodesBounds`).
   NodeBounds getNodesBounds({
     List<FlowNode> nodes = const [],
     bool includeHidden = false,

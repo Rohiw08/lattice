@@ -5,11 +5,11 @@ import 'package:lattice/src/core/theme/theme_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Fixed overlay panel above the flow viewport (Lattice `<Panel />`).
+/// Fixed overlay panel above the flow viewport (React Flow `<Panel />`).
 ///
 /// Does **not** pan/zoom with the graph. Place it in [FlowCanvas.overlays].
 ///
-/// Chrome is optional: theme default is [FlowPanelStyle.unstyled] (Lattice). Opt in
+/// Chrome is optional: theme default is [FlowPanelStyle.unstyled] (React Flow). Opt in
 /// with [style], theme `panel: FlowPanelStyle.light()`, or a raw [decoration].
 ///
 /// ```dart
@@ -45,10 +45,10 @@ class FlowPanel extends ConsumerStatefulWidget {
   /// Content of the panel.
   final Widget child;
 
-  /// Lattice `position` (default `top-left`).
+  /// React Flow `position` (default `top-left`).
   final PanelPosition position;
 
-  /// Outer margin from the viewport edge. Lattice default is `15px`.
+  /// Outer margin from the viewport edge. React Flow default is `15px`.
   final EdgeInsetsGeometry margin;
 
   /// Inner padding around [child].
@@ -74,11 +74,11 @@ class FlowPanel extends ConsumerStatefulWidget {
 
   final Clip clipBehavior;
 
-  /// Accessibility label (Lattice / HTML `aria-label`).
+  /// Accessibility label (React Flow / HTML `aria-label`).
   final String? semanticLabel;
 
   /// When true (default), the panel ignores pointers while a box-selection
-  /// marquee is active — same as Lattice’s pane-selection CSS rule.
+  /// marquee is active — same as React Flow’s pane-selection CSS rule.
   final bool ignorePointerDuringSelection;
 
   @override

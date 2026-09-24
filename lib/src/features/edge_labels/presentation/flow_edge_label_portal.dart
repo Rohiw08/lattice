@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lattice/src/core/providers/flow_selectors.dart';
 import 'package:lattice/src/core/providers/providers.dart';
 
-/// Screen-space portal for interactive edge labels (Lattice
+/// Screen-space portal for interactive edge labels (React Flow
 /// `<EdgeLabelRenderer>`).
 ///
 /// Place once in `FlowCanvas(overlays: [...])`. Renders [FlowEdge.overlayLabel]

@@ -5,7 +5,7 @@ import 'package:lattice/src/features/node_resizer/presentation/flow_node_resizer
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Single resize handle for custom nodes (Lattice `<NodeResizeControl />`).
+/// Single resize handle for custom nodes (React Flow `<NodeResizeControl />`).
 ///
 /// Place inside a custom node builder to expose one drag direction; the
 /// node's own [FlowNode.minSize]/[maxSize]/[keepAspectRatio]/[shouldResize]
@@ -52,7 +52,7 @@ class FlowNodeResizeControl extends ConsumerWidget {
   /// Per-control theme override.
   final FlowNodeResizerStyle? style;
 
-  /// Extra pixel nudge applied after centering (Lattice `offset`).
+  /// Extra pixel nudge applied after centering (React Flow `offset`).
   final Offset offset;
 
   static Alignment _alignmentFor(ResizeDirection direction) {

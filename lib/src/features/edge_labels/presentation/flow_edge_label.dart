@@ -102,7 +102,7 @@ class FlowEdgeLabel extends ConsumerWidget {
   }
 }
 
-/// Simple edge text badge (Lattice `<EdgeText>`).
+/// Simple edge text badge (React Flow `<EdgeText>`).
 ///
 /// Theme-independent text with an optional background — for canvas-space
 /// labels pass to [FlowEdge.label], for interactive portal badges compose

@@ -18,8 +18,8 @@ mixin _$FlowCanvasState {
 @NodeMapConverter() Map<String, FlowNode> get nodes; Map<String, FlowEdge> get edges;// Runtime node/edge/handle states
 @JsonKey(includeFromJson: false, includeToJson: false) Map<String, NodeRuntimeState> get nodeStates;@JsonKey(includeFromJson: false, includeToJson: false) Map<String, EdgeRuntimeState> get edgeStates;@JsonKey(includeFromJson: false, includeToJson: false) Map<String, HandleRuntimeState> get handleStates;// Selection and z-ordering
  Set<String> get selectedNodes; Set<String> get selectedEdges; int get minZIndex; int get maxZIndex;// Viewport
- FlowViewport get viewport;@SizeConverter() Size? get viewportSize; bool get isPanZoomLocked;// full canvas freeze (not Lattice interactive-only)
-/// Master element-interaction switch (Lattice `setInteractive` /
+ FlowViewport get viewport;@SizeConverter() Size? get viewportSize; bool get isPanZoomLocked;// full canvas freeze (not React Flow interactive-only)
+/// Master element-interaction switch (React Flow `setInteractive` /
 /// Controls `showInteractive`): node drag/select, edge select,
 /// connection starts, and marquee selection. Viewport pan/zoom,
 /// pointer observations, and programmatic APIs are unaffected.
@@ -332,8 +332,8 @@ class _FlowCanvasState extends FlowCanvasState {
 @override@JsonKey() final  FlowViewport viewport;
 @override@SizeConverter() final  Size? viewportSize;
 @override@JsonKey() final  bool isPanZoomLocked;
-// full canvas freeze (not Lattice interactive-only)
-/// Master element-interaction switch (Lattice `setInteractive` /
+// full canvas freeze (not React Flow interactive-only)
+/// Master element-interaction switch (React Flow `setInteractive` /
 /// Controls `showInteractive`): node drag/select, edge select,
 /// connection starts, and marquee selection. Viewport pan/zoom,
 /// pointer observations, and programmatic APIs are unaffected.

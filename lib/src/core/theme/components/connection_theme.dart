@@ -211,7 +211,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
   /// This is the base styling shown when drawing a connection.
   ///
   /// If null, inherits from the layer below (global theme) when merged, and
-  /// falls back to the Lattice default (`#b1b1b7`, width 1) when resolved.
+  /// falls back to the React Flow default (`#b1b1b7`, width 1) when resolved.
   final FlowConnectionStrokeStyle? activeDecoration;
 
   /// The stroke style of the connection line when hovering over a valid target port.
@@ -261,7 +261,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
     this.connectionBuilder,
   });
 
-  /// The Lattice default stroke (`connectionline-stroke-default: #b1b1b7`,
+  /// The React Flow default stroke (`connectionline-stroke-default: #b1b1b7`,
   /// `connectionline-stroke-width-default: 1`), used by [resolveStroke] when
   /// no [activeDecoration] is set anywhere in the cascade.
   static const FlowConnectionStrokeStyle defaultStroke =
@@ -297,7 +297,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
     );
   }
 
-  /// Creates a light theme connection style matching Lattice.
+  /// Creates a light theme connection style matching React Flow.
   ///
   /// Active `#b1b1b7` w1; valid `#555` w1.5; invalid `#ff6060` w1.5.
   factory FlowConnectionStyle.light() {
@@ -318,7 +318,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
     );
   }
 
-  /// Creates a dark theme connection style matching Lattice `.dark`.
+  /// Creates a dark theme connection style matching React Flow `.dark`.
   ///
   /// Active stays `#b1b1b7` w1 (no dark override in v12);
   /// valid `#bbb` w1.5; invalid `#ff6060` w1.5.
@@ -343,7 +343,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
   /// Creates a connection style that adapts to the system theme.
   ///
   /// Uses [Theme.of(context).brightness] to determine whether
-  /// to use light or dark styling (both match Lattice connection greys).
+  /// to use light or dark styling (both match React Flow connection greys).
   factory FlowConnectionStyle.system(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return brightness == Brightness.dark
@@ -353,7 +353,7 @@ class FlowConnectionStyle extends ThemeExtension<FlowConnectionStyle>
 
   /// Creates a style based on a Material 3 [ColorScheme].
   ///
-  /// Prefer [light]/[dark]/[system] for Lattice visual parity.
+  /// Prefer [light]/[dark]/[system] for React Flow visual parity.
   factory FlowConnectionStyle.fromColorScheme(ColorScheme colorScheme) {
     return FlowConnectionStyle(
       activeDecoration: FlowConnectionStrokeStyle(

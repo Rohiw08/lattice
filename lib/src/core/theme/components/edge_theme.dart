@@ -388,9 +388,9 @@ class FlowEdgeStyle extends ThemeExtension<FlowEdgeStyle> with Diagnosticable {
     );
   }
 
-  /// Creates a light theme edge style matching Lattice defaults.
+  /// Creates a light theme edge style matching React Flow defaults.
   ///
-  /// Lattice: `edge-stroke-default: #b1b1b7` / width `1`,
+  /// React Flow: `edge-stroke-default: #b1b1b7` / width `1`,
   /// selected `edge-stroke-selected-default: #555`. No default markers.
   factory FlowEdgeStyle.light() {
     return const FlowEdgeStyle(
@@ -409,9 +409,9 @@ class FlowEdgeStyle extends ThemeExtension<FlowEdgeStyle> with Diagnosticable {
     );
   }
 
-  /// Creates a dark theme edge style matching Lattice `.dark`.
+  /// Creates a dark theme edge style matching React Flow `.dark`.
   ///
-  /// Lattice dark: stroke `#3e3e3e`, selected `#727272`, width `1`.
+  /// React Flow dark: stroke `#3e3e3e`, selected `#727272`, width `1`.
   factory FlowEdgeStyle.dark() {
     return const FlowEdgeStyle(
       decoration: FlowEdgeStrokeStyle(

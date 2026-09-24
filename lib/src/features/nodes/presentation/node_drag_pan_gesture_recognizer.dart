@@ -31,7 +31,7 @@ class RenderNodeDragShell extends RenderProxyBox {
 /// Node-body pan that **does not start** when the pointer is on interactive UI
 /// (buttons, text fields, ink wells, handle listeners, …).
 ///
-/// Automatic Lattice `nodrag`: put [IconButton] / [TextField] in a node
+/// Automatic React Flow `nodrag`: put [IconButton] / [TextField] in a node
 /// without wrapping [FlowNoDrag].
 class NodeDragPanGestureRecognizer extends NonTrackpadPanGestureRecognizer {
   NodeDragPanGestureRecognizer({super.debugOwner});
@@ -44,7 +44,7 @@ class NodeDragPanGestureRecognizer extends NonTrackpadPanGestureRecognizer {
 
   /// When true for [event], this pointer is skipped so no node drag starts.
   ///
-  /// The node layer uses this for Lattice `dragHandle`: when the node opts
+  /// The node layer uses this for React Flow `dragHandle`: when the node opts
   /// in, only pointer-downs inside a [FlowDragHandle] region may drag.
   /// Evaluated at pointer-down (exact position — `onStart` would already be
   /// post-slop with `DragStartBehavior.start`).

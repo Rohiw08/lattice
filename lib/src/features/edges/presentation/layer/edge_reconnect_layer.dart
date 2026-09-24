@@ -7,7 +7,7 @@ import 'package:lattice/src/features/nodes/domain/node_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Draggable endpoints on selected reconnectable edges (Lattice edge reconnect).
+/// Draggable endpoints on selected reconnectable edges (React Flow edge reconnect).
 class EdgeReconnectLayer extends ConsumerWidget {
   const EdgeReconnectLayer({super.key});
 
@@ -29,7 +29,7 @@ class EdgeReconnectLayer extends ConsumerWidget {
             FlowCursorStyle.system(context))
         .edgeUpdater;
 
-    // Rebuild during drags: reconnect dots must track live positions (Lattice
+    // Rebuild during drags: reconnect dots must track live positions (React Flow
     // renders the edge-updater at the node's current drag position).
     return ListenableBuilder(
       listenable: session,

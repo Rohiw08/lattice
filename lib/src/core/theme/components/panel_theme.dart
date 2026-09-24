@@ -7,7 +7,7 @@ enum FlowPanelState { normal, selected, hovered, disabled }
 
 /// Optional overlay panel chrome — same decoration-state model as [FlowNodeStyle].
 ///
-/// Lattice’s `<Panel />` is unstyled by default; use [FlowPanelStyle.unstyled]
+/// React Flow’s `<Panel />` is unstyled by default; use [FlowPanelStyle.unstyled]
 /// (theme default) or opt into [light] / [dark] / [colored] card chrome.
 @immutable
 class FlowPanelStyle extends ThemeExtension<FlowPanelStyle>
@@ -52,7 +52,7 @@ class FlowPanelStyle extends ThemeExtension<FlowPanelStyle>
     return decoration;
   }
 
-  /// Whether [decoration] has no visible fill, border, or shadow (Lattice default).
+  /// Whether [decoration] has no visible fill, border, or shadow (React Flow default).
   bool get isUnstyled {
     if (decoration is! BoxDecoration) return false;
     final box = decoration as BoxDecoration;
@@ -126,7 +126,7 @@ class FlowPanelStyle extends ThemeExtension<FlowPanelStyle>
     );
   }
 
-  /// No visible chrome (Lattice `<Panel />` default).
+  /// No visible chrome (React Flow `<Panel />` default).
   factory FlowPanelStyle.unstyled() {
     return const FlowPanelStyle(decoration: BoxDecoration());
   }

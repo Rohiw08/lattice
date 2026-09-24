@@ -63,7 +63,7 @@ class EdgesController {
 
   /// Returns edges attached to a specific node handle.
   ///
-  /// Lattice `useHandleConnections` / `getHandleConnections` counterpart.
+  /// React Flow `useHandleConnections` / `getHandleConnections` counterpart.
   List<FlowEdge> getHandleConnections(String nodeId, String handleId) {
     final state = _controller.currentState;
     final out = <FlowEdge>[];

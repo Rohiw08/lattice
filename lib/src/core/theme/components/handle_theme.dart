@@ -237,7 +237,7 @@ class FlowHandleStyle extends ThemeExtension<FlowHandleStyle>
     return FlowHandleStyle.colored(
       color: colorScheme.outline,
       hoverColor: colorScheme.primary.withAlpha(200),
-      // Lattice-ish: selected matches active.
+      // React Flow-ish: selected matches active.
       selectedColor: colorScheme.primary,
       activeColor: colorScheme.primary,
       validTargetColor: colorScheme.tertiary,

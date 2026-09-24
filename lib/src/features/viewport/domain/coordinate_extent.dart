@@ -7,9 +7,9 @@ import 'package:flutter/foundation.dart';
 /// 1. **Viewport constraints** (`translateExtent`): Limits how far users can pan
 /// 2. **Node constraints** (`nodeExtent`): Limits where nodes can be dragged
 ///
-/// ## Lattice Compatibility
+/// ## React Flow Compatibility
 ///
-/// Matches Lattice's `CoordinateExtent` type [web:357]:
+/// Matches React Flow's `CoordinateExtent` type:
 /// ```
 /// type CoordinateExtent = [[number, number], [number, number]];
 /// // [[minX, minY], [maxX, maxY]]

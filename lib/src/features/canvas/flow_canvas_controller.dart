@@ -152,7 +152,7 @@ class FlowCanvasController {
   /// adapters can't echo-loop (observe via [addListener] if needed).
   void applyRemote(FlowCanvasState state) => _internal.applyRemote(state);
 
-  /// Returns the nodes, edges and viewport as an object (Lattice
+  /// Returns the nodes, edges and viewport as an object (React Flow
   /// `toObject` / `ReactFlowJsonObject`). Pair with [load] to restore.
   ReactFlowJsonObject toObject() {
     final s = currentState;
@@ -166,7 +166,7 @@ class FlowCanvasController {
   /// Pushes the current graph state as an undo checkpoint without mutating.
   void commitHistoryCheckpoint() => _internal.commitHistoryCheckpoint();
 
-  /// Flips the master element-interaction switch (Lattice `setInteractive`).
+  /// Flips the master element-interaction switch (React Flow `setInteractive`).
   ///
   /// While false, node drag/select, edge select, connection starts, and
   /// marquees stop; viewport, pointer observations, and programmatic APIs
@@ -177,7 +177,7 @@ class FlowCanvasController {
 
   /// Removes nodes (with descendants) and edges in a single undo step.
   ///
-  /// Lattice `deleteElements` counterpart — see
+  /// React Flow `deleteElements` counterpart — see
   /// [FlowCanvasInternalController.deleteElements] for semantics.
   /// Returns the removed objects.
   FlowDeletedElements deleteElements({

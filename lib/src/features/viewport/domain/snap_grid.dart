@@ -14,7 +14,7 @@ class SnapGrid {
 
   /// Creates a snapping grid definition.
   ///
-  /// Defaults to 15×15 logical pixels (Lattice `snapGrid` default).
+  /// Defaults to 15×15 logical pixels (React Flow `snapGrid` default).
   const SnapGrid({
     this.width = 15,
     this.height = 15,

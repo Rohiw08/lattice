@@ -5,7 +5,7 @@ import 'package:lattice/src/features/nodes/domain/node_layout.dart';
 typedef CellKey = String;
 
 /// Mutable spatial index for fast node / handle lookups in **absolute** flow
-/// space. Child [FlowNode.position] values may be parent-relative (Lattice default).
+/// space. Child [FlowNode.position] values may be parent-relative (React Flow default).
 class NodeIndex {
   static const double _defaultCellSize = 250.0;
 

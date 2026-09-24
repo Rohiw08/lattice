@@ -283,7 +283,7 @@ class _FlowCanvasCoreState extends ConsumerState<_FlowCanvasCore> {
                   }
                 }
                 _hasInitialized = true;
-                // Lattice onInit: live controller after first layout.
+                // React Flow onInit: live controller after first layout.
                 ref
                     .read(flowCanvasCallbacksProvider)
                     .onInit

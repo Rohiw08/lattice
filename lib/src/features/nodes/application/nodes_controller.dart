@@ -62,7 +62,7 @@ class NodesController {
   Map<String, List<String>>? _dragAdjacency;
 
   /// Accumulated pointer travel in flow units since drag start (gesture
-  /// deltas + auto-pan tick compensation). Lattice `XYDrag.updateNodes`:
+  /// deltas + auto-pan tick compensation). React Flow `XYDrag.updateNodes`:
   /// RF maps pointer -> node ABSOLUTELY (`nextPosition = pointer -
   /// distance`) instead of accumulating per-frame deltas, so pushing into a
   /// clamp and returning the pointer leaves a dead zone — never a permanent
@@ -109,7 +109,7 @@ class NodesController {
 
   /// Returns nodes whose absolute bounds intersect [nodeId]'s bounds.
   ///
-  /// Lattice `getIntersectingNodes` counterpart. The spatial grid prefilters
+  /// React Flow `getIntersectingNodes` counterpart. The spatial grid prefilters
   /// candidates (sub-linear) before the precise rect test, so this stays
   /// cheap on large graphs — no full node scan.
   ///
@@ -151,7 +151,7 @@ class NodesController {
 
   /// Whether the absolute bounds of [aId] and [bId] overlap.
   ///
-  /// Lattice `isNodeIntersecting` counterpart for node pairs. Returns false
+  /// React Flow `isNodeIntersecting` counterpart for node pairs. Returns false
   /// when either node is missing.
   bool isNodeIntersecting(String aId, String bId) {
     final state = _controller.currentState;
@@ -168,7 +168,7 @@ class NodesController {
     );
   }
 
-  /// Nodes whose absolute bounds intersect [rect] (Lattice
+  /// Nodes whose absolute bounds intersect [rect] (React Flow
   /// `getIntersectingNodes` rect form).
   ///
   /// Spatial-prefiltered, hidden nodes skipped, sorted by id.
@@ -184,7 +184,7 @@ class NodesController {
     return out;
   }
 
-  /// Lattice `multiSelectionActive` — Meta/Ctrl (or configured keys) held.
+  /// React Flow `multiSelectionActive` — Meta/Ctrl (or configured keys) held.
   bool _isMultiSelectionActive() {
     return ref.read(flowOptionsProvider).keyboardOptions.isMultiSelectionActive;
   }
@@ -306,10 +306,10 @@ class NodesController {
   void removeNodes(Iterable<String> nodeIds) {
     final oldState = _controller.currentState;
     if (nodeIds.isEmpty) return;
-    // Lattice `getElementsToRemove`: removing a parent removes its descendants.
+    // React Flow `getElementsToRemove`: removing a parent removes its descendants.
     final allRemoved = _nodeService.getDescendants(oldState, nodeIds);
 
-    // The service skips `deletable: false` nodes (Lattice); edges must only be
+    // The service skips `deletable: false` nodes (React Flow); edges must only be
     // removed for the nodes that actually go away.
     final stateWithoutNodes = _nodeService.removeNodes(
       oldState,
@@ -433,7 +433,7 @@ class NodesController {
   /// Recomputes derived caches for [nodeId]'s subtree without touching the
   /// model or history.
   ///
-  /// Lattice `updateNodeInternals` counterpart. Call after a custom node's
+  /// React Flow `updateNodeInternals` counterpart. Call after a custom node's
   /// *rendered* geometry changed without a model write (e.g. a handle
   /// builder that positions handles from measured widget size): re-registers
   /// spatial cells, refreshes attached edge paths, and bumps the edge
@@ -520,7 +520,7 @@ class NodesController {
 
     _controller.updateStateOnly(newState);
 
-    // Parent + all descendants: absolute child positions are stable after Lattice
+    // Parent + all descendants: absolute child positions are stable after React Flow
     // compensation, but parent size/handles and spatial cells still change.
     // Always refresh edges so they never stay stuck on stale geometry.
     final affected = _nodeService.getDescendants(newState, {nodeId});
@@ -588,7 +588,7 @@ class NodesController {
     if (node != null && !(node.selectable ?? nodeOpts.selectable)) return;
     final multi = _isMultiSelectionActive();
     // Non-interactive: taps still observe (onNodeClick below) but select
-    // nothing — Lattice `setInteractive(false)` parity.
+    // nothing — React Flow `setInteractive(false)` parity.
     if (state.interactive && (multi || !state.selectedNodes.contains(nodeId))) {
       _selectionController.selectNode(nodeId, addToSelection: multi);
     }
@@ -674,7 +674,7 @@ class NodesController {
     final isAlreadySelected = initialState.selectedNodes.contains(nodeId);
 
     // Prefer selecting on tap-down. Select here only if pan started without it.
-    // Lattice `selectNodesOnDrag: false` drags unselected nodes without
+    // React Flow `selectNodesOnDrag: false` drags unselected nodes without
     // selecting (and clears the existing selection first).
     FlowCanvasState stateAfterSelection = initialState;
     if (!nodeOpts.selectNodesOnDrag &&
@@ -688,12 +688,12 @@ class NodesController {
       stateAfterSelection = _controller.currentState;
     }
 
-    // Whole selection moves only if this node was already selected (Lattice).
+    // Whole selection moves only if this node was already selected (React Flow).
     final dragSet = isAlreadySelected
         ? Set<String>.from(stateAfterSelection.selectedNodes)
         : {nodeId};
 
-    // Lattice `getDragItems` (`isParentSelected`): children whose parent is in the
+    // React Flow `getDragItems` (`isParentSelected`): children whose parent is in the
     // drag set are excluded — they already move with the parent through
     // relative positions; dragging them directly would double-move them.
     dragSet.removeWhere(
@@ -752,7 +752,7 @@ class NodesController {
       affectedNodeIds: affected,
     );
 
-    // Drag lifecycle around onNodeDrag (Lattice onNodeDragStart). Multi-node
+    // Drag lifecycle around onNodeDrag (React Flow onNodeDragStart). Multi-node
     // drags additionally open the selection-drag lifecycle.
     _selectionDragActive = _nodesBeingDragged.length > 1;
     final startChanges = _dragSetChanges(_nodesBeingDragged, dragging: true);
@@ -824,7 +824,7 @@ class NodesController {
     final expandParentDefault =
         ref.read(flowOptionsProvider).nodeOptions.expandParent;
 
-    // Lattice `calculateSnapOffset`: multi-drags share one snap offset so the
+    // React Flow `calculateSnapOffset`: multi-drags share one snap offset so the
     // selection moves as a unit; single nodes snap individually.
     if (vo.snapToGrid && draggedIds.isNotEmpty) {
       if (draggedIds.length > 1) {
@@ -859,7 +859,7 @@ class NodesController {
       if (pos != null) {
         var finalPos = pos;
         // extent: 'parent' without expandParent clamps to the parent box
-        // (Lattice skips the clamp while expandParent is set).
+        // (React Flow skips the clamp while expandParent is set).
         if (n.extent == FlowNodeExtent.parent &&
             n.parentId != null &&
             !(n.expandParent || expandParentDefault)) {
@@ -893,7 +893,7 @@ class NodesController {
       }
     }
 
-    // expandParent final pass (Lattice `handleExpandParent` runs after the snapped
+    // expandParent final pass (React Flow `handleExpandParent` runs after the snapped
     // positions): grows parents and shifts siblings from committed state.
     next = _nodeService.applyExpandParent(
       next,
@@ -969,7 +969,7 @@ class NodesController {
       }
     }
 
-    // Drag-stop lifecycle (Lattice onNodeDragStop). Committed positions of
+    // Drag-stop lifecycle (React Flow onNodeDragStop). Committed positions of
     // the dragged set; multi-drags close the selection-drag lifecycle too.
     final wasSelectionDrag = _selectionDragActive;
     _selectionDragActive = false;
@@ -1122,7 +1122,7 @@ class NodesController {
         emitted.add(id);
       }
     }
-    // expandParent effects (Lattice emits parent position + dimensions and shifted
+    // expandParent effects (React Flow emits parent position + dimensions and shifted
     // sibling positions in the same change batch).
     for (final entry in _session.liveSizes.entries) {
       final node = state.nodes[entry.key];
@@ -1154,7 +1154,7 @@ class NodesController {
     }
     if (list.isNotEmpty) {
       cbs.onNodeDrag?.call(list);
-      // Selection-drag mirrors the dragged set only (Lattice
+      // Selection-drag mirrors the dragged set only (React Flow
       // onSelectionDrag), not expandParent side effects.
       final selectionHandler = _selectionDragActive
           ? ref.read(flowCanvasCallbacksProvider).onSelectionDrag
@@ -1188,7 +1188,7 @@ class NodesController {
     if (nodesToMove.isEmpty) return;
     if (canvasDelta == Offset.zero) return;
 
-    // Absolute mapping (Lattice `XYDrag.updateNodes`): the target is the
+    // Absolute mapping (React Flow `XYDrag.updateNodes`): the target is the
     // drag-start position plus total pointer travel — never last-frame-live
     // plus delta. Clamping that absolute target keeps the RF dead zone:
     // clamped-away travel is forgotten, so coming back pins until the
@@ -1212,7 +1212,7 @@ class NodesController {
       final start = _dragStartPositions[id];
       final current = _session.livePositions[id];
       if (start == null && current == null) continue;
-      // Lattice `XYDrag.updateNodes`: snap every frame while dragging — single
+      // React Flow `XYDrag.updateNodes`: snap every frame while dragging — single
       // nodes snap to the grid, multi-drags share one offset computed from
       // the first drag item so the selection moves as a unit.
       var raw = start != null ? start + _pointerTravel : current! + canvasDelta;
@@ -1244,7 +1244,7 @@ class NodesController {
     }
     _session.setLivePositions(next);
 
-    // Lattice `expandParent` + `handleExpandParent` (live): while a child with
+    // React Flow `expandParent` + `handleExpandParent` (live): while a child with
     // expandParent is dragged past its parent's edge, grow the parent
     // position/size and shift sibling children so their absolute positions
     // stay put. Sizes stay live until drag end (parent grows on screen).
@@ -1302,12 +1302,12 @@ class NodesController {
     _emitNodeDragLivePositions(nodesToMove);
   }
 
-  /// Clamps one node's next position (Lattice `calculateNodePosition`).
+  /// Clamps one node's next position (React Flow `calculateNodePosition`).
   ///
   /// - `extent: 'parent'` clamps in parent-relative space; [FlowNode.expandParent]
-  ///   bypasses clamping entirely (Lattice) — `handleExpandParent` grows the parent.
+  ///   bypasses clamping entirely (React Flow) — `handleExpandParent` grows the parent.
   /// - [CoordinateExtent] (global `nodeExtent`) clamps in **absolute** flow
-  ///   space, including for children; multi-drags use Lattice's per-node adjusted
+  ///   space, including for children; multi-drags use React Flow's per-node adjusted
   ///   extents so the whole selection stays inside the extent.
   Offset _clampNodeLivePosition(
     FlowCanvasState state,
@@ -1397,7 +1397,7 @@ class NodesController {
     return union;
   }
 
-  /// Lattice `isParentSelected`: true when any ancestor of [id] is in [dragSet].
+  /// React Flow `isParentSelected`: true when any ancestor of [id] is in [dragSet].
   bool _hasAncestorInDragSet(
     FlowCanvasState state,
     String id,
@@ -1436,7 +1436,7 @@ class NodesController {
     final margin = options.viewportOptions.autoPanMargin;
     final speed = options.viewportOptions.autoPanSpeed;
 
-    // Lattice `calcAutoPanVelocity`: ramps from ~speed/margin at the margin
+    // React Flow `calcAutoPanVelocity`: ramps from ~speed/margin at the margin
     // boundary up to `speed` at the canvas edge.
     double autoPanVelocityAt(double distanceFromEdge) {
       if (margin <= 0) return speed;

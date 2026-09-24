@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Mouse cursors for canvas interactions (Lattice CSS cursor map).
+/// Mouse cursors for canvas interactions (React Flow CSS cursor map).
 ///
 /// Defaults match canvas `init.css` / `node-resizer.css`:
 /// pane grab/grabbing, node grab/grabbing, handle crosshair, edge pointer, etc.
@@ -88,7 +88,7 @@ class FlowCursorStyle extends ThemeExtension<FlowCursorStyle>
     this.disabled = SystemMouseCursors.basic,
   });
 
-  /// Lattice default cursors (same for light and dark).
+  /// React Flow default cursors (same for light and dark).
   factory FlowCursorStyle.light() => const FlowCursorStyle();
 
   /// Same as [light] — system cursors are not brightness-dependent.
@@ -100,7 +100,7 @@ class FlowCursorStyle extends ThemeExtension<FlowCursorStyle>
         : FlowCursorStyle.light();
   }
 
-  /// Pane cursor from Lattice modes: selection → dragging → pan / basic.
+  /// Pane cursor from React Flow modes: selection → dragging → pan / basic.
   MouseCursor resolvePane({
     bool selection = false,
     bool dragging = false,

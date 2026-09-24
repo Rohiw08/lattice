@@ -12,7 +12,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'edge.freezed.dart';
 part 'edge.g.dart';
 
-/// Input for a custom edge path builder (Lattice custom-edge path section).
+/// Input for a custom edge path builder (React Flow custom-edge path section).
 @immutable
 class FlowEdgePathInput {
   const FlowEdgePathInput({
@@ -38,7 +38,7 @@ class FlowEdgePathInput {
   final FlowEdge edge;
 }
 
-/// Builds a fully custom edge path (Lattice custom SVG edge path).
+/// Builds a fully custom edge path (React Flow custom SVG edge path).
 ///
 /// Return any [Path] (e.g. sinusoidal); bounds, hit-testing, labels, and
 /// markers all derive from it automatically. Prefer [EdgePathCreator] statics
@@ -63,7 +63,7 @@ class FlowEdgePaintContext {
 }
 
 /// Paints canvas-space decorations over an edge's base stroke + markers
-/// (Lattice custom-edge body section; widgets go in [FlowEdge.overlayLabel]).
+/// (React Flow custom-edge body section; widgets go in [FlowEdge.overlayLabel]).
 typedef FlowEdgeForegroundPainter = void Function(
     Canvas canvas, FlowEdgePaintContext context);
 
@@ -226,7 +226,7 @@ abstract class FlowEdge with _$FlowEdge {
     /// capacities, or custom properties.
     @Default(<String, dynamic>{}) Map<String, dynamic> data,
 
-    /// When true, draws a flowing dash along the path (Lattice `animated`).
+    /// When true, draws a flowing dash along the path (React Flow `animated`).
     ///
     /// Uses a shared ticker that only runs while any edge is animated; static
     /// edges stay on a separate [RepaintBoundary] so they do not repaint every
@@ -276,13 +276,13 @@ abstract class FlowEdge with _$FlowEdge {
     /// If null, uses the global canvas setting.
     bool? elevateEdgeOnSelect,
 
-    /// Fully custom path builder (Lattice custom edge path).
+    /// Fully custom path builder (React Flow custom edge path).
     ///
     /// Overrides [type] for path computation; bounds, hit-testing, labels,
     /// and markers derive from the returned path. Not serialized.
     @JsonKey(ignore: true) FlowEdgePathBuilder? pathBuilder,
 
-    /// Canvas-space decorations painted over the base stroke (Lattice
+    /// Canvas-space decorations painted over the base stroke (React Flow
     /// custom edge body). Widget content belongs in [overlayLabel].
     /// Not serialized.
     @JsonKey(ignore: true) FlowEdgeForegroundPainter? foregroundPainter,
@@ -291,7 +291,7 @@ abstract class FlowEdge with _$FlowEdge {
   factory FlowEdge.fromJson(Map<String, dynamic> json) =>
       _$FlowEdgeFromJson(json);
 
-  /// Builds an edge from a [ConnectionParams] (Lattice `addEdge`
+  /// Builds an edge from a [ConnectionParams] (React Flow `addEdge`
   /// connection form).
   ///
   /// Counterpart for controlled flows (`autoCreateEdge: false`): turn the

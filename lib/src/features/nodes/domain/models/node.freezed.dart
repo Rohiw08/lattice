@@ -22,12 +22,12 @@ mixin _$FlowNode<T> {
 ///
 /// When [parentId] is null this is absolute (graph space).
 /// When [parentId] is set this is **relative to the parent’s top-left**,
-/// matching Lattice sub-flows (`{ x: 0, y: 0 }` = parent origin).
+/// matching React Flow sub-flows (`{ x: 0, y: 0 }` = parent origin).
 ///
 /// [position] marks the node's **anchor point**: the point inside the
 /// node at [origin] (canvas `nodeOrigin` by default). With the default
 /// top-left origin this is the top-left corner; with a center origin
-/// (`Offset(0.5, 0.5)`, like Lattice `nodeOrigin: [0.5, 0.5]`) it is the
+/// (`Offset(0.5, 0.5)`, like React Flow `nodeOrigin: [0.5, 0.5]`) it is the
 /// node's center. Dragging, snapping, and stored JSON all use the anchor;
 /// rendering, hit-testing, and bounds resolve the visual rect via
 /// `NodeLayout.absoluteRect`.
@@ -37,7 +37,7 @@ mixin _$FlowNode<T> {
 /// (top-left when unset). Serialized with the node.
 @OffsetConverter() Offset? get origin;/// Custom data attached to this node.
 ///
-/// Optional, like Lattice's `data` (defaults to `{}` there, `null`
+/// Optional, like React Flow's `data` (defaults to `{}` there, `null`
 /// here). The built-in node widgets never render it — your node widget
 /// decides how (and whether) to display `props.data`.
  T? get data;/// Size of the node in logical pixels.
@@ -65,23 +65,23 @@ mixin _$FlowNode<T> {
 ///
 /// Null (default) inherits [NodeOptions.resizable] (false: resizing
 /// stays opt-in, RF parity — resize UI never renders ambiently).
- bool? get resizable;/// Minimum size enforced by resize gestures (Lattice `minWidth/minHeight`).
+ bool? get resizable;/// Minimum size enforced by resize gestures (React Flow `minWidth/minHeight`).
 ///
 /// Null (default) falls back to the canvas minimum. Serialized.
-@SizeConverter() Size? get minSize;/// Maximum size enforced by resize gestures (Lattice `maxWidth/maxHeight`).
+@SizeConverter() Size? get minSize;/// Maximum size enforced by resize gestures (React Flow `maxWidth/maxHeight`).
 ///
 /// Null (default) = unbounded. Serialized.
-@SizeConverter() Size? get maxSize;/// Lock the width/height ratio while resizing (Lattice `keepAspectRatio`).
+@SizeConverter() Size? get maxSize;/// Lock the width/height ratio while resizing (React Flow `keepAspectRatio`).
 ///
 /// The ratio is taken from the size at resize start. Serialized.
- bool get keepAspectRatio;/// Veto callback for resize gestures (Lattice `shouldResize`).
+ bool get keepAspectRatio;/// Veto callback for resize gestures (React Flow `shouldResize`).
 ///
 /// Called with the proposed rect before each commit; return false to
 /// block it. Not serialized.
 @JsonKey(ignore: true) FlowShouldResize? get shouldResize;/// Whether this node can receive keyboard focus.
 ///
 /// Null (default) inherits [NodeOptions.focusable].
- bool? get focusable;/// Restrict drag starts to [FlowDragHandle] regions (Lattice `dragHandle`).
+ bool? get focusable;/// Restrict drag starts to [FlowDragHandle] regions (React Flow `dragHandle`).
 ///
 /// When true, a node drag may only start from inside a [FlowDragHandle]
 /// widget in the node's subtree; presses elsewhere still select the
@@ -91,8 +91,8 @@ mixin _$FlowNode<T> {
 ///
 /// Falls back to [data] when it is a [String], then to [id].
 /// Serialized with the node.
- String? get semanticsLabel;/// Grow the parent when this node is dragged past its edge (Lattice default: false).
- bool get expandParent;/// Movement boundary (Lattice `extent`). `null` = unbounded (Lattice default).
+ String? get semanticsLabel;/// Grow the parent when this node is dragged past its edge (React Flow default: false).
+ bool get expandParent;/// Movement boundary (React Flow `extent`). `null` = unbounded (React Flow default).
  FlowNodeExtent? get extent;/// Per-node visual style, merged over the theme's node style.
 ///
 /// Like `FlowEdge.style`: applied on top of the canvas theme for this
@@ -329,12 +329,12 @@ class _FlowNode<T> extends FlowNode<T> {
 ///
 /// When [parentId] is null this is absolute (graph space).
 /// When [parentId] is set this is **relative to the parent’s top-left**,
-/// matching Lattice sub-flows (`{ x: 0, y: 0 }` = parent origin).
+/// matching React Flow sub-flows (`{ x: 0, y: 0 }` = parent origin).
 ///
 /// [position] marks the node's **anchor point**: the point inside the
 /// node at [origin] (canvas `nodeOrigin` by default). With the default
 /// top-left origin this is the top-left corner; with a center origin
-/// (`Offset(0.5, 0.5)`, like Lattice `nodeOrigin: [0.5, 0.5]`) it is the
+/// (`Offset(0.5, 0.5)`, like React Flow `nodeOrigin: [0.5, 0.5]`) it is the
 /// node's center. Dragging, snapping, and stored JSON all use the anchor;
 /// rendering, hit-testing, and bounds resolve the visual rect via
 /// `NodeLayout.absoluteRect`.
@@ -346,7 +346,7 @@ class _FlowNode<T> extends FlowNode<T> {
 @override@OffsetConverter() final  Offset? origin;
 /// Custom data attached to this node.
 ///
-/// Optional, like Lattice's `data` (defaults to `{}` there, `null`
+/// Optional, like React Flow's `data` (defaults to `{}` there, `null`
 /// here). The built-in node widgets never render it — your node widget
 /// decides how (and whether) to display `props.data`.
 @override final  T? data;
@@ -392,19 +392,19 @@ class _FlowNode<T> extends FlowNode<T> {
 /// Null (default) inherits [NodeOptions.resizable] (false: resizing
 /// stays opt-in, RF parity — resize UI never renders ambiently).
 @override final  bool? resizable;
-/// Minimum size enforced by resize gestures (Lattice `minWidth/minHeight`).
+/// Minimum size enforced by resize gestures (React Flow `minWidth/minHeight`).
 ///
 /// Null (default) falls back to the canvas minimum. Serialized.
 @override@SizeConverter() final  Size? minSize;
-/// Maximum size enforced by resize gestures (Lattice `maxWidth/maxHeight`).
+/// Maximum size enforced by resize gestures (React Flow `maxWidth/maxHeight`).
 ///
 /// Null (default) = unbounded. Serialized.
 @override@SizeConverter() final  Size? maxSize;
-/// Lock the width/height ratio while resizing (Lattice `keepAspectRatio`).
+/// Lock the width/height ratio while resizing (React Flow `keepAspectRatio`).
 ///
 /// The ratio is taken from the size at resize start. Serialized.
 @override@JsonKey() final  bool keepAspectRatio;
-/// Veto callback for resize gestures (Lattice `shouldResize`).
+/// Veto callback for resize gestures (React Flow `shouldResize`).
 ///
 /// Called with the proposed rect before each commit; return false to
 /// block it. Not serialized.
@@ -413,7 +413,7 @@ class _FlowNode<T> extends FlowNode<T> {
 ///
 /// Null (default) inherits [NodeOptions.focusable].
 @override final  bool? focusable;
-/// Restrict drag starts to [FlowDragHandle] regions (Lattice `dragHandle`).
+/// Restrict drag starts to [FlowDragHandle] regions (React Flow `dragHandle`).
 ///
 /// When true, a node drag may only start from inside a [FlowDragHandle]
 /// widget in the node's subtree; presses elsewhere still select the
@@ -425,9 +425,9 @@ class _FlowNode<T> extends FlowNode<T> {
 /// Falls back to [data] when it is a [String], then to [id].
 /// Serialized with the node.
 @override final  String? semanticsLabel;
-/// Grow the parent when this node is dragged past its edge (Lattice default: false).
+/// Grow the parent when this node is dragged past its edge (React Flow default: false).
 @override@JsonKey() final  bool expandParent;
-/// Movement boundary (Lattice `extent`). `null` = unbounded (Lattice default).
+/// Movement boundary (React Flow `extent`). `null` = unbounded (React Flow default).
 @override final  FlowNodeExtent? extent;
 /// Per-node visual style, merged over the theme's node style.
 ///

@@ -17,13 +17,13 @@ class FlowCanvasOptions with Diagnosticable {
   final ConnectionOptions connectionOptions;
   final A11yOptions a11yOptions;
 
-  /// Master selection switch (Lattice `elementsSelectable`).
+  /// Master selection switch (React Flow `elementsSelectable`).
   ///
   /// When false, user selection is disabled entirely: taps, marquee, and
   /// select-all select nothing (deselect still works). Defaults to true.
   final bool elementsSelectable;
 
-  /// Automatic z-order management (Lattice `zIndexMode`).
+  /// Automatic z-order management (React Flow `zIndexMode`).
   ///
   /// Defaults to [ZIndexMode.auto] (current behavior).
   final ZIndexMode zIndexMode;

@@ -53,18 +53,18 @@ class FlowCanvasInteractiveSurface extends ConsumerStatefulWidget {
 
 class _FlowCanvasInteractiveSurfaceState
     extends ConsumerState<FlowCanvasInteractiveSurface> {
-  /// Mirrors Lattice `selectionKeyPressed` so pan can be disabled while Shift is held.
+  /// Mirrors React Flow `selectionKeyPressed` so pan can be disabled while Shift is held.
   bool _selectionKeyHeld = false;
 
-  /// Mirrors Lattice `panActivationKeyCode`: while held, left-drag pans.
+  /// Mirrors React Flow `panActivationKeyCode`: while held, left-drag pans.
   bool _spacePanHeld = false;
 
-  /// Middle/right button pan (Lattice `panOnDrag={[1,2]}`) — IV only handles left.
+  /// Middle/right button pan (React Flow `panOnDrag={[1,2]}`) — IV only handles left.
   int? _auxPanPointer;
   Offset? _auxPanLastGlobal;
   bool _auxPanRouteActive = false;
 
-  /// Pending secondary-button press for context-menu routing (Lattice
+  /// Pending secondary-button press for context-menu routing (React Flow
   /// `onNodeContextMenu` / `onEdgeContextMenu` / `onPaneContextMenu`).
   /// A press that moves past [_contextMenuSlop] becomes an aux-pan instead.
   int? _secondaryPointer;
@@ -77,7 +77,7 @@ class _FlowCanvasInteractiveSurfaceState
   bool _viewportInteracting = false;
 
   /// Primary-button down time/position of the last tap, for manual
-  /// double-click detection (Lattice `zoomOnDoubleClick`). Tracked on the
+  /// double-click detection (React Flow `zoomOnDoubleClick`). Tracked on the
   /// translucent [Listener] so it never delays node/edge single taps the way
   /// a competing double-tap recognizer in the gesture arena would.
   Duration? _lastPrimaryDownTime;
@@ -174,7 +174,7 @@ class _FlowCanvasInteractiveSurfaceState
     _secondaryDownGlobal = event.position;
   }
 
-  /// Lattice `onPaneMouseEnter/Move` (flow coords). Pure observers: no
+  /// React Flow `onPaneMouseEnter/Move` (flow coords). Pure observers: no
   /// setState, no rebuilds.
   void _firePaneEnter(PointerEnterEvent event) {
     final cb = ref.read(flowCanvasCallbacksProvider).onPaneMouseEnter;
@@ -205,7 +205,7 @@ class _FlowCanvasInteractiveSurfaceState
     controller.fireContextMenuAt(event.position);
   }
 
-  /// Lattice `zoomOnDoubleClick`: a second primary tap within the double-tap
+  /// React Flow `zoomOnDoubleClick`: a second primary tap within the double-tap
   /// window (and slop) zooms in, centered on the pointer. Detected manually
   /// from pointer-downs so it adds no arena delay to node/edge taps.
   void _maybeHandleDoubleClickZoom(PointerDownEvent event) {
@@ -256,18 +256,18 @@ class _FlowCanvasInteractiveSurfaceState
 
     final isLocked = ref.read(internalControllerProvider).isPanZoomLocked;
     if (isLocked) return;
-    // Lattice `nowheel` — leave the event for scrollables under the pointer.
+    // React Flow `nowheel` — leave the event for scrollables under the pointer.
     if (FlowInteraction.blocksWheel(signal)) return;
 
     final v = ref.read(flowOptionsProvider).viewportOptions;
     final controller = ref.read(internalControllerProvider.notifier);
 
-    // Lattice `preventScrolling` (default true): when false, don't claim the
+    // React Flow `preventScrolling` (default true): when false, don't claim the
     // wheel — let it fall through to an ancestor scrollable so the page can
     // scroll while the pointer is over the canvas.
     if (!v.preventScrolling) return;
 
-    // Lattice `onPaneScroll` (flow coords), for processed scrolls only.
+    // React Flow `onPaneScroll` (flow coords), for processed scrolls only.
     final onPaneScroll =
         ref.read(flowCanvasCallbacksProvider).onPaneScroll;
     if (onPaneScroll != null) {
@@ -275,7 +275,7 @@ class _FlowCanvasInteractiveSurfaceState
       if (flow != null) onPaneScroll(flow);
     }
 
-    // Lattice `zoomActivationKeyCode`: when a gate set is configured, wheel
+    // React Flow `zoomActivationKeyCode`: when a gate set is configured, wheel
     // zoom needs a held key; otherwise the wheel falls back to pan/scroll.
     final zoomGated = v.zoomOnScroll &&
         !ref.read(flowOptionsProvider).keyboardOptions.isZoomActivationHeld;
@@ -303,7 +303,7 @@ class _FlowCanvasInteractiveSurfaceState
         signal,
         speed: v.panOnScrollSpeed,
       );
-      // Lattice `panOnScrollMode`: lock to one axis. A vertical-only wheel
+      // React Flow `panOnScrollMode`: lock to one axis. A vertical-only wheel
       // still pans along the locked axis (fall back to the other component).
       Offset delta;
       switch (v.panOnScrollMode) {
@@ -339,7 +339,7 @@ class _FlowCanvasInteractiveSurfaceState
     const wheelZoomFactor = 1e12;
     final trackpadScrollCausesScale = v.zoomOnScroll;
 
-    // Lattice: left pan off for marquee / selection key / active connection drag.
+    // React Flow: left pan off for marquee / selection key / active connection drag.
     // Do NOT disable pan for [DragMode.node] — node pan wins the arena; flipping
     // panEnabled mid-drag causes dual-motion jank.
     // Pan-activation key (Space) forces pan on instead, winning over marquee

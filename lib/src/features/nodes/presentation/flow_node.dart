@@ -23,7 +23,7 @@ import 'package:lattice/src/core/theme/components/node_theme.dart';
 /// ```
 ///
 /// Put buttons, fields, and menus in [child] — node-drag yields to them
-/// automatically (Lattice `nodrag` behavior). Use [overlay] for a side
+/// automatically (React Flow `nodrag` behavior). Use [overlay] for a side
 /// panel; it is hit-testable and non-dragging without extra wrappers.
 ///
 /// Optional [style] overrides the theme for this node only.

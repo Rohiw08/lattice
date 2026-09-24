@@ -200,7 +200,7 @@ class FlowControlsButtonStyle extends ThemeExtension<FlowControlsButtonStyle>
 
   /// Creates a light theme button style.
   ///
-  /// Lattice: `#fefefe` button, `#f4f4f4` hover/selected,
+  /// React Flow: `#fefefe` button, `#f4f4f4` hover/selected,
   /// `#1a192b` icons (`#ababab` disabled), `#eee` bottom border,
   /// shadow `0 0 2px 1px rgba(0,0,0,0.08)`.
   factory FlowControlsButtonStyle.light() {
@@ -229,7 +229,7 @@ class FlowControlsButtonStyle extends ThemeExtension<FlowControlsButtonStyle>
 
   /// Creates a dark theme button style.
   ///
-  /// Lattice `.dark`: `#2b2b2b` button, `#3e3e3e` hover/selected,
+  /// React Flow `.dark`: `#2b2b2b` button, `#3e3e3e` hover/selected,
   /// `#f8f8f8` icons (`#555` disabled), `#5b5b5b` bottom border,
   /// same shadow as light.
   factory FlowControlsButtonStyle.dark() {

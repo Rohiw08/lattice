@@ -42,23 +42,23 @@ mixin _$FlowHandle implements DiagnosticableTreeMixin {
 /// - Connection validation fails
 ///
 /// Default is true.
- bool get isConnectable;/// Whether a connection drag may START here (Lattice `isConnectableStart`).
+ bool get isConnectable;/// Whether a connection drag may START here (React Flow `isConnectableStart`).
 ///
 /// Null (default) derives from [type]: sources (and `both`) start in
 /// strict mode, anything starts in loose mode. Set explicitly to allow a
 /// target handle to start connections, or to forbid a source from doing
 /// so. Serialized.
- bool? get isConnectableStart;/// Whether a connection drag may LAND here (Lattice `isConnectableEnd`).
+ bool? get isConnectableStart;/// Whether a connection drag may LAND here (React Flow `isConnectableEnd`).
 ///
 /// Null (default) derives from [type]: targets (and `both`) land in
 /// strict mode, anything lands in loose mode. Set explicitly to turn a
 /// handle into a start-only or end-only port. Serialized.
- bool? get isConnectableEnd;/// Per-handle connection validator (Lattice per-`Handle`
+ bool? get isConnectableEnd;/// Per-handle connection validator (React Flow per-`Handle`
 /// `isValidConnection`).
 ///
 /// Runs inside the connection service alongside the canvas-wide
 /// validator; return false to reject. Not serialized.
-@JsonKey(includeFromJson: false, includeToJson: false) bool Function(ConnectionParams connection)? get isValidConnection;/// Fired when an edge involving this handle is created (Lattice per-
+@JsonKey(includeFromJson: false, includeToJson: false) bool Function(ConnectionParams connection)? get isValidConnection;/// Fired when an edge involving this handle is created (React Flow per-
 /// `Handle` `onConnect`). Not serialized.
 @JsonKey(includeFromJson: false, includeToJson: false) void Function(ConnectionParams connection)? get onConnect;/// The size of the handle's interaction area.
 ///
@@ -331,26 +331,26 @@ class _FlowHandle extends FlowHandle with DiagnosticableTreeMixin {
 ///
 /// Default is true.
 @override@JsonKey() final  bool isConnectable;
-/// Whether a connection drag may START here (Lattice `isConnectableStart`).
+/// Whether a connection drag may START here (React Flow `isConnectableStart`).
 ///
 /// Null (default) derives from [type]: sources (and `both`) start in
 /// strict mode, anything starts in loose mode. Set explicitly to allow a
 /// target handle to start connections, or to forbid a source from doing
 /// so. Serialized.
 @override final  bool? isConnectableStart;
-/// Whether a connection drag may LAND here (Lattice `isConnectableEnd`).
+/// Whether a connection drag may LAND here (React Flow `isConnectableEnd`).
 ///
 /// Null (default) derives from [type]: targets (and `both`) land in
 /// strict mode, anything lands in loose mode. Set explicitly to turn a
 /// handle into a start-only or end-only port. Serialized.
 @override final  bool? isConnectableEnd;
-/// Per-handle connection validator (Lattice per-`Handle`
+/// Per-handle connection validator (React Flow per-`Handle`
 /// `isValidConnection`).
 ///
 /// Runs inside the connection service alongside the canvas-wide
 /// validator; return false to reject. Not serialized.
 @override@JsonKey(includeFromJson: false, includeToJson: false) final  bool Function(ConnectionParams connection)? isValidConnection;
-/// Fired when an edge involving this handle is created (Lattice per-
+/// Fired when an edge involving this handle is created (React Flow per-
 /// `Handle` `onConnect`). Not serialized.
 @override@JsonKey(includeFromJson: false, includeToJson: false) final  void Function(ConnectionParams connection)? onConnect;
 /// The size of the handle's interaction area.

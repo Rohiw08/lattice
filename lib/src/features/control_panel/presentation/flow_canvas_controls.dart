@@ -22,16 +22,16 @@ class FlowCanvasControls extends ConsumerWidget {
   final double spacing;
   final List<Widget> children;
 
-  /// Options for the fit-view button (Lattice `fitViewOptions`).
+  /// Options for the fit-view button (React Flow `fitViewOptions`).
   final FitViewOptions fitViewOptions;
 
-  /// Extra listeners after the default actions run (Lattice
+  /// Extra listeners after the default actions run (React Flow
   /// `onZoomIn`/`onZoomOut`/`onFitView`).
   final VoidCallback? onZoomIn;
   final VoidCallback? onZoomOut;
   final VoidCallback? onFitView;
 
-  /// Fired when the interactivity toggle flips (Lattice
+  /// Fired when the interactivity toggle flips (React Flow
   /// `onInteractiveChange`), with the new value.
   final ValueChanged<bool>? onInteractiveChange;
 

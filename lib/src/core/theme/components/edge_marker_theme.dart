@@ -338,7 +338,7 @@ class FlowEdgeMarkerStyle extends ThemeExtension<FlowEdgeMarkerStyle>
 
   /// Creates a light theme marker style.
   ///
-  /// Lattice default: closed arrow (20x20) colored like the edge
+  /// React Flow default: closed arrow (20x20) colored like the edge
   /// stroke (`#b1b1b7`); hover `#999`, selected `#555`.
   factory FlowEdgeMarkerStyle.light() {
     return const FlowEdgeMarkerStyle(
@@ -363,7 +363,7 @@ class FlowEdgeMarkerStyle extends ThemeExtension<FlowEdgeMarkerStyle>
 
   /// Creates a dark theme marker style.
   ///
-  /// Lattice `.dark`: closed arrow (20x20) colored like the edge
+  /// React Flow `.dark`: closed arrow (20x20) colored like the edge
   /// stroke (`#3e3e3e`); hover `#aaa`, selected `#727272`.
   factory FlowEdgeMarkerStyle.dark() {
     return const FlowEdgeMarkerStyle(

@@ -25,7 +25,7 @@ class HandleController {
     );
   }
 
-  /// Lattice `clickconnecting` — highlight the handle chosen as click-connect source.
+  /// React Flow `clickconnecting` — highlight the handle chosen as click-connect source.
   void setHandleActive(String handleKey, bool isActive) {
     final currentStates = Map<String, HandleRuntimeState>.from(
         _controller.currentState.handleStates);

@@ -85,7 +85,7 @@ final flowStateProvider = Provider<FlowCanvasState>(
   name: 'flowStateProvider',
 );
 
-/// Change-listener for the viewport (Lattice `useOnViewportChange`
+/// Change-listener for the viewport (React Flow `useOnViewportChange`
 /// `onChange`).
 ///
 /// Call inside `build` (like the `watch*` selectors): [onChange] runs
@@ -100,7 +100,7 @@ void watchViewportChange(
   });
 }
 
-/// Change-listener for the selection (Lattice `useOnSelectionChange`).
+/// Change-listener for the selection (React Flow `useOnSelectionChange`).
 ///
 /// Call inside `build`: [onChange] runs once per selection commit with
 /// the selected ids at that moment (nodes + edges together, like RF's

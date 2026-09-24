@@ -113,7 +113,7 @@ class EdgeRegistry {
   // ---------------------------------------------------------------------------
 
   void _registerDefaultTypes() {
-    // Lattice built-in edge types (all five render without registration).
+    // React Flow built-in edge types (all five render without registration).
     register('default', EdgeTypeConfig.bezier());
     register('straight', EdgeTypeConfig.straight());
     register('step', EdgeTypeConfig.step());

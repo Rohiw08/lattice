@@ -1,7 +1,7 @@
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
 import 'package:lattice/src/features/nodes/domain/models/node.dart';
 
-/// Type guards (Lattice `isEdge` / `isNode`).
+/// Type guards (React Flow `isEdge` / `isNode`).
 ///
 /// Dart's `is` operator covers this natively; these exist so ported code
 /// and mixed `List<Object>` graphs read the same as the RF originals.

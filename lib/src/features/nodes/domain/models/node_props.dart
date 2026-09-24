@@ -3,7 +3,7 @@ import 'package:flutter/painting.dart';
 
 import 'node.dart';
 
-/// Builder bag for custom node widgets (Lattice `NodeProps`-style).
+/// Builder bag for custom node widgets (React Flow `NodeProps`-style).
 ///
 /// Prefer this over raw [FlowNode] when registering with
 /// [NodeRegistry.registerTyped]: [data] is typed, and [selected] / [dragging] /

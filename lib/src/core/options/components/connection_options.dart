@@ -5,32 +5,32 @@ import 'package:flutter/foundation.dart';
 
 /// canvas-style connection / connection-line options.
 ///
-/// Maps to Lattice props: `connectionMode`, `connectionRadius`, `connectOnClick`,
+/// Maps to React Flow props: `connectionMode`, `connectionRadius`, `connectOnClick`,
 /// `connectionLineType`, `connectionLineStyle`, `connectionLineComponent`,
 /// plus whether the library auto-inserts the edge.
 @immutable
 class ConnectionOptions with Diagnosticable {
-  /// Strict = source→target only; loose = any handle pair (Lattice `connectionMode`).
+  /// Strict = source→target only; loose = any handle pair (React Flow `connectionMode`).
   final ConnectionMode connectionMode;
 
-  /// Snap radius in **screen pixels** around a handle (Lattice `connectionRadius`).
+  /// Snap radius in **screen pixels** around a handle (React Flow `connectionRadius`).
   final double connectionRadius;
 
-  /// Click a source handle, then a target, to connect (Lattice `connectOnClick`,
+  /// Click a source handle, then a target, to connect (React Flow `connectOnClick`,
   /// default true).
   final bool connectOnClick;
 
-  /// Path type for the live connection line (Lattice `connectionLineType`).
+  /// Path type for the live connection line (React Flow `connectionLineType`).
   ///
   /// When null, uses [FlowConnectionStyle.pathType] from the theme.
   final EdgePathType? connectionLineType;
 
-  /// Style override for the live connection line (Lattice
+  /// Style override for the live connection line (React Flow
   /// `connectionLineStyle`). Merged over the theme, under a
   /// per-connection `connectionStyle` when both are set.
   final FlowConnectionStyle? connectionLineStyle;
 
-  /// Custom connection-line widget (Lattice `connectionLineComponent`).
+  /// Custom connection-line widget (React Flow `connectionLineComponent`).
   ///
   /// Replaces the painted rubber-band while a drag is active. Compared by
   /// identity in `==` (a new closure instance counts as a change, like a
@@ -38,17 +38,17 @@ class ConnectionOptions with Diagnosticable {
   final FlowConnectionLineBuilder? connectionLineBuilder;
 
   /// When true (default), a completed drag/click inserts a [FlowEdge].
-  /// When false, only [FlowCanvasCallbacks.onConnection] fires — Lattice controlled style.
+  /// When false, only [FlowCanvasCallbacks.onConnection] fires — React Flow controlled style.
   final bool autoCreateEdge;
 
-  /// Allow dragging edge endpoints to reconnect (Lattice `edgesReconnectable`).
+  /// Allow dragging edge endpoints to reconnect (React Flow `edgesReconnectable`).
   final bool edgesReconnectable;
 
   /// Hit radius in screen px for edge reconnect endpoints.
   final double reconnectRadius;
 
   /// Drag threshold in flow px before a handle press becomes a connection
-  /// drag (Lattice `connectionDragThreshold`, default 1). Below it, the
+  /// drag (React Flow `connectionDragThreshold`, default 1). Below it, the
   /// press stays a click (click-connect). Prevents accidental rubber-bands.
   final double connectionDragThreshold;
 

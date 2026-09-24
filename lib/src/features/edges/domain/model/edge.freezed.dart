@@ -70,7 +70,7 @@ mixin _$FlowEdge {
 ///
 /// Useful for storing application-specific metadata like weights,
 /// capacities, or custom properties.
- Map<String, dynamic> get data;/// When true, draws a flowing dash along the path (Lattice `animated`).
+ Map<String, dynamic> get data;/// When true, draws a flowing dash along the path (React Flow `animated`).
 ///
 /// Uses a shared ticker that only runs while any edge is animated; static
 /// edges stay on a separate [RepaintBoundary] so they do not repaint every
@@ -101,11 +101,11 @@ mixin _$FlowEdge {
  bool? get reconnectable;/// Whether this edge should be elevated (z-index increased) when selected.
 ///
 /// If null, uses the global canvas setting.
- bool? get elevateEdgeOnSelect;/// Fully custom path builder (Lattice custom edge path).
+ bool? get elevateEdgeOnSelect;/// Fully custom path builder (React Flow custom edge path).
 ///
 /// Overrides [type] for path computation; bounds, hit-testing, labels,
 /// and markers derive from the returned path. Not serialized.
-@JsonKey(ignore: true) FlowEdgePathBuilder? get pathBuilder;/// Canvas-space decorations painted over the base stroke (Lattice
+@JsonKey(ignore: true) FlowEdgePathBuilder? get pathBuilder;/// Canvas-space decorations painted over the base stroke (React Flow
 /// custom edge body). Widget content belongs in [overlayLabel].
 /// Not serialized.
 @JsonKey(ignore: true) FlowEdgeForegroundPainter? get foregroundPainter;
@@ -410,7 +410,7 @@ class _FlowEdge extends FlowEdge {
   return EqualUnmodifiableMapView(_data);
 }
 
-/// When true, draws a flowing dash along the path (Lattice `animated`).
+/// When true, draws a flowing dash along the path (React Flow `animated`).
 ///
 /// Uses a shared ticker that only runs while any edge is animated; static
 /// edges stay on a separate [RepaintBoundary] so they do not repaint every
@@ -450,12 +450,12 @@ class _FlowEdge extends FlowEdge {
 ///
 /// If null, uses the global canvas setting.
 @override final  bool? elevateEdgeOnSelect;
-/// Fully custom path builder (Lattice custom edge path).
+/// Fully custom path builder (React Flow custom edge path).
 ///
 /// Overrides [type] for path computation; bounds, hit-testing, labels,
 /// and markers derive from the returned path. Not serialized.
 @override@JsonKey(ignore: true) final  FlowEdgePathBuilder? pathBuilder;
-/// Canvas-space decorations painted over the base stroke (Lattice
+/// Canvas-space decorations painted over the base stroke (React Flow
 /// custom edge body). Widget content belongs in [overlayLabel].
 /// Not serialized.
 @override@JsonKey(ignore: true) final  FlowEdgeForegroundPainter? foregroundPainter;

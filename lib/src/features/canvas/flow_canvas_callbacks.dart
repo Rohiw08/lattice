@@ -63,7 +63,7 @@ class CanvasSelection {
   const CanvasSelection({required this.nodeIds, required this.edgeIds});
 }
 
-/// Elements about to be deleted (Lattice `onBeforeDelete` payload).
+/// Elements about to be deleted (React Flow `onBeforeDelete` payload).
 @immutable
 class FlowDeleteCandidates {
   const FlowDeleteCandidates({required this.nodes, required this.edges});
@@ -76,7 +76,7 @@ class FlowDeleteCandidates {
   final List<FlowEdge> edges;
 }
 
-/// Elements actually deleted (Lattice `onDelete` payload and
+/// Elements actually deleted (React Flow `onDelete` payload and
 /// `deleteElements` return value).
 @immutable
 class FlowDeletedElements {
@@ -143,12 +143,12 @@ class FlowCanvasCallbacks {
   final void Function(CanvasViewportInfo info)? onViewportChange;
   final void Function(CanvasSelection selection)? onSelectionChange;
 
-  /// Fired once after first layout, with the live controller (Lattice
+  /// Fired once after first layout, with the live controller (React Flow
   /// `onInit`). Use it to capture the controller, run an initial `fitView`,
   /// or seed viewport-dependent state.
   final void Function(FlowCanvasController controller)? onInit;
 
-  /// Pointer observation callbacks (Lattice `onNodeClick` family).
+  /// Pointer observation callbacks (React Flow `onNodeClick` family).
   ///
   /// Tap-down semantics: they fire on pointer-down, the same tick selection
   /// changes — consistent within this library (unlike RF's click-complete,
@@ -160,14 +160,14 @@ class FlowCanvasCallbacks {
   final void Function(FlowNode node, Offset flowPosition)? onNodeMouseMove;
   final void Function(FlowNode node, Offset flowPosition)? onNodeMouseLeave;
 
-  /// Node-drag lifecycle around [onNodeDrag] (Lattice `onNodeDragStart/Stop`).
+  /// Node-drag lifecycle around [onNodeDrag] (React Flow `onNodeDragStart/Stop`).
   ///
   /// Same [NodeChange] shape: positions with `dragging: true` for the drag
   /// set at start, committed positions at stop.
   final void Function(List<NodeChange> changes)? onNodeDragStart;
   final void Function(List<NodeChange> changes)? onNodeDragStop;
 
-  /// Node-resize lifecycle (Lattice `onNodeResizeStart/Resize/End`).
+  /// Node-resize lifecycle (React Flow `onNodeResizeStart/Resize/End`).
   ///
   /// Payload is the resized node (RF also passes the event + full node
   /// list; reach those through the controller from [onInit] instead).
@@ -183,45 +183,45 @@ class FlowCanvasCallbacks {
   final void Function(FlowEdge edge, Offset flowPosition)? onEdgeMouseMove;
   final void Function(FlowEdge edge, Offset flowPosition)? onEdgeMouseLeave;
 
-  /// Empty-canvas tap (Lattice `onPaneClick`). Fires alongside deselect.
+  /// Empty-canvas tap (React Flow `onPaneClick`). Fires alongside deselect.
   final void Function(Offset flowPosition)? onPaneClick;
 
-  /// Empty-canvas secondary press (Lattice `onPaneContextMenu`).
+  /// Empty-canvas secondary press (React Flow `onPaneContextMenu`).
   final void Function(Offset flowPosition)? onPaneContextMenu;
 
-  /// Right-click on a selected node (Lattice `onSelectionContextMenu`).
+  /// Right-click on a selected node (React Flow `onSelectionContextMenu`).
   ///
   /// Fires alongside [onNodeContextMenu] with the selected nodes at that
   /// moment (the clicked node is one of them).
   final void Function(Offset flowPosition, List<FlowNode> nodes)?
       onSelectionContextMenu;
 
-  /// Wheel scroll over the pane (Lattice `onPaneScroll`), in flow coords.
+  /// Wheel scroll over the pane (React Flow `onPaneScroll`), in flow coords.
   ///
   /// Fires for processed scrolls (zoom or pan); locked panes and
   /// [FlowNoWheel] regions stay silent.
   final void Function(Offset flowPosition)? onPaneScroll;
 
-  /// Pane hover observation (Lattice `onPaneMouseEnter/Move/Leave`), in
+  /// Pane hover observation (React Flow `onPaneMouseEnter/Move/Leave`), in
   /// flow coordinates. [onPaneMouseMove] fires per hover tick without
   /// rebuilding — cheap observers only.
   final void Function(Offset flowPosition)? onPaneMouseEnter;
   final void Function(Offset flowPosition)? onPaneMouseMove;
   final void Function()? onPaneMouseLeave;
 
-  /// Marquee lifecycle (Lattice `onSelectionStart/End`), with the selection
+  /// Marquee lifecycle (React Flow `onSelectionStart/End`), with the selection
   /// at that moment. State itself streams through [onSelectionChange].
   final void Function(CanvasSelection selection)? onSelectionStart;
   final void Function(CanvasSelection selection)? onSelectionEnd;
 
-  /// Multi-node drag lifecycle (Lattice `onSelectionDragStart/Drag/Stop`),
+  /// Multi-node drag lifecycle (React Flow `onSelectionDragStart/Drag/Stop`),
   /// in the same [NodeChange] shape as [onNodeDrag]. [onNodeDrag] still
   /// fires alongside; use these when you only care about group drags.
   final void Function(List<NodeChange> changes)? onSelectionDragStart;
   final void Function(List<NodeChange> changes)? onSelectionDrag;
   final void Function(List<NodeChange> changes)? onSelectionDragStop;
 
-  /// Fired when a user viewport gesture begins (Lattice `onMoveStart`).
+  /// Fired when a user viewport gesture begins (React Flow `onMoveStart`).
   ///
   /// Covers InteractiveViewer pans/zooms and auxiliary (middle/right-drag)
   /// pans. Continuous movement itself is observable via [onViewportChange];
@@ -230,14 +230,14 @@ class FlowCanvasCallbacks {
   final void Function(CanvasViewportInfo info)? onMoveStart;
 
   /// Fired when a user viewport gesture ends with a committed viewport
-  /// (Lattice `onMoveEnd`).
+  /// (React Flow `onMoveEnd`).
   final void Function(CanvasViewportInfo info)? onMoveEnd;
 
   final void Function(String sourceNodeId, String sourceHandleId)?
       onConnectStart;
   final void Function(FlowEdge? edge)? onConnectEnd;
 
-  /// Click-to-connect lifecycle (Lattice `onClickConnectStart/End`),
+  /// Click-to-connect lifecycle (React Flow `onClickConnectStart/End`),
   /// distinct from drag connects. Shapes mirror [onConnectStart]/[onConnectEnd].
   final void Function(String sourceNodeId, String sourceHandleId)?
       onClickConnectStart;
@@ -250,7 +250,7 @@ class FlowCanvasCallbacks {
   final void Function(ConnectionParams connection)? onConnection;
 
   /// Last-chance gate before a completed connection inserts an edge
-  /// (Lattice `onBeforeConnect`: `(connection) => Edge | Connection |
+  /// (React Flow `onBeforeConnect`: `(connection) => Edge | Connection |
   /// void | false | null`).
   ///
   /// Runs after validity checks in the drag and click-connect paths
@@ -263,7 +263,7 @@ class FlowCanvasCallbacks {
   /// `false` cancels; omitting the callback keeps default behavior.
   final Object? Function(ConnectionParams connection)? onBeforeConnect;
 
-  /// Last-chance gate before a reconnect commits (Lattice
+  /// Last-chance gate before a reconnect commits (React Flow
   /// `onBeforeReconnect`: `(newEdge, oldEdge) => Edge | void |
   /// false | null`).
   ///
@@ -275,12 +275,12 @@ class FlowCanvasCallbacks {
   final Object? Function(FlowEdge newEdge, FlowEdge oldEdge)?
       onBeforeReconnect;
 
-  /// Custom validity (Lattice `isValidConnection`). Return false to reject.
+  /// Custom validity (React Flow `isValidConnection`). Return false to reject.
   final bool Function(ConnectionParams connection)? isValidConnection;
 
   final void Function(List<NodeChange> changes)? onNodeDrag;
 
-  /// Veto/transform gate before any user-intent deletion (Lattice
+  /// Veto/transform gate before any user-intent deletion (React Flow
   /// `onBeforeDelete`).
   ///
   /// Runs for [FlowCanvasInternalController.deleteElements] and Delete-key
@@ -292,14 +292,14 @@ class FlowCanvasCallbacks {
   final FlowDeletePlan? Function(FlowDeleteCandidates candidates)?
       onBeforeDelete;
 
-  /// Combined deletion notification (Lattice `onDelete`) with the removed
+  /// Combined deletion notification (React Flow `onDelete`) with the removed
   /// objects. See also [onNodesDelete]/[onEdgesDelete].
   final void Function(FlowDeletedElements deleted)? onDelete;
 
-  /// Node-only deletion notification (Lattice `onNodesDelete`).
+  /// Node-only deletion notification (React Flow `onNodesDelete`).
   final void Function(List<FlowNode> nodes)? onNodesDelete;
 
-  /// Edge-only deletion notification (Lattice `onEdgesDelete`).
+  /// Edge-only deletion notification (React Flow `onEdgesDelete`).
   final void Function(List<FlowEdge> edges)? onEdgesDelete;
 
   /// Diagnostic channel for recoverable misconfigurations (RF `onError`).
@@ -308,7 +308,7 @@ class FlowCanvasCallbacks {
   /// mistakes like unregistered types or dangling edges during development.
   final void Function(FlowCanvasError error)? onError;
 
-  /// Edge reconnect lifecycle (Lattice `onReconnect` / Start / End).
+  /// Edge reconnect lifecycle (React Flow `onReconnect` / Start / End).
   final void Function(String edgeId, HandleTypeEnd end)? onReconnectStart;
   final void Function(FlowEdge oldEdge, ConnectionParams connection)?
       onReconnect;

@@ -85,7 +85,7 @@ class EdgePathCreator {
       ..lineTo(end.dx, end.dy);
   }
 
-  /// Public straight-line path (Lattice `getStraightPath`).
+  /// Public straight-line path (React Flow `getStraightPath`).
   static Path getStraightPath({
     required Offset source,
     required Offset target,
@@ -341,7 +341,7 @@ class EdgePathCreator {
 
   // ── Bezier ───────────────────────────────────────────────────────
 
-  /// Control point for [getSimpleBezierPath] (exact Lattice port): midpoint
+  /// Control point for [getSimpleBezierPath] (exact React Flow port): midpoint
   /// on the handle axis, anchor on the other.
   static Offset _simpleBezierControl(
     HandlePosition position,
@@ -355,7 +355,7 @@ class EdgePathCreator {
     return Offset(p1.dx, 0.5 * (p1.dy + p2.dy));
   }
 
-  /// Simple cubic bezier between two points (Lattice `getSimpleBezierPath`,
+  /// Simple cubic bezier between two points (React Flow `getSimpleBezierPath`,
   /// exact port of `SimpleBezierEdge`: midpoint controls, no curvature).
   static Path getSimpleBezierPath({
     required Offset source,

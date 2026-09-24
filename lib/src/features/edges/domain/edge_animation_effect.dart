@@ -13,7 +13,7 @@ abstract interface class EdgeAnimationEffect {
   );
 }
 
-/// Marching-ants / flowing dashes — Lattice `animated: true` look.
+/// Marching-ants / flowing dashes — React Flow `animated: true` look.
 ///
 /// Uses path metrics + extractPath (same path-metrics approach) so only
 /// dash segments are drawn; geometry stays on the precomputed edge [Path].

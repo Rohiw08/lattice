@@ -55,7 +55,7 @@ class ViewportController {
   /// Stops a camera flight, keeping the live position (no snap-back).
   void cancelAnimation() => _controller.cancelViewportAnimation();
 
-  /// Replaces the viewport wholesale (Lattice `setViewport` counterpart).
+  /// Replaces the viewport wholesale (React Flow `setViewport` counterpart).
   ///
   /// Zoom is clamped to `[minZoom, maxZoom]` and the offset to
   /// `translateExtent`, mirroring [zoom]/[panBy]. Transient write (no
@@ -151,7 +151,7 @@ class ViewportController {
   }
 
   /// Zooms to an absolute [zoom] level around [focalPoint] (pane center by
-  /// default). Lattice `zoomTo` counterpart.
+  /// default). React Flow `zoomTo` counterpart.
   Future<bool> zoomTo(
     double zoom, {
     Offset? focalPoint,
@@ -202,7 +202,7 @@ class ViewportController {
     );
   }
 
-  /// Pure viewport computation (Lattice `getViewportForBounds`): what
+  /// Pure viewport computation (React Flow `getViewportForBounds`): what
   /// viewport would fit [bounds], without applying it. Null when there is
   /// nothing to fit (empty bounds/size) or the canvas is locked.
   FlowViewport? getViewportForBounds(
@@ -225,7 +225,7 @@ class ViewportController {
     );
   }
 
-  /// Fits an explicit flow-space [bounds] rect. Lattice `fitBounds`.
+  /// Fits an explicit flow-space [bounds] rect. React Flow `fitBounds`.
   Future<bool> fitBounds(
     Rect bounds, {
     EdgeInsets padding = const EdgeInsets.all(50),
@@ -258,7 +258,7 @@ class ViewportController {
 
   /// Centers the viewport so [flowPosition] (graph coordinates) is in the middle.
   ///
-  /// Lattice `setCenter(x, y, {zoom})` counterpart. When [zoom] is given it
+  /// React Flow `setCenter(x, y, {zoom})` counterpart. When [zoom] is given it
   /// is clamped to `[minZoom, maxZoom]` like [setViewport]. Pass a non-zero
   /// [duration] for an animated glide ([ease] + [interpolate] like
   /// [fitView]); the default is instant. See [isAnimating] /
@@ -304,14 +304,14 @@ class ViewportController {
 
   // --- Flow ↔ viewport ↔ Flutter global ---
 
-  /// Current zoom level (Lattice `getZoom`). Reads the live camera, so it
+  /// Current zoom level (React Flow `getZoom`). Reads the live camera, so it
   /// is exact mid-gesture; committed state lags until interaction end.
   double getZoom() => _controller.liveViewport.viewport.zoom;
 
   /// Viewer-local offset → flow (graph) coordinates.
   ///
   /// When [snapToGrid] is set, snaps through the canvas [SnapGrid]
-  /// (Lattice `screenToFlowPosition` snap options).
+  /// (React Flow `screenToFlowPosition` snap options).
   Offset viewportToFlow(Offset viewport, {bool snapToGrid = false}) {
     final flow =
         _viewportService.viewportToFlow(_controller.currentState, viewport);
@@ -319,7 +319,7 @@ class ViewportController {
     return ref.read(flowOptionsProvider).viewportOptions.snapGrid.snap(flow);
   }
 
-  /// Lattice `screenToFlowPosition` alias for [viewportToFlow] ("screen"
+  /// React Flow `screenToFlowPosition` alias for [viewportToFlow] ("screen"
   /// = viewer-local here, matching RF's pane-relative client coords).
   Offset screenToFlowPosition(Offset screenPosition, {bool snapToGrid = false}) =>
       viewportToFlow(screenPosition, snapToGrid: snapToGrid);
@@ -328,11 +328,11 @@ class ViewportController {
   Offset flowToViewport(Offset flow) =>
       _viewportService.flowToViewport(_controller.currentState, flow);
 
-  /// Lattice `flowToScreenPosition` alias for [flowToViewport].
+  /// React Flow `flowToScreenPosition` alias for [flowToViewport].
   Offset flowToScreenPosition(Offset flowPosition) =>
       flowToViewport(flowPosition);
 
-  /// Zooms in a step around the pane center (Lattice `zoomIn`).
+  /// Zooms in a step around the pane center (React Flow `zoomIn`).
   Future<bool> zoomIn({
     double step = 0.2,
     Duration duration = Duration.zero,
@@ -351,7 +351,7 @@ class ViewportController {
     );
   }
 
-  /// Zooms out a step around the pane center (Lattice `zoomOut`).
+  /// Zooms out a step around the pane center (React Flow `zoomOut`).
   Future<bool> zoomOut({
     double step = 0.2,
     Duration duration = Duration.zero,

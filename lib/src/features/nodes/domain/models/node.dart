@@ -34,7 +34,7 @@ class FlowResizeProposal {
   final Size size;
 }
 
-/// Veto/allow callback for node resizes (Lattice `shouldResize`).
+/// Veto/allow callback for node resizes (React Flow `shouldResize`).
 typedef FlowShouldResize = bool Function(FlowResizeProposal proposal);
 
 @Freezed(genericArgumentFactories: true)
@@ -56,12 +56,12 @@ abstract class FlowNode<T> with _$FlowNode<T> {
     ///
     /// When [parentId] is null this is absolute (graph space).
     /// When [parentId] is set this is **relative to the parent’s top-left**,
-    /// matching Lattice sub-flows (`{ x: 0, y: 0 }` = parent origin).
+    /// matching React Flow sub-flows (`{ x: 0, y: 0 }` = parent origin).
     ///
     /// [position] marks the node's **anchor point**: the point inside the
     /// node at [origin] (canvas `nodeOrigin` by default). With the default
     /// top-left origin this is the top-left corner; with a center origin
-    /// (`Offset(0.5, 0.5)`, like Lattice `nodeOrigin: [0.5, 0.5]`) it is the
+    /// (`Offset(0.5, 0.5)`, like React Flow `nodeOrigin: [0.5, 0.5]`) it is the
     /// node's center. Dragging, snapping, and stored JSON all use the anchor;
     /// rendering, hit-testing, and bounds resolve the visual rect via
     /// `NodeLayout.absoluteRect`.
@@ -75,7 +75,7 @@ abstract class FlowNode<T> with _$FlowNode<T> {
 
     /// Custom data attached to this node.
     ///
-    /// Optional, like Lattice's `data` (defaults to `{}` there, `null`
+    /// Optional, like React Flow's `data` (defaults to `{}` there, `null`
     /// here). The built-in node widgets never render it — your node widget
     /// decides how (and whether) to display `props.data`.
     T? data,
@@ -125,22 +125,22 @@ abstract class FlowNode<T> with _$FlowNode<T> {
     /// stays opt-in, RF parity — resize UI never renders ambiently).
     bool? resizable,
 
-    /// Minimum size enforced by resize gestures (Lattice `minWidth/minHeight`).
+    /// Minimum size enforced by resize gestures (React Flow `minWidth/minHeight`).
     ///
     /// Null (default) falls back to the canvas minimum. Serialized.
     @SizeConverter() Size? minSize,
 
-    /// Maximum size enforced by resize gestures (Lattice `maxWidth/maxHeight`).
+    /// Maximum size enforced by resize gestures (React Flow `maxWidth/maxHeight`).
     ///
     /// Null (default) = unbounded. Serialized.
     @SizeConverter() Size? maxSize,
 
-    /// Lock the width/height ratio while resizing (Lattice `keepAspectRatio`).
+    /// Lock the width/height ratio while resizing (React Flow `keepAspectRatio`).
     ///
     /// The ratio is taken from the size at resize start. Serialized.
     @Default(false) bool keepAspectRatio,
 
-    /// Veto callback for resize gestures (Lattice `shouldResize`).
+    /// Veto callback for resize gestures (React Flow `shouldResize`).
     ///
     /// Called with the proposed rect before each commit; return false to
     /// block it. Not serialized.
@@ -151,7 +151,7 @@ abstract class FlowNode<T> with _$FlowNode<T> {
     /// Null (default) inherits [NodeOptions.focusable].
     bool? focusable,
 
-    /// Restrict drag starts to [FlowDragHandle] regions (Lattice `dragHandle`).
+    /// Restrict drag starts to [FlowDragHandle] regions (React Flow `dragHandle`).
     ///
     /// When true, a node drag may only start from inside a [FlowDragHandle]
     /// widget in the node's subtree; presses elsewhere still select the
@@ -165,10 +165,10 @@ abstract class FlowNode<T> with _$FlowNode<T> {
     /// Serialized with the node.
     String? semanticsLabel,
 
-    /// Grow the parent when this node is dragged past its edge (Lattice default: false).
+    /// Grow the parent when this node is dragged past its edge (React Flow default: false).
     @Default(false) bool expandParent,
 
-    /// Movement boundary (Lattice `extent`). `null` = unbounded (Lattice default).
+    /// Movement boundary (React Flow `extent`). `null` = unbounded (React Flow default).
     FlowNodeExtent? extent,
 
     /// Per-node visual style, merged over the theme's node style.
@@ -250,9 +250,9 @@ abstract class FlowNode<T> with _$FlowNode<T> {
   /// Handles actually used by the renderer and connection logic.
   ///
   /// When [handles] is empty and [type] is a built-in node type
-  /// (`default` / `input` / `output`), the standard Lattice handles are
+  /// (`default` / `input` / `output`), the standard React Flow handles are
   /// synthesized from [size] — so `FlowNode(id: ..., type: 'default', ...)`
-  /// is directly connectable, exactly like Lattice's built-in components.
+  /// is directly connectable, exactly like React Flow's built-in components.
   Map<String, FlowHandle> get effectiveHandles {
     if (handles.isNotEmpty) return handles;
     switch (type) {

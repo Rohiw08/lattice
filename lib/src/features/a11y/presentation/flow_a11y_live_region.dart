@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lattice/src/core/providers/providers.dart';
 
 /// Invisible assertive live region announcing canvas events to screen
-/// readers (≈ Lattice `aria-live="assertive"` announcements).
+/// readers (≈ React Flow `aria-live="assertive"` announcements).
 ///
 /// Renders the latest [A11yAnnouncer] message as transparent text; assistive
 /// tech announces it on change. Mounted once per canvas by

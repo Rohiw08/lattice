@@ -1,6 +1,6 @@
 // ignore_for_file: unnecessary_library_name
 
-/// Coordinate conventions for Flow Canvas (Lattice + Flutter style).
+/// Coordinate conventions for Flow Canvas (React Flow + Flutter style).
 ///
 /// **Flow (graph) space — single source of truth**
 /// Node positions, edges, and saved state: use one [Offset] in this unbounded plane.

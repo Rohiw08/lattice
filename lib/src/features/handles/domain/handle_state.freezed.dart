@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 mixin _$HandleRuntimeState {
 
 /// Whether the handle is being hovered over.
- bool get hovered;/// Click-to-connect source (`connectOnClick` / Lattice `clickconnecting`).
+ bool get hovered;/// Click-to-connect source (`connectOnClick` / React Flow `clickconnecting`).
  bool get selected;/// Whether this handle is currently active in a connection drag.
  bool get active;/// Whether the handle is a valid target for the active connection.
  bool get validTarget;/// Whether the handle is an invalid target under the pointer.
@@ -226,7 +226,7 @@ class _HandleRuntimeState implements HandleRuntimeState {
 
 /// Whether the handle is being hovered over.
 @override@JsonKey() final  bool hovered;
-/// Click-to-connect source (`connectOnClick` / Lattice `clickconnecting`).
+/// Click-to-connect source (`connectOnClick` / React Flow `clickconnecting`).
 @override@JsonKey() final  bool selected;
 /// Whether this handle is currently active in a connection drag.
 @override@JsonKey() final  bool active;

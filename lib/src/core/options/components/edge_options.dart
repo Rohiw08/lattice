@@ -55,7 +55,7 @@ import 'package:lattice/src/core/options/options_extensions.dart';
 @immutable
 class EdgeOptions with Diagnosticable {
   /// Default path type applied to edges created by a drag/click connection
-  /// (Lattice `defaultEdgeOptions.type`).
+  /// (React Flow `defaultEdgeOptions.type`).
   ///
   /// If null, connection-created edges use [EdgePathType.bezier]. A per-edge
   /// `FlowEdge.type` always wins over this global default.
@@ -97,13 +97,13 @@ class EdgeOptions with Diagnosticable {
   /// making them more prominent. This typically increases their z-index.
   final bool elevateEdgeOnSelect;
 
-  /// Global default edge style (Lattice `defaultEdgeOptions.style`).
+  /// Global default edge style (React Flow `defaultEdgeOptions.style`).
   ///
   /// Merged under per-edge [FlowEdge.style]: theme → this → edge.
   /// Covers stroke, label style, and marker styles in one place.
   final FlowEdgeStyle? style;
 
-  /// Global default edge label widget (Lattice `defaultEdgeOptions.label`).
+  /// Global default edge label widget (React Flow `defaultEdgeOptions.label`).
   ///
   /// Used when an edge has no [FlowEdge.label] of its own. The same
   /// instance is shared — keep it immutable.

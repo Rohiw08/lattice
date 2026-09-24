@@ -161,7 +161,7 @@ class FlowCanvasTheme extends ThemeExtension<FlowCanvasTheme>
   /// Styling for node resizer handles and surrounding line.
   final FlowNodeResizerStyle? nodeResizer;
 
-  /// Optional [FlowPanel] chrome (default unstyled, like Lattice `<Panel />`).
+  /// Optional [FlowPanel] chrome (default unstyled, like React Flow `<Panel />`).
   final FlowPanelStyle? panel;
 
   /// Mouse cursors for pane, nodes, edges, handles, resizers, controls.
@@ -389,7 +389,7 @@ class FlowCanvasTheme extends ThemeExtension<FlowCanvasTheme>
     return Brightness.light;
   }
 
-  /// Light + dark [ThemeData] pair for [MaterialApp] (Lattice `colorMode: 'system'`).
+  /// Light + dark [ThemeData] pair for [MaterialApp] (React Flow `colorMode: 'system'`).
   static ({ThemeData light, ThemeData dark}) materialPair() {
     return (
       light: FlowCanvasTheme.light().toThemeData(brightness: Brightness.light),

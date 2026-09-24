@@ -8,7 +8,7 @@ import 'package:lattice/src/core/providers/providers.dart';
 ///
 /// Edges paint inside an [IgnorePointer] layer, so this sibling overlay
 /// places one transparent 32×32 anchor per visible, focusable edge at its
-/// path midpoint (≈ Lattice edge focusability):
+/// path midpoint (≈ React Flow edge focusability):
 /// - Tab reaches the anchor; Enter/Space selects the edge.
 /// - Screen readers announce the edge label + selected state.
 /// - Anchors are [IgnorePointer]-wrapped: pointer behavior is unchanged.

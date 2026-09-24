@@ -38,7 +38,7 @@ class NodeService {
     for (final node in nodes) {
       if (newNodes.containsKey(node.id)) continue;
 
-      // Lattice rule (ZIndexMode.auto only): child z must be strictly above
+      // React Flow rule (ZIndexMode.auto only): child z must be strictly above
       // parent (within its render band). Basic/manual leave z untouched;
       // manual additionally skips the next-z allocation entirely.
       var assignedZ = node.zIndex;
@@ -84,7 +84,7 @@ class NodeService {
     );
   }
 
-  /// Ensures every child has `zIndex > parent.zIndex` (Lattice child rule).
+  /// Ensures every child has `zIndex > parent.zIndex` (React Flow child rule).
   static void _ensureChildrenAboveParents(Map<String, FlowNode> nodes) {
     var changed = true;
     // Few passes are enough for shallow nesting; cap to avoid pathological loops.
@@ -108,7 +108,7 @@ class NodeService {
     return removeNodes(state, [nodeId]);
   }
 
-/// Removes nodes (Lattice `deleteElements` semantics).
+/// Removes nodes (React Flow `deleteElements` semantics).
   ///
   /// Removing a parent also removes its descendants (`parentHit`), and nodes
   /// with `deletable: false` are never removed — neither explicitly nor via
@@ -167,7 +167,7 @@ class NodeService {
 
     final newNodes = Map<String, FlowNode>.from(state.nodes);
 
-    // With Lattice-relative children, moving a parent does not rewrite child
+    // With React Flow-relative children, moving a parent does not rewrite child
     // positions. [includeDescendants] remains for rare absolute-style callers.
     final Set<String> allNodesToMove =
         includeDescendants ? getDescendants(state, nodeIds) : nodeIds.toSet();
@@ -206,7 +206,7 @@ class NodeService {
               _clampPositionToRect(newPosition, node.size, extent, origin);
         }
 
-        // 2. Lattice `extent: 'parent'`
+        // 2. React Flow `extent: 'parent'`
         if (node.extent == FlowNodeExtent.parent && node.parentId != null) {
           final parent = newNodes[node.parentId!];
           if (parent != null) {
@@ -228,10 +228,10 @@ class NodeService {
   }
 
 /// Grows parents when children with [FlowNode.expandParent] sit outside
-  /// (Lattice `expandParent` + `handleExpandParent`). Positions are
+  /// (React Flow `expandParent` + `handleExpandParent`). Positions are
   /// parent-relative.
   ///
-  /// Matches Lattice: the dragged child is clamped to the parent's new origin
+  /// Matches React Flow: the dragged child is clamped to the parent's new origin
   /// (`>= 0` relative), and **sibling children not in [movedIds] shift by the
   /// parent's origin delta** so their absolute flow positions stay put.
   FlowCanvasState applyExpandParent(
@@ -309,7 +309,7 @@ FlowCanvasState updateNode(
     final newNodes = Map<String, FlowNode>.from(state.nodes);
     newNodes[node.id] = node;
 
-    // Lattice `updateChildNode`: a parentId/zIndex change must keep every child
+    // React Flow `updateChildNode`: a parentId/zIndex change must keep every child
     // strictly above its parent (max(parentZ + 1, childZ)). Auto mode only.
     if (zIndexMode == ZIndexMode.auto) {
       _ensureChildrenAboveParents(newNodes);
@@ -347,7 +347,7 @@ FlowCanvasState updateNode(
 
   /// Resizes a single node directionally based on the gesture delta.
   ///
-  /// Matches Lattice NodeResizer: when the parent's top/left (origin) moves,
+  /// Matches React Flow NodeResizer: when the parent's top/left (origin) moves,
   /// **direct children keep their absolute flow positions** by compensating
   /// their relative [FlowNode.position] (`child.pos -= originDelta`).
   ///
@@ -409,7 +409,7 @@ FlowCanvasState updateNode(
         break;
     }
 
-    // Lattice childExtent: children with extent:parent / expandParent set a floor
+    // React Flow childExtent: children with extent:parent / expandParent set a floor
     // on how far the *moving* edges may shrink.
     final childExtent = NodeLayout.childExtentFloor(
         nodeId, state.nodes,
@@ -435,7 +435,7 @@ FlowCanvasState updateNode(
       if (affectsBottom) newBottom = math.max(newBottom, childExtent.bottom);
     }
 
-    // Resolve size constraints (Lattice min/maxWidth/Height +
+    // Resolve size constraints (React Flow min/maxWidth/Height +
     // keepAspectRatio): the opposite edges stay anchored while the dragged
     // edges absorb width/height clamps. With no per-node constraints this
     // reproduces the old edge clamps exactly.
@@ -499,7 +499,7 @@ FlowCanvasState updateNode(
     final oldPos = node.position;
     final newPos = Offset(newRect.left, newRect.top);
 
-    // Lattice `shouldResize`: veto before committing. The gesture keeps its
+    // React Flow `shouldResize`: veto before committing. The gesture keeps its
     // absolute base+travel anchor, so a veto dead-zones cleanly.
     final shouldResize = node.shouldResize;
     if (shouldResize != null &&
@@ -533,7 +533,7 @@ FlowCanvasState updateNode(
 
     var next = updateNode(state, newNode);
 
-    // Lattice: when top/left moves, correct children so they stay put in flow space.
+    // React Flow: when top/left moves, correct children so they stay put in flow space.
     if (originDelta != Offset.zero) {
       next = _compensateChildrenForParentOriginShift(
         next,

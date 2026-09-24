@@ -4,7 +4,7 @@ import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:lattice/src/features/nodes/presentation/flow_node.dart';
 import 'package:flutter/material.dart';
 
-/// Lattice–compatible built-in node type ids.
+/// React Flow–compatible built-in node type ids.
 ///
 /// Matches `built-in node types` `builtinNodeTypes` keys:
 /// `input`, `default`, `output`, `group`.
@@ -22,9 +22,9 @@ abstract final class BuiltInNodeType {
   ];
 }
 
-/// Lattice `input` node — source handle only.
+/// React Flow `input` node — source handle only.
 ///
-/// Like Lattice v12, built-in nodes never render [FlowNode.data]: the label is
+/// Like React Flow v12, built-in nodes never render [FlowNode.data]: the label is
 /// the responsibility of your own node widget (see [NodeRegistry.registerTyped]).
 class InputNode extends StatelessWidget {
   const InputNode({super.key, required this.node});
@@ -37,7 +37,7 @@ class InputNode extends StatelessWidget {
   }
 }
 
-/// Lattice `default` node — target + source handles.
+/// React Flow `default` node — target + source handles.
 class DefaultNode extends StatelessWidget {
   const DefaultNode({super.key, required this.node});
 
@@ -49,7 +49,7 @@ class DefaultNode extends StatelessWidget {
   }
 }
 
-/// Lattice `output` node — target handle only.
+/// React Flow `output` node — target handle only.
 class OutputNode extends StatelessWidget {
   const OutputNode({super.key, required this.node});
 
@@ -118,9 +118,9 @@ FlowNodeStyle _groupStyleFrom(FlowNodeStyle base, Brightness brightness) {
   );
 }
 
-/// Lattice `group` node — empty translucent container.
+/// React Flow `group` node — empty translucent container.
 ///
-/// Matches Lattice v12: `GroupNode` renders nothing; a label requires a custom
+/// Matches React Flow v12: `GroupNode` renders nothing; a label requires a custom
 /// node component. Styling comes from [_groupStyleFrom].
 class GroupNode extends StatelessWidget {
   const GroupNode({super.key, required this.node});

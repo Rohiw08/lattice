@@ -50,7 +50,7 @@ class SelectionController {
   Offset? _pendingScenePosition;
   bool _moveScheduled = false;
 
-  /// Whether box-select should start (Lattice: selectionKeyPressed || selectionOnDrag).
+  /// Whether box-select should start (React Flow: selectionKeyPressed || selectionOnDrag).
   ///
   /// Never while the pan-activation key is held — space+drag pans instead.
   /// Never while non-interactive (`setInteractive(false)`).
@@ -251,7 +251,7 @@ class SelectionController {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // AUTO-PAN (Lattice `autoPanOnSelection`)
+  // AUTO-PAN (React Flow `autoPanOnSelection`)
   // ─────────────────────────────────────────────────────────────────
   //
   // Same ramp + live-matrix pattern as node-drag auto-pan: the world moves
