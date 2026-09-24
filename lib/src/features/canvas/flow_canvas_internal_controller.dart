@@ -30,6 +30,7 @@ import 'package:lattice/src/features/z_index/application/z_index_service.dart';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/core/providers/providers.dart';
+import 'package:lattice/src/core/utils/json_converters.dart';
 import 'package:lattice/src/core/canvas_state_accessor.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_callbacks.dart';
 import 'package:lattice/src/features/nodes/domain/models/node.dart';
@@ -689,6 +690,17 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
     }
     return deleted;
   }
+
+  /// Encodes a node's `data` for JSON, keyed by type, via the active
+  /// [NodeRegistry]. Node types with no registered codec pass through
+  /// unchanged. Used by the controller's `saveDocument`/`toJson`/`toSyncJson`.
+  NodeDataToJson get nodeDataEncoder =>
+      (type, data) => ref.read(nodeRegistryProvider).encodeData(type, data);
+
+  /// Rehydrates a node's `data` from JSON, keyed by type, via the active
+  /// [NodeRegistry]. Counterpart of [nodeDataEncoder]; used by `loadDocument`.
+  NodeDataFromJson get nodeDataDecoder =>
+      (type, json) => ref.read(nodeRegistryProvider).decodeData(type, json);
 
   void load(FlowCanvasState newState) {
     final oldState = state;

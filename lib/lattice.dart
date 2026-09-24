@@ -17,6 +17,8 @@ export 'src/core/debug/flow_canvas_debug.dart';
 export 'src/features/nodes/domain/models/node.dart';
 export 'src/features/nodes/domain/models/node_props.dart';
 export 'src/features/nodes/domain/node_registry.dart';
+export 'src/core/utils/json_converters.dart'
+    show NodeDataCodec, NodeDataToJson, NodeDataFromJson;
 export 'src/features/nodes/presentation/flow_node.dart';
 export 'src/features/nodes/presentation/flow_interaction.dart';
 export 'src/features/nodes/presentation/builtin_nodes.dart';

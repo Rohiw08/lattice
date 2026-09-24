@@ -122,26 +122,35 @@ class FlowCanvasController {
 
   /// Returns the current canvas state serialized as JSON.
   /// Symmetric counterpart to [load] for save/restore workflows.
-  Map<String, dynamic> toJson() => _internal.currentState.toJson();
+  ///
+  /// Non-primitive [FlowNode.data] is encoded via the node type's registered
+  /// serializer (`NodeRegistry.registerTyped(toJson:)`); types without one
+  /// pass `data` through unchanged, so it must already be JSON-encodable.
+  Map<String, dynamic> toJson() =>
+      _internal.currentState.toJson(_internal.nodeDataEncoder);
 
   /// Serializes the canvas as a versioned document envelope (`{v, state}`).
   ///
   /// Prefer this over [toJson] for on-disk save files: the version tag lets
   /// [loadDocument] migrate graphs written by an older schema. Restore with
   /// [loadDocument]. Use plain [toJson]/[load] when you don't need versioning.
+  /// Typed node `data` round-trips when its type registered a serializer.
   Map<String, dynamic> saveDocument() =>
-      CanvasDocument.fromState(_internal.currentState).toJson();
+      CanvasDocument.fromState(_internal.currentState)
+          .toJson(_internal.nodeDataEncoder);
 
   /// Restores a canvas from a versioned document produced by [saveDocument],
   /// applying any schema migration for the document's version. Resets undo
-  /// history, exactly like [load].
-  void loadDocument(Map<String, dynamic> json) =>
-      _internal.load(CanvasDocument.fromJson(json).state);
+  /// history, exactly like [load]. Typed node `data` is rehydrated via the
+  /// node type's registered deserializer (`NodeRegistry.registerTyped(fromJson:)`).
+  void loadDocument(Map<String, dynamic> json) => _internal
+      .load(CanvasDocument.fromJson(json, _internal.nodeDataDecoder).state);
 
   /// Returns the canvas state serialized for multiplayer sync: like [toJson]
   /// but strips per-client UI state (selection), which must never be shared.
   /// Pair with [applyRemote] on the receiving side.
-  Map<String, dynamic> toSyncJson() => _internal.currentState.toSyncJson();
+  Map<String, dynamic> toSyncJson() =>
+      _internal.currentState.toSyncJson(_internal.nodeDataEncoder);
 
   /// Applies a remote collaborator's graph without touching local UI state
   /// (selection, viewport) or undo history.

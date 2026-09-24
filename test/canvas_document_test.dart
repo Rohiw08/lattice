@@ -1,6 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:lattice/lattice.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _ColorData {
+  const _ColorData(this.label, this.weight);
+  final String label;
+  final int weight;
+}
 
 void main() {
   test('CanvasDocument round-trip preserves nodes', () {
@@ -83,6 +91,79 @@ void main() {
       expect(controller.currentState.nodes.keys, ['a']);
       expect(
           controller.currentState.nodes['a']?.position, const Offset(80, 120));
+    });
+  });
+
+  group('typed node data serialization', () {
+    NodeRegistry buildRegistry() => NodeRegistry()
+      ..registerTyped<_ColorData>(
+        'color',
+        (props) => const SizedBox.shrink(),
+        toJson: (d) => {'label': d.label, 'weight': d.weight},
+        fromJson: (j) {
+          final map = j as Map<String, dynamic>;
+          return _ColorData(map['label'] as String, map['weight'] as int);
+        },
+      );
+
+    Future<FlowCanvasController> pumpTyped(WidgetTester tester) async {
+      final controller = FlowCanvasController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: FlowCanvas(
+                controller: controller,
+                nodeRegistry: buildRegistry(),
+                initialNodes: const [
+                  FlowNode<_ColorData>(
+                    id: 'c',
+                    type: 'color',
+                    position: Offset(40, 60),
+                    data: _ColorData('teal', 7),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return controller;
+    }
+
+    testWidgets('saveDocument output survives jsonEncode with typed data',
+        (tester) async {
+      final controller = await pumpTyped(tester);
+
+      final doc = controller.saveDocument();
+      // The bug: identity encoding left the sealed/custom object in the map,
+      // so jsonEncode threw. With a registered codec it must not.
+      final encoded = jsonEncode(doc);
+      expect(encoded, contains('"label":"teal"'));
+      expect(encoded, contains('"weight":7'));
+    });
+
+    testWidgets('loadDocument rehydrates typed data through a full JSON trip',
+        (tester) async {
+      final controller = await pumpTyped(tester);
+
+      // Round-trip through a real JSON string, then mutate and restore.
+      final saved =
+          jsonDecode(jsonEncode(controller.saveDocument())) as Map<String, dynamic>;
+      controller.nodes.updateNodeData('c', const _ColorData('changed', 0));
+      await tester.pump();
+
+      controller.loadDocument(saved);
+      await tester.pump();
+
+      final data = controller.currentState.nodes['c']?.data;
+      expect(data, isA<_ColorData>());
+      expect((data as _ColorData).label, 'teal');
+      expect(data.weight, 7);
+      expect(controller.currentState.nodes['c']?.position, const Offset(40, 60));
     });
   });
 }
