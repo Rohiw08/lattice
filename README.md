@@ -1,7 +1,38 @@
 # lattice
 
 A Flutter node-based canvas editor library for building interactive flow editors,
-diagram tools, and visual programming surfaces.
+diagram tools, and visual programming surfaces. A Flutter port of the
+[React Flow](https://reactflow.dev) API, tuned for large graphs.
+
+## Install
+
+```bash
+flutter pub add lattice
+```
+
+```dart
+import 'package:lattice/lattice.dart';
+```
+
+## Features
+
+- **Nodes & edges** — draggable, selectable, resizable nodes; bezier / straight /
+  step / smoothstep edges with labels, markers, and reconnection.
+- **Typed node data** — model payloads as `sealed` hierarchies and register typed
+  builders; no `applyNodeChanges` ceremony ([`TYPING.md`](TYPING.md)).
+- **Connections & handles** — drag-to-connect and click-to-connect, per-handle
+  validation, custom handle widgets.
+- **Viewport** — matrix-first pan/zoom, `fitView`, snap-to-grid, coordinate extents.
+- **Built-in UI** — minimap, controls, panels, node/edge toolbars, background patterns.
+- **Theming** — light/dark themes with per-component `Flow*Style` cascades.
+- **Accessibility** — keyboard navigation and screen-reader support out of the box.
+- **Performance** — viewport culling, hot/cold rendering, and a spatial index keep
+  large graphs smooth ([`PERFORMANCE.md`](PERFORMANCE.md)).
+- **React Flow parity** — familiar API surface (`fitView`, `getNodesBounds`,
+  `onConnect`, …) for developers coming from React Flow.
+
+<!-- TODO(publish): add a screenshot/GIF of the canvas here and a matching
+     `screenshots:` entry in pubspec.yaml before the first pub.dev release. -->
 
 ## Quick start
 
