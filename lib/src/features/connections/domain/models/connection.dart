@@ -67,7 +67,8 @@ part 'connection.freezed.dart';
 /// if (isDraggingConnection) {
 ///   final connectionPainter = ConnectionPainter(
 ///     connection: currentConnection,
-///     pathType: EdgePathType.bezier,
+///     connectionState: currentConnectionState,
+///     style: theme.connectionStyle,
 ///   );
 ///   CustomPaint(painter: connectionPainter);
 /// }

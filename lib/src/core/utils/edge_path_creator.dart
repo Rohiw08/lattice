@@ -411,16 +411,7 @@ class EdgePathCreator {
     }
   }
 
-  /// Approximate path center for label placement.
-  static Offset getPathCenter(
-    EdgePathType type,
-    Offset start,
-    Offset end,
-  ) {
-    return Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-  }
-
-  /// Center + half-extents between two endpoints (Lattice `getEdgeCenter`).
+  /// Center + half-extents between two endpoints (React Flow `getEdgeCenter`).
   ///
   /// Exact port of `getEdgeCenter` in
   /// `xyflow/packages/system/src/utils/edges/general.ts`: used for straight

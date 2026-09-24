@@ -23,7 +23,7 @@ import 'package:lattice/src/features/dataflow/domain/node_connection.dart';
 ///   nodeId: props.id,
 ///   handleId: 'red',
 ///   handleType: HandleType.target,
-///   onData: (data) => setColor((c) => ({...c, r: valueOf(data)})),
+///   onData: (data) => setState(() => channelValue = valueOf(data)),
 ///   child: const Text('R'),
 /// )
 /// ```

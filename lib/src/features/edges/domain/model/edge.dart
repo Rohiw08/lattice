@@ -81,7 +81,7 @@ typedef FlowEdgeForegroundPainter = void Function(
 ///   id: 'edge-1',
 ///   sourceNodeId: 'node-1',
 ///   targetNodeId: 'node-2',
-///   pathType: EdgePathType.bezier,
+///   type: EdgePathType.bezier,
 /// );
 /// ```
 ///
@@ -93,7 +93,7 @@ typedef FlowEdgeForegroundPainter = void Function(
 ///   targetNodeId: 'node-2',
 ///   sourceHandleId: 'output-1',
 ///   targetHandleId: 'input-1',
-///   pathType: EdgePathType.bezier,
+///   type: EdgePathType.bezier,
 ///   label: Text('Data Flow'),
 ///   endMarkerStyle: FlowEdgeMarkerStyle.arrow(),
 ///   style: FlowEdgeStyle.colored(color: Colors.blue),
