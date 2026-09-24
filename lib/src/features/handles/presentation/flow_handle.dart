@@ -6,7 +6,7 @@ import 'package:lattice/src/features/nodes/presentation/flow_no_drag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lattice/src/features/handles/domain/handle_state.dart';
-import '../../../core/providers/providers.dart';
+import 'package:lattice/src/core/providers/providers.dart';
 
 /// A builder function for creating a custom handle widget.
 ///

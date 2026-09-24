@@ -1,10 +1,11 @@
 // ignore_for_file: prefer_const_constructors, avoid_print
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lattice/lattice.dart';
+
+import 'bench_helpers.dart';
 
 /// Outside-in 450-node benchmark: BLACK-BOX only.
 ///
@@ -86,49 +87,16 @@ NodeRegistry buildRegistry() {
 
 Map<String, FlowNode<String>> buildNodes() {
   final useDefault = benchNodeVariant == 'default';
-  final nodes = <String, FlowNode<String>>{};
-  for (var i = 0; i < nodeCount; i++) {
-    nodes['node-$i'] = FlowNode<String>(
-      type: useDefault ? 'default' : 'bench',
-      id: 'node-$i',
-      position: Offset((i % cols) * 100.0, (i ~/ cols) * 50.0),
-      size: const Size(50, 30),
-      data: 'node-$i',
-      // 'fair' attaches the 2 handles explicitly; 'default' synthesizes its
-      // own; 'bare' gets none.
-      handles: benchNodeVariant == 'fair' ? benchHandles() : const {},
-    );
-  }
-  return nodes;
+  return benchGridNodes(
+    count: nodeCount,
+    type: useDefault ? 'default' : 'bench',
+    // 'fair' attaches the 2 handles explicitly; 'default' synthesizes its
+    // own; 'bare'/'chrome' get none.
+    handles: benchNodeVariant == 'fair' ? benchHandles() : const {},
+  );
 }
 
-Map<String, FlowEdge> buildEdges() {
-  final edges = <String, FlowEdge>{};
-  for (var i = 1; i < nodeCount; i++) {
-    edges['conn-$i'] = FlowEdge(
-      id: 'conn-$i',
-      sourceNodeId: 'node-${i - 1}',
-      targetNodeId: 'node-$i',
-    );
-  }
-  return edges;
-}
-
-Map<String, dynamic> stats(String name, List<double> values) {
-  final sorted = [...values]..sort();
-  final sum = sorted.fold(0.0, (a, b) => a + b);
-  double q(double p) =>
-      sorted[(p * sorted.length).floor().clamp(0, sorted.length - 1)];
-  String f(double v) => v.toStringAsFixed(3);
-  return {
-    'scenario': name,
-    'n': sorted.length,
-    'mean': double.parse(f(sum / sorted.length)),
-    'p50': double.parse(f(q(0.5))),
-    'p95': double.parse(f(q(0.95))),
-    'max': double.parse(f(sorted.last)),
-  };
-}
+Map<String, FlowEdge> buildEdges() => benchChainEdges(nodeCount);
 
 Future<FlowCanvasController> pumpCanvas(
     WidgetTester tester, int run) async {
@@ -157,34 +125,11 @@ Future<FlowCanvasController> pumpCanvas(
   return controller;
 }
 
-/// Pumps until no frames are scheduled (cap). Returns frame count.
-Future<int> settle(WidgetTester tester, {int cap = 240}) async {
-  var frames = 0;
-  await tester.pump();
-  frames++;
-  while (tester.binding.hasScheduledFrame && frames < cap) {
-    await tester.pump();
-    frames++;
-  }
-  return frames;
-}
-
-Offset nodeCenter(FlowCanvasController controller, String id) {
-  final node = controller.currentState.nodes[id]!;
-  return controller.viewport.flowToViewport(
-    node.position + Offset(node.size.width / 2, node.size.height / 2),
-  );
-}
-
-void report(String label, Map<String, dynamic> payload) {
-  print('LATTICE $label: ${const JsonEncoder().convert(payload)}');
-}
-
 void main() {
   testWidgets('bench mount', (tester) async {
     // Warmup (untimed): first-frame JIT + first inflate.
     final warm = await pumpCanvas(tester, -1);
-    await settle(tester);
+    await benchSettle(tester);
     expect(warm.currentState.nodes.length, nodeCount);
 
     final mounts = <double>[];
@@ -192,13 +137,13 @@ void main() {
     for (var i = 0; i < runs; i++) {
       final sw = Stopwatch()..start();
       final controller = await pumpCanvas(tester, i);
-      final frames = await settle(tester);
+      final frames = await benchSettle(tester);
       sw.stop();
       expect(controller.currentState.nodes.length, nodeCount);
       mounts.add(sw.elapsedMicroseconds / 1000.0);
       settleFrames.add(frames);
     }
-    report('mount', stats('mount (pumpWidget + settle, ms)', mounts));
+    benchReport('LATTICE', 'mount', benchStats('mount (pumpWidget + settle, ms)', mounts));
     print('LATTICE mount settleFrames=$settleFrames');
   });
 
@@ -206,11 +151,11 @@ void main() {
     final dragFrames = <double>[];
     for (var i = 0; i < runs; i++) {
       final controller = await pumpCanvas(tester, 100 + i);
-      await settle(tester);
+      await benchSettle(tester);
       final beforeX =
           controller.currentState.nodes['node-0']!.position.dx;
       final gesture =
-          await tester.startGesture(nodeCenter(controller, 'node-0'));
+          await tester.startGesture(benchNodeCenter(controller, 'node-0'));
       await tester.pump();
       // NOTE: 10px steps (same 100px total as RF's 20x5px), dragging RIGHT:
       // node-0 sits at the screen's top-left corner, so leftward moves
@@ -230,17 +175,17 @@ void main() {
         greaterThan(beforeX + 5),
       );
     }
-    report('drag',
-        stats('node drag (10 x 10px moves), per-pump ms', dragFrames));
+    benchReport('LATTICE', 'drag',
+        benchStats('node drag (10 x 10px moves), per-pump ms', dragFrames));
   });
 
   testWidgets('bench select', (tester) async {
     final selectFrames = <double>[];
     for (var i = 0; i < runs; i++) {
       final controller = await pumpCanvas(tester, 200 + i);
-      await settle(tester);
+      await benchSettle(tester);
       final sw = Stopwatch()..start();
-      await tester.tapAt(nodeCenter(controller, 'node-0'));
+      await tester.tapAt(benchNodeCenter(controller, 'node-0'));
       await tester.pump();
       sw.stop();
       expect(
@@ -249,7 +194,7 @@ void main() {
       );
       selectFrames.add(sw.elapsedMicroseconds / 1000.0);
     }
-    report('select', stats('node tap-select, per-pump ms', selectFrames));
+    benchReport('LATTICE', 'select', benchStats('node tap-select, per-pump ms', selectFrames));
   });
 
   testWidgets('bench changePos', (tester) async {
@@ -257,7 +202,7 @@ void main() {
     final changePumps = <int>[];
     for (var i = 0; i < runs; i++) {
       final controller = await pumpCanvas(tester, 300 + i);
-      await settle(tester);
+      await benchSettle(tester);
       // Seeded Random: identical targets on both libraries (same VM).
       final rng = math.Random(42 + i);
       final moved = <String, FlowNode>{};
@@ -270,13 +215,13 @@ void main() {
       final sw = Stopwatch()..start();
       controller.load(controller.currentState.copyWith(nodes: moved));
       await controller.viewport.fitView();
-      final frames = await settle(tester);
+      final frames = await benchSettle(tester);
       sw.stop();
       changeTotals.add(sw.elapsedMicroseconds / 1000.0);
       changePumps.add(frames);
     }
-    report('changePos',
-        stats('move 450 to seeded targets + fitView, total ms', changeTotals));
+    benchReport('LATTICE', 'changePos',
+        benchStats('move 450 to seeded targets + fitView, total ms', changeTotals));
     print('LATTICE changePos meanPumps='
         '${changePumps.fold(0, (a, b) => a + b) / changePumps.length}');
   });
@@ -286,11 +231,11 @@ void main() {
     for (var i = 0; i < runs; i++) {
       final sw = Stopwatch()..start();
       final controller = await pumpCanvas(tester, 400 + i);
-      await settle(tester);
+      await benchSettle(tester);
       sw.stop();
       expect(controller.currentState.nodes.length, nodeCount);
       remounts.add(sw.elapsedMicroseconds / 1000.0);
     }
-    report('remount', stats('full remount, total ms', remounts));
+    benchReport('LATTICE', 'remount', benchStats('full remount, total ms', remounts));
   });
 }

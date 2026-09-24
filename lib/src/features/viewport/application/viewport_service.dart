@@ -3,11 +3,10 @@ import 'package:lattice/src/core/options/components/fitview_options.dart';
 import 'package:lattice/src/core/options/components/viewport_options.dart';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/features/nodes/domain/node_layout.dart';
+import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:lattice/src/features/viewport/domain/coordinate_extent.dart';
 import 'package:lattice/src/features/viewport/domain/viewport.dart';
 import 'package:flutter/painting.dart';
-
-import '../../nodes/domain/models/node.dart';
 
 typedef NodeBounds = ({Rect rect, List<FlowNode> nodes});
 
@@ -21,7 +20,7 @@ NodeBounds getNodesBounds(
   bool includeHidden = false,
   Offset defaultOrigin = Offset.zero,
 }) {
-  return ViewportService().getNodeBounds(
+  return ViewportService().getNodesBounds(
     nodes: nodes,
     includeHidden: includeHidden,
     defaultOrigin: defaultOrigin,
@@ -148,7 +147,7 @@ class ViewportService {
         : allNodes
             .where((n) => fitViewOptions.nodes.contains(n.id))
             .toList();
-    final bounds = getNodeBounds(
+    final bounds = getNodesBounds(
         nodes: nodes,
         includeHidden: fitViewOptions.includeHiddenNodes,
         defaultOrigin: nodeOrigin);
@@ -238,7 +237,8 @@ class ViewportService {
 
   // --- UTILITY METHODS ---
 
-  NodeBounds getNodeBounds({
+  /// Bounds of [nodes] (Lattice top-level `getNodesBounds`).
+  NodeBounds getNodesBounds({
     List<FlowNode> nodes = const [],
     bool includeHidden = false,
     Offset defaultOrigin = Offset.zero,

@@ -5,6 +5,7 @@ import 'package:lattice/src/core/canvas_state_accessor.dart';
 import 'package:lattice/src/core/providers/providers.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
 import 'package:lattice/src/features/connections/application/connection_service.dart';
+import 'package:lattice/src/features/edges/application/edge_service.dart';
 import 'package:lattice/src/features/connections/domain/connection_state.dart';
 import 'package:lattice/src/features/edges/domain/edge_state.dart';
 import 'package:lattice/src/features/spatial/application/spatial_index_service.dart';
@@ -16,17 +17,20 @@ class ConnectionController {
   ConnectionController({
     required CanvasStateAccessor controller,
     required ConnectionService connectionService,
+    required EdgeService edgeService,
     required SpatialIndexService spatialIndex,
     required Ref ref,
     required GlobalKey viewportKey,
-  }) : _controller = controller,
-       _connectionService = connectionService,
-       _spatialIndex = spatialIndex,
-       _ref = ref,
-       _viewportKey = viewportKey;
+  })  : _controller = controller,
+        _connectionService = connectionService,
+        _edgeService = edgeService,
+        _spatialIndex = spatialIndex,
+        _ref = ref,
+        _viewportKey = viewportKey;
 
   final CanvasStateAccessor _controller;
   final ConnectionService _connectionService;
+  final EdgeService _edgeService;
   final SpatialIndexService _spatialIndex;
   final Ref _ref;
   final GlobalKey _viewportKey;
@@ -400,10 +404,7 @@ class ConnectionController {
         _callbacks.onClickConnectEnd?.call(null);
         return;
       }
-      _controller.mutate((s) {
-        final nextEdges = Map<String, FlowEdge>.from(s.edges)..[edge.id] = edge;
-        return s.copyWith(edges: nextEdges);
-      });
+      _controller.mutate((s) => _edgeService.upsertEdge(s, edge));
       final added = _controller.currentState.edges[edge.id];
       if (added != null) _spatialIndex.edgeIndex.addEdge(added, edge.id);
       _callbacks.onConnection?.call(originalParams);
@@ -726,16 +727,10 @@ class ConnectionController {
             dragMode: DragMode.none,
           );
         }
-        final nextEdges = Map<String, FlowEdge>.from(working.edges)
-          ..[edge.id] = edge;
-        for (final edgeId in nextEdges.keys.toSet().difference(
-          working.edges.keys.toSet(),
-        )) {
-          final added = nextEdges[edgeId];
-          if (added != null) _spatialIndex.edgeIndex.addEdge(added, edgeId);
-        }
-        return working.copyWith(
-          edges: nextEdges,
+        final withEdge = _edgeService.upsertEdge(working, edge);
+        final added = withEdge.edges[edge.id];
+        if (added != null) _spatialIndex.edgeIndex.addEdge(added, edge.id);
+        return withEdge.copyWith(
           activeConnection: null,
           connectionState: const FlowConnectionRuntimeState.idle(),
           handleStates: _connectionService.clearConnectionHandleStates(working),
@@ -881,9 +876,8 @@ class ConnectionController {
       } else {
         final replacement = gated is FlowEdge ? gated : candidate;
         _controller.mutate((s) {
-          final nextEdges = Map<String, FlowEdge>.from(s.edges)
-            ..[edgeId] = replacement.copyWith(id: edgeId);
-          final next = s.copyWith(edges: nextEdges);
+          final next =
+              _edgeService.upsertEdge(s, replacement.copyWith(id: edgeId));
           final edge = next.edges[edgeId];
           if (edge != null) {
             _spatialIndex.edgeIndex.removeEdge(edgeId, oldEdge);

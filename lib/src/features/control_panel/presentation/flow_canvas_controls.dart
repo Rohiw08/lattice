@@ -6,7 +6,7 @@ import 'package:lattice/src/core/theme/theme_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lattice/src/features/control_panel/presentation/control_button.dart';
-import '../../../core/providers/providers.dart';
+import 'package:lattice/src/core/providers/providers.dart';
 
 class FlowCanvasControls extends ConsumerWidget {
   final Size? size;

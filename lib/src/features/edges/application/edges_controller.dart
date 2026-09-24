@@ -396,6 +396,22 @@ class EdgesController {
   String? _lastEdgeTapId;
   DateTime? _lastEdgeTapTime;
 
+  /// Clears a stale edge hover (pointer left all edge strokes, e.g. over
+  /// empty canvas). Mirrors the leave half of [onEdgePointerHover]; no-op
+  /// when nothing is hovered.
+  void clearEdgeHover(Offset flowPosition) {
+    final state = _controller.currentState;
+    if (state.hoveredEdgeId.isEmpty) return;
+    final old = state.edges[state.hoveredEdgeId];
+    _controller.updateStateOnly(state.copyWith(hoveredEdgeId: ''));
+    if (old != null) {
+      _ref.read(flowCanvasCallbacksProvider).onEdgeMouseLeave?.call(
+            old,
+            flowPosition,
+          );
+    }
+  }
+
   void onEdgeTapDown(
     TapDownDetails details,
     Offset localPosition, {

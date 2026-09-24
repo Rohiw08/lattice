@@ -147,7 +147,7 @@ void main() {
     expect(restored.position, const Offset(10, 20));
   });
 
-  test('getNodeBounds resolves the visual rect with an origin', () {
+  test('getNodesBounds resolves the visual rect with an origin', () {
     const nodes = [
       FlowNode<String>(
         type: 'default',
@@ -158,8 +158,8 @@ void main() {
     ];
     final service = ViewportService();
     final topLeft =
-        service.getNodeBounds(nodes: nodes, defaultOrigin: Offset.zero);
-    final centered = service.getNodeBounds(
+        service.getNodesBounds(nodes: nodes, defaultOrigin: Offset.zero);
+    final centered = service.getNodesBounds(
         nodes: nodes, defaultOrigin: const Offset(0.5, 0.5));
     // Default node size is 160x44: center origin shifts by (80, 22).
     expect(topLeft.rect.left, 100.0);

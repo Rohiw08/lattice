@@ -170,10 +170,12 @@ class SelectionController {
     _controller.commitLiveViewportToState();
 
     // Keep selectedNodes / selectedEdges / runtime flags from last update.
-    _controller.mutate((s) => s.copyWith(
-          selectionRect: Rect.zero,
-          dragMode: DragMode.none,
-        ));
+    // Transient UI state only (rect + drag mode): updateStateOnly, never
+    // mutate — a marquee clear must not record an undo entry.
+    _controller.updateStateOnly(_controller.currentState.copyWith(
+      selectionRect: Rect.zero,
+      dragMode: DragMode.none,
+    ));
     final state = _controller.currentState;
     _ref.read(flowCanvasCallbacksProvider).onSelectionEnd?.call(
           CanvasSelection(

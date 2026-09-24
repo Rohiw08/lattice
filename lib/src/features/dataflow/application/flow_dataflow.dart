@@ -44,9 +44,12 @@ List<FlowNodeConnection> watchNodeConnections(
   HandleType? handleType,
   String? handleId,
 }) {
-  final edges = ref.watch(flowEdgesProvider.select((all) => all.values));
+  // Select the stored map itself (stable identity across non-structural
+  // emissions), never a derived collection — a fresh Iterable/List fails ==
+  // every time and rebuilds all consumers on each commit (invariant #1).
+  final edges = ref.watch(flowEdgesProvider);
   return nodeConnectionsOf(
-    edges,
+    edges.values,
     nodeId,
     handleType: handleType,
     handleId: handleId,
@@ -119,17 +122,17 @@ NodeDataSlice? watchNodesData(WidgetRef ref, String? nodeId) {
 /// Missing ids are skipped. Counterpart of `useNodesData(ids[])`.
 List<NodeDataSlice> watchNodesDataMany(WidgetRef ref, List<String> nodeIds) {
   if (nodeIds.isEmpty) return const [];
-  // Join into one select so one watch covers the whole list.
-  return ref.watch(flowNodesProvider.select((nodes) {
-    final out = <NodeDataSlice>[];
-    for (final id in nodeIds) {
-      final FlowNode? node = nodes[id];
-      if (node != null) {
-        out.add(NodeDataSlice(id: node.id, type: node.type, data: node.data));
-      }
+  // Join into one watch on the stored map (stable identity); derive the
+  // list in the body so structural commits are the only rebuild trigger.
+  final nodes = ref.watch(flowNodesProvider);
+  final out = <NodeDataSlice>[];
+  for (final id in nodeIds) {
+    final FlowNode? node = nodes[id];
+    if (node != null) {
+      out.add(NodeDataSlice(id: node.id, type: node.type, data: node.data));
     }
-    return out;
-  }));
+  }
+  return out;
 }
 
 /// Nodes feeding into [nodeId] (edges where it is the target).

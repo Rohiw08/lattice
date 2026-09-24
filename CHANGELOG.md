@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.0 - 2026-09-22
+
+- Architecture cleanup pass (no behavior change except where noted):
+  `endSelection` no longer records an undo entry for the transient
+  marquee clear (behavior fix); `watchNodeConnections` /
+  `watchNodesDataMany` / edge-label portal select stored maps instead of
+  fresh collections (invariant #1: edge commits no longer rebuild every
+  consumer); edge-hover clearing routes through
+  `EdgesController.clearEdgeHover`; connection flows commit via
+  `EdgeService.upsertEdge` (single helper, single-mutate undo steps
+  preserved); `flow_canvas_state.dart` no longer imports the barrel.
+  Consistency: `package:lattice/` imports everywhere (7 outliers fixed);
+  `getNodeBounds` renamed to RF-parity `getNodesBounds`;
+  `keyboard_action_service.dart` renamed to `keyboard_service.dart`;
+  `benchmark/bench_helpers.dart` dedups the widget-bench harness;
+  empty feature shells removed. New `ARCHITECTURE.md` codifies layers,
+  write paths, selectors, and naming. Pinned by the full suite
+  (439 tests green).
+- Publish hygiene: stale `benchmark/*.log` traces removed from the
+  package and git-ignored.
+
 ## Unreleased
 
 - Theme cascade correctness (no API change, pre-1.0 behavior fix): partial

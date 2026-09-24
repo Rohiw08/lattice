@@ -86,19 +86,9 @@ class _FlowCanvasDeselectLayerState
     return UnboundedListener(
       behavior: HitTestBehavior.opaque,
       onPointerHover: (event) {
-        final state = controller.currentState;
-        if (state.hoveredEdgeId.isNotEmpty) {
-          final oldEdge = state.edges[state.hoveredEdgeId];
-          controller.updateStateOnly(state.copyWith(hoveredEdgeId: ''));
-          // The edge layer stopped receiving hover (empty canvas now):
-          // close the hover with a leave, mirroring onEdgePointerHover.
-          if (oldEdge != null) {
-            ref.read(flowCanvasCallbacksProvider).onEdgeMouseLeave?.call(
-                  oldEdge,
-                  widget.flowOrigin + event.localPosition,
-                );
-          }
-        }
+        controller.edges.clearEdgeHover(
+          widget.flowOrigin + event.localPosition,
+        );
       },
       onPointerDown: (event) {
         final options = ref.read(flowOptionsProvider).viewportOptions;

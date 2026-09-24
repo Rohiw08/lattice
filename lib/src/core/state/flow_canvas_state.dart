@@ -1,10 +1,14 @@
 // ignore_for_file: invalid_annotation_target
 
-import 'package:lattice/lattice.dart';
+import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/features/connections/domain/connection_state.dart';
+import 'package:lattice/src/features/connections/domain/models/connection.dart';
 import 'package:lattice/src/features/edges/domain/edge_state.dart';
+import 'package:lattice/src/features/edges/domain/model/edge.dart';
 import 'package:lattice/src/features/handles/domain/handle_state.dart';
+import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:lattice/src/features/nodes/domain/models/node_state.dart';
+import 'package:lattice/src/features/viewport/domain/viewport.dart';
 import 'package:flutter/painting.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:lattice/src/core/utils/json_converters.dart';

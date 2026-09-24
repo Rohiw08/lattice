@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lattice/lattice.dart';
 
+import 'bench_helpers.dart';
+
 class CountingRegistry extends NodeRegistry {
   int builds = 0;
 
@@ -20,49 +22,10 @@ const int probeN = int.fromEnvironment('PROBE_N', defaultValue: 450);
 /// accepts "true"; "=1" silently parses to false).
 const bool probeCull = bool.fromEnvironment('CULL');
 
-Map<String, FlowNode<String>> buildNodes() {
-  final nodes = <String, FlowNode<String>>{};
-  for (var i = 0; i < probeN; i++) {
-    nodes['node-$i'] = FlowNode<String>(
-      type: 'default',
-      id: 'node-$i',
-      position: Offset((i % 30) * 100.0, (i ~/ 30) * 50.0),
-      size: const Size(50, 30),
-      data: 'node-$i',
-    );
-  }
-  return nodes;
-}
+Map<String, FlowNode<String>> buildNodes() =>
+    benchGridNodes(count: probeN, cols: 30);
 
-Map<String, FlowEdge> buildEdges() {
-  final edges = <String, FlowEdge>{};
-  for (var i = 1; i < probeN; i++) {
-    edges['conn-$i'] = FlowEdge(
-      id: 'conn-$i',
-      sourceNodeId: 'node-${i - 1}',
-      targetNodeId: 'node-$i',
-    );
-  }
-  return edges;
-}
-
-Future<int> settle(WidgetTester tester, {int cap = 240}) async {
-  var frames = 0;
-  await tester.pump();
-  frames++;
-  while (tester.binding.hasScheduledFrame && frames < cap) {
-    await tester.pump();
-    frames++;
-  }
-  return frames;
-}
-
-Offset nodeCenter(FlowCanvasController controller, String id) {
-  final node = controller.currentState.nodes[id]!;
-  return controller.viewport.flowToViewport(
-    node.position + Offset(node.size.width / 2, node.size.height / 2),
-  );
-}
+Map<String, FlowEdge> buildEdges() => benchChainEdges(probeN);
 
 void main() {
   /// Set via --dart-define: NOSEM=true (wrap in ExcludeSemantics), TINY=true
@@ -105,7 +68,7 @@ void main() {
     );
     if (noSem) canvas = ExcludeSemantics(child: canvas);
     await tester.pumpWidget(MaterialApp(home: canvas));
-    await settle(tester);
+    await benchSettle(tester);
     print('SEL settled builds=${registry.builds} cull=$probeCull');
     FlowCanvasDebug.resetCounters();
 
@@ -114,7 +77,7 @@ void main() {
     final freshDx0 =
         controller.currentState.nodes['node-0']!.position.dx;
     final freshGesture =
-        await tester.startGesture(nodeCenter(controller, 'node-0'));
+        await tester.startGesture(benchNodeCenter(controller, 'node-0'));
     await tester.pump();
     for (var i = 0; i < 10; i++) {
       await freshGesture.moveBy(const Offset(10, 0));
@@ -156,7 +119,7 @@ void main() {
 
     sw = Stopwatch()..start();
     final before3 = registry.builds;
-    await tester.tapAt(nodeCenter(controller, 'node-0'));
+    await tester.tapAt(benchNodeCenter(controller, 'node-0'));
     await tester.pump();
     sw.stop();
     print('SEL tap-select=${sw.elapsedMilliseconds}ms '
@@ -169,7 +132,7 @@ void main() {
     final startDx =
         controller.currentState.nodes['node-1']!.position.dx;
     final gesture =
-        await tester.startGesture(nodeCenter(controller, 'node-1'));
+        await tester.startGesture(benchNodeCenter(controller, 'node-1'));
     for (var i = 0; i < 10; i++) {
       await gesture.moveBy(const Offset(10, 0));
       await tester.pump();

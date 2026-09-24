@@ -4,7 +4,7 @@ import 'package:lattice/src/core/utils/custom_stack_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lattice/src/core/providers/providers.dart';
-import '../painters/selection_painter.dart';
+import 'package:lattice/src/features/selection/presentation/painters/selection_painter.dart';
 
 /// Paints the active marquee rectangle. Interaction is owned by
 /// [SelectionController]'s global pointer route (and pane/node starters).

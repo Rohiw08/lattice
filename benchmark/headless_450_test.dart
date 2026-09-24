@@ -94,7 +94,7 @@ void main() {
         Offset((i % 30) * 100.0, (i ~/ 30) * 50.0),
       );
     }
-    final bounds = viewport.getNodeBounds(
+    final bounds = viewport.getNodesBounds(
       nodes: state.nodes.values.toList(),
     );
     sw.stop();

@@ -7,13 +7,13 @@ import 'package:lattice/src/features/a11y/application/a11y_announcer.dart';
 import 'package:lattice/src/features/a11y/domain/a11y_options.dart';
 import 'package:lattice/src/features/canvas/flow_canvas_internal_controller.dart';
 import 'package:lattice/src/features/history/application/history_controller.dart';
-import 'package:lattice/src/features/keyboard/application/keyboard_action_service.dart';
+import 'package:lattice/src/features/keyboard/application/keyboard_service.dart';
 import 'package:lattice/src/features/viewport/domain/coordinate_extent.dart';
 import 'package:flutter/services.dart';
 
 class KeyboardController {
   final CanvasStateAccessor _controller;
-  final KeyboardActionService _keyboardActionService;
+  final KeyboardService _keyboardService;
   final HistoryController _historyController;
   final A11yAnnouncer _announcer;
 
@@ -22,11 +22,11 @@ class KeyboardController {
 
   KeyboardController({
     required CanvasStateAccessor controller,
-    required KeyboardActionService keyboardActionService,
+    required KeyboardService keyboardService,
     required HistoryController historyController,
     required A11yAnnouncer announcer,
   })  : _controller = controller,
-        _keyboardActionService = keyboardActionService,
+        _keyboardService = keyboardService,
         _historyController = historyController,
         _announcer = announcer;
 
@@ -84,7 +84,7 @@ class KeyboardController {
     }
 
     // For all other actions, mutate the state via the service.
-    _controller.mutate((s) => _keyboardActionService.handleAction(
+    _controller.mutate((s) => _keyboardService.handleAction(
           s,
           action,
           arrowMoveDelta:
@@ -134,7 +134,7 @@ class KeyboardController {
     final beforePos =
         firstId == null ? null : before.nodes[firstId]?.position;
 
-    _controller.mutate((s) => _keyboardActionService.handleAction(
+    _controller.mutate((s) => _keyboardService.handleAction(
           s,
           action,
           arrowMoveDelta: Offset(
@@ -194,7 +194,7 @@ class KeyboardController {
       return;
     }
 
-    _controller.mutate((s) => _keyboardActionService.handleAction(
+    _controller.mutate((s) => _keyboardService.handleAction(
           s,
           KeyboardAction.deleteSelection,
           arrowMoveDelta:

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lattice/src/core/providers/flow_selectors.dart';
 import 'package:lattice/src/core/providers/providers.dart';
 
 /// Screen-space portal for interactive edge labels (Lattice
@@ -40,16 +41,17 @@ class FlowEdgeLabelPortal extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(internalControllerProvider.notifier);
     // Labeled edge ids + geometry revision (paths change without edge
-    // identity changing, e.g. endpoint drags).
-    final model = ref.watch(internalControllerProvider.select((s) {
-      final ids = <String>[];
-      for (final entry in s.edges.entries) {
-        if (entry.value.overlayLabel != null) ids.add(entry.key);
-      }
-      ids.sort();
-      return (ids: ids, revision: s.geometryRevision);
-    }));
-    if (model.ids.isEmpty) return const SizedBox.shrink();
+    // identity changing, e.g. endpoint drags). Watch the stored map and the
+    // revision (both stable identities); derive the id list in the body so
+    // unrelated edge commits don't rebuild the portal (invariant #1).
+    final edges = ref.watch(flowEdgesProvider);
+    ref.watch(internalControllerProvider.select((s) => s.geometryRevision));
+    final ids = <String>[];
+    for (final entry in edges.entries) {
+      if (entry.value.overlayLabel != null) ids.add(entry.key);
+    }
+    ids.sort();
+    if (ids.isEmpty) return const SizedBox.shrink();
 
     return ListenableBuilder(
       listenable: Listenable.merge(
@@ -59,7 +61,7 @@ class FlowEdgeLabelPortal extends ConsumerWidget {
         final live = controller.liveViewport.viewport;
         Offset toViewer(Offset flow) => flow * live.zoom + live.offset;
         final children = <Widget>[];
-        for (final id in model.ids) {
+        for (final id in ids) {
           final edge = state.edges[id];
           final label = edge?.overlayLabel;
           if (edge == null ||

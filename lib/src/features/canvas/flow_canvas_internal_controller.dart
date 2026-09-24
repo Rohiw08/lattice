@@ -21,7 +21,7 @@ import 'package:lattice/src/features/connections/application/connection_service.
 import 'package:lattice/src/features/edges/application/edge_geometry_service.dart';
 import 'package:lattice/src/features/edges/application/edge_service.dart';
 import 'package:lattice/src/features/history/application/history_service.dart';
-import 'package:lattice/src/features/keyboard/application/keyboard_action_service.dart';
+import 'package:lattice/src/features/keyboard/application/keyboard_service.dart';
 import 'package:lattice/src/features/nodes/application/node_service.dart';
 import 'package:lattice/src/features/spatial/application/spatial_index_service.dart';
 import 'package:lattice/src/features/selection/application/selection_service.dart';
@@ -77,7 +77,7 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
   late final ZIndexService _zIndexService;
   late final ClipboardService _clipboardService;
   late final HistoryService _history;
-  late final KeyboardActionService _keyboardActionService;
+  late final KeyboardService _keyboardService;
   late final EdgeGeometryService edgeGeometryService;
   late final SpatialIndexService spatialIndex;
 
@@ -136,7 +136,7 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
     _clipboardService = ref.read(clipboardServiceProvider);
     _history = ref.read(historyServiceProvider);
 
-    _keyboardActionService = ref.read(keyboardActionServiceProvider);
+    _keyboardService = ref.read(keyboardServiceProvider);
     edgeGeometryService = ref.read(edgeGeometryServiceProvider);
     spatialIndex = ref.read(spatialIndexServiceProvider);
 
@@ -176,6 +176,7 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
     connection = ConnectionController(
       controller: this,
       connectionService: _connectionService,
+      edgeService: _edgeService,
       spatialIndex: spatialIndex,
       ref: ref,
       viewportKey: viewportKey,
@@ -199,7 +200,7 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
     zIndex = ZIndexController(controller: this, zIndexService: _zIndexService);
     keyboard = KeyboardController(
       controller: this,
-      keyboardActionService: _keyboardActionService,
+      keyboardService: _keyboardService,
       historyController: history,
       announcer: a11yAnnouncer,
     );

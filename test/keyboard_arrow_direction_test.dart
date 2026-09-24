@@ -3,7 +3,7 @@ import 'package:lattice/src/core/enums/enums.dart';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/features/clipboard/application/clipboard_service.dart';
 import 'package:lattice/src/features/edges/application/edge_service.dart';
-import 'package:lattice/src/features/keyboard/application/keyboard_action_service.dart';
+import 'package:lattice/src/features/keyboard/application/keyboard_service.dart';
 import 'package:lattice/src/features/nodes/application/node_service.dart';
 import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:lattice/src/features/selection/application/selection_service.dart';
@@ -17,7 +17,7 @@ import 'package:lattice/src/features/viewport/domain/coordinate_extent.dart';
 /// A prior bug swapped the vertical signs (moveUp added +dy), so ArrowUp moved
 /// the node visually DOWN. Horizontal was always correct; guard all four.
 void main() {
-  final service = KeyboardActionService(
+  final service = KeyboardService(
     nodeService: NodeService(),
     selectionService: SelectionService(),
     clipboardService: ClipboardService(),

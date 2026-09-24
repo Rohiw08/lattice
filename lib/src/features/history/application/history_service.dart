@@ -1,5 +1,3 @@
-// application/services/history_service.dart
-
 import 'package:flutter/foundation.dart';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/features/edges/domain/model/edge.dart';

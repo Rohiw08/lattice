@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import '../../enums/enums.dart';
+import 'package:lattice/src/core/enums/enums.dart';
 
 /// Configuration options for keyboard interactions in the flow canvas.
 ///

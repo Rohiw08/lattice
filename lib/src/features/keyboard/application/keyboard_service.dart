@@ -9,14 +9,14 @@ import 'package:lattice/src/features/selection/application/selection_service.dar
 import 'package:lattice/src/features/viewport/application/viewport_service.dart';
 import 'package:lattice/src/features/viewport/domain/coordinate_extent.dart';
 
-class KeyboardActionService {
+class KeyboardService {
   final NodeService nodeService;
   final SelectionService selectionService;
   final ClipboardService clipboardService;
   final EdgeService edgeService;
   final ViewportService viewportService;
 
-  KeyboardActionService({
+  KeyboardService({
     required this.nodeService,
     required this.selectionService,
     required this.clipboardService,

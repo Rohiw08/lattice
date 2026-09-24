@@ -1,8 +1,8 @@
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
 import 'package:lattice/src/core/enums/enums.dart';
 import 'package:flutter/material.dart';
-import '../../../core/theme/components/edge_marker_theme.dart';
-import '../../../core/theme/components/edge_theme.dart';
+import 'package:lattice/src/core/theme/components/edge_marker_theme.dart';
+import 'package:lattice/src/core/theme/components/edge_theme.dart';
 
 /// A registry for managing edge type configurations.
 ///

@@ -17,3 +17,6 @@ Thumbs.db
 .flutter-plugins
 .flutter-plugins-dependencies
 .fvm/
+
+# Local benchmark traces (artifacts, never published)
+benchmark/*.log

@@ -193,7 +193,7 @@ Map<Type, Action<Intent>> buildActions(
         return null;
       },
     ),
-    // Single undoable step (see KeyboardActionService.deleteSelection).
+    // Single undoable step (see KeyboardService.deleteSelection).
     DeleteIntent: CallbackAction<DeleteIntent>(
       onInvoke: (_) {
         keyboard(KeyboardAction.deleteSelection);

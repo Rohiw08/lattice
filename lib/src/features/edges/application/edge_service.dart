@@ -23,6 +23,17 @@ class EdgeService {
         .toList();
   }
 
+  /// Force-inserts (or replaces) [edge] in a fresh edges map.
+  ///
+  /// No guards: unlike [addEdge], the caller MUST pre-validate (dangling
+  /// endpoints, duplicates). Connection flows do this for RF `addEdge`
+  /// cancel semantics before committing.
+  FlowCanvasState upsertEdge(FlowCanvasState state, FlowEdge edge) {
+    final nextEdges = Map<String, FlowEdge>.from(state.edges)
+      ..[edge.id] = edge;
+    return state.copyWith(edges: nextEdges);
+  }
+
   /// Adds a single edge to the canvas state.
   FlowCanvasState addEdge(FlowCanvasState state, FlowEdge edge) {
     if (state.edges.containsKey(edge.id)) return state; // Already exists
