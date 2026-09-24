@@ -113,45 +113,6 @@ enum PanelPosition {
   }
 }
 
-enum ControlPanelAlignment {
-  topLeft,
-  topRight,
-  bottomLeft,
-  bottomRight,
-  center
-}
-
-enum ThemeCategory {
-  professional,
-  creative,
-  accessibility,
-  technical,
-  gaming,
-  custom,
-}
-
-enum NodeEventType {
-  click,
-  doubleClick,
-  dragStart,
-  drag,
-  dragStop,
-  mouseEnter,
-  mouseMove,
-  mouseLeave,
-  contextMenu,
-  delete,
-  change,
-}
-
-enum ConnectionLineType {
-  bezier,
-  straight,
-  step,
-  smoothStep,
-  simpleBezier,
-}
-
 enum FitViewInterpolation {
   smooth,
   linear,
@@ -200,12 +161,6 @@ enum KeyboardAction {
   duplicateSelection,
   undo,
   redo,
-}
-
-enum DefaultNodeType {
-  defaultNode,
-  inputNode,
-  outputNode,
 }
 
 enum ConnectionValidity {
