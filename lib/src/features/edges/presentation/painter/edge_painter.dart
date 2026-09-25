@@ -201,10 +201,12 @@ class EdgePainter extends CustomPainter with DiagnosticableTreeMixin {
     EdgeGeom? geom,
     FlowEdgeMarkerStyle? themeMarker,
   ) {
-    // Per-edge → edge style → canvas theme.edgeMarker.
-    final startMarkerStyle = edge.startMarkerStyle ??
-        edgeStyle.startMarkerStyle ??
-        themeMarker;
+    // Start marker: per-edge → edge style ONLY. React Flow ships no
+    // `markerStart` by default; the theme's single `edgeMarker` is the END
+    // arrowhead default, so it must NOT bleed onto the edge start (that drew a
+    // spurious backward arrowhead on every edge — screenshot bug #6a).
+    final startMarkerStyle =
+        edge.startMarkerStyle ?? edgeStyle.startMarkerStyle;
     if (startMarkerStyle != null) {
       _drawMarker(
         canvas,
