@@ -240,10 +240,12 @@ class SelectionService {
       final connectedEdges = edgeIndex.getEdgesForNode(nodeId);
       for (final edgeId in connectedEdges) {
         final edge = state.edges[edgeId];
-        if (edge != null &&
-            (edge.selectable ?? edgesSelectable) &&
-            newSelectedNodes.contains(edge.sourceNodeId) &&
-            newSelectedNodes.contains(edge.targetNodeId)) {
+        // React Flow `getConnectedEdges` uses OR: an edge joins the marquee when
+        // *either* endpoint is a selected node. Iterating each selected node's
+        // connected edges already encodes that — the edge surfaces here because
+        // one of its endpoints is selected, so no source/target containment
+        // check is needed (that would be the stricter AND, diverging from RF).
+        if (edge != null && (edge.selectable ?? edgesSelectable)) {
           edgesInArea.add(edgeId);
         }
       }

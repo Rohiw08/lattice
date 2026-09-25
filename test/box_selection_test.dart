@@ -65,6 +65,27 @@ void main() {
     expect(state.nodeStates['a']!.selected, isTrue);
   });
 
+  test('box select includes an edge with only one endpoint selected (RF OR)',
+      () {
+    // React Flow parity: box selection marks every edge connected to a selected
+    // node (getConnectedEdges uses source OR target), even when the other
+    // endpoint sits outside the marquee. Here the box captures only node a;
+    // edge e1 (a→b) must still be selected though b is untouched.
+    var state = selection.startBoxSelection(base, Offset.zero);
+    state = selection.updateBoxSelection(
+      state,
+      Offset.zero,
+      const Offset(150, 50),
+      nodeIndex,
+      edgeIndex,
+      selectionMode: SelectionMode.partial,
+    );
+
+    expect(state.selectedNodes, {'a'});
+    expect(state.selectedEdges, {'e1'});
+    expect(state.edgeStates['e1']!.selected, isTrue);
+  });
+
   test('box select full requires node entirely inside', () {
     var state = selection.startBoxSelection(base, Offset.zero);
     // Covers only left half of node a (100 wide) → partial would include, full not.
