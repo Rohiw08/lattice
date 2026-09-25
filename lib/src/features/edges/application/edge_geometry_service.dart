@@ -3,6 +3,8 @@ import 'dart:collection';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/features/edges/domain/edge_index.dart';
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
+import 'package:lattice/src/features/handles/domain/handle.dart';
+import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:lattice/src/features/nodes/domain/node_layout.dart';
 import 'package:lattice/src/core/utils/edge_path_creator.dart';
 import 'package:lattice/src/core/enums/enums.dart';
@@ -210,28 +212,37 @@ class EdgeGeometryService {
     final oldVersion = _edgeVersion[edgeId];
     if (oldVersion == version) return;
 
+    // Resolve the source connection point. Prefer the edge's named handle;
+    // when it is null or unknown, fall back to the node's first source-capable
+    // handle — React Flow lands a handle-less edge end on the node's default
+    // port of the matching type, not the node center. Center is a last resort
+    // only when the node exposes no such handle at all (its old behavior for
+    // every handle-less edge, which detached the arrowhead and drew a stray
+    // arc from the geometric center).
+    final sourceHandle =
+        _resolveHandle(sourceNode, edge.sourceHandleId, HandleType.source);
     final Offset sourceHandlePosition;
-    HandlePosition sourceDir = HandlePosition.right;
-    if (edge.sourceHandleId != null &&
-        sourceNode.effectiveHandles.containsKey(edge.sourceHandleId!)) {
-      final handlePos = sourceNode.effectiveHandles[edge.sourceHandleId!]!.position;
-      sourceHandlePosition = sourceAbs + handlePos;
-      sourceDir = _determineHandlePosition(handlePos, sourceNode.size);
+    final HandlePosition sourceDir;
+    if (sourceHandle != null) {
+      sourceHandlePosition = sourceAbs + sourceHandle.position;
+      sourceDir = _determineHandlePosition(sourceHandle.position, sourceNode.size);
     } else {
       sourceHandlePosition = sourceAbs +
           Offset(sourceNode.size.width / 2, sourceNode.size.height / 2);
+      sourceDir = HandlePosition.right;
     }
 
+    final targetHandle =
+        _resolveHandle(targetNode, edge.targetHandleId, HandleType.target);
     final Offset targetHandlePosition;
-    HandlePosition targetDir = HandlePosition.left;
-    if (edge.targetHandleId != null &&
-        targetNode.effectiveHandles.containsKey(edge.targetHandleId!)) {
-      final handlePos = targetNode.effectiveHandles[edge.targetHandleId!]!.position;
-      targetHandlePosition = targetAbs + handlePos;
-      targetDir = _determineHandlePosition(handlePos, targetNode.size);
+    final HandlePosition targetDir;
+    if (targetHandle != null) {
+      targetHandlePosition = targetAbs + targetHandle.position;
+      targetDir = _determineHandlePosition(targetHandle.position, targetNode.size);
     } else {
       targetHandlePosition = targetAbs +
           Offset(targetNode.size.width / 2, targetNode.size.height / 2);
+      targetDir = HandlePosition.left;
     }
 
     final path = edge.pathBuilder?.call(FlowEdgePathInput(
@@ -300,6 +311,25 @@ class EdgeGeometryService {
       if (_isPointNearSamples(geom.samples, localPos, tolerance)) {
         return edgeId;
       }
+    }
+    return null;
+  }
+
+  /// Resolves the handle an edge end connects to.
+  ///
+  /// Prefers the explicitly named [handleId]; when it is null or absent, returns
+  /// the node's first handle able to serve [role] (its own type, or `both`) so a
+  /// handle-less edge end lands on the node's default port — React Flow parity —
+  /// instead of the node center. Returns null only when the node exposes no
+  /// handle for [role], leaving the caller's center fallback as the last resort.
+  FlowHandle? _resolveHandle(FlowNode node, String? handleId, HandleType role) {
+    final handles = node.effectiveHandles;
+    if (handleId != null) {
+      final named = handles[handleId];
+      if (named != null) return named;
+    }
+    for (final handle in handles.values) {
+      if (handle.type == role || handle.type == HandleType.both) return handle;
     }
     return null;
   }
