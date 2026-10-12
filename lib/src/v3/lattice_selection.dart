@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import 'lattice_edge.dart';
+
 /// Currently selected node and edge ids.
 ///
 /// Session state (not document state), so selection never lands in
@@ -52,17 +54,37 @@ class LatticeDragState {
       : ids = const {},
         livePositions = const {},
         rect = null,
+        from = null,
+        liveEnd = null,
+        reconnectEdgeId = null,
         _active = false;
 
   const LatticeDragState.node({
     required this.ids,
     required this.livePositions,
   })  : rect = null,
+        from = null,
+        liveEnd = null,
+        reconnectEdgeId = null,
         _active = true;
 
   const LatticeDragState.marquee({required this.rect})
       : ids = const {},
         livePositions = const {},
+        from = null,
+        liveEnd = null,
+        reconnectEdgeId = null,
+        _active = true;
+
+  const LatticeDragState.connect({
+    required LatticeEndpoint from,
+    required Offset liveEnd,
+    this.reconnectEdgeId,
+  })  : from = from,
+        liveEnd = liveEnd,
+        ids = const {},
+        livePositions = const {},
+        rect = null,
         _active = true;
 
   /// Ids being dragged (node variant).
@@ -73,6 +95,15 @@ class LatticeDragState {
 
   /// Current selection rectangle (marquee variant).
   final Rect? rect;
+
+  /// Connection origin (connect variant; null otherwise).
+  final LatticeEndpoint? from;
+
+  /// Live pointer position of the in-progress connection (connect variant).
+  final Offset? liveEnd;
+
+  /// Edge being reconnected, or null for fresh connects (connect variant).
+  final String? reconnectEdgeId;
 
   final bool _active;
 
