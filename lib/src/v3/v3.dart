@@ -29,3 +29,6 @@ export 'handle_widget.dart';
 export 'minimap.dart';
 export 'canvas_background.dart';
 export 'node_resizer.dart';
+export 'lattice_lock.dart';
+export 'canvas_toolbar.dart';
+export 'canvas_panel.dart';

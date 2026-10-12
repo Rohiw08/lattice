@@ -8,11 +8,13 @@ import 'lattice_camera.dart';
 import 'lattice_clipboard.dart';
 import 'lattice_codecs.dart';
 import 'lattice_connection.dart';
+import 'lattice_cull.dart';
 import 'lattice_document.dart';
 import 'lattice_edge.dart';
 import 'lattice_handle.dart';
 import 'lattice_history.dart';
 import 'lattice_layout.dart';
+import 'lattice_lock.dart';
 import 'lattice_node.dart';
 import 'lattice_options.dart';
 import 'lattice_selection.dart';
@@ -428,6 +430,117 @@ class LatticeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Camera/document viewport split: the camera matrix (session-side) is
+  /// the live pan/zoom; the document's `viewport` is the SAVED viewport,
+  /// written only by [saveViewport] (persistence needs it) and `load`.
+  /// [zoomIn], [zoomOut], and [fitView] write the CAMERA only: zero
+  /// document emissions, zero history, no controller notification.
+
+  /// Whether the session is locked (reads [latticeLockProvider]). When
+  /// locked, gesture starts (node drag, marquee, connect, reconnect,
+  /// resize) and the camera verbs below no-op; selection taps still work.
+  bool get isLocked => _container.read(latticeLockProvider);
+
+  /// Flips the session lock. Session-only: never notifies controller
+  /// listeners (controls rebuild by watching [latticeLockProvider]).
+  void toggleLock() {
+    _container.read(latticeLockProvider.notifier).toggle();
+  }
+
+  /// Zooms the camera in by 1.25x about the pane center (or [Offset.zero]
+  /// before first layout publishes a pane size). No-op when locked.
+  /// Camera-only: never touches the document, never notifies.
+  void zoomIn() {
+    if (isLocked) return;
+    _container.read(latticeCameraProvider.notifier).zoomBy(
+          1.25,
+          focal: _paneCenter(),
+        );
+  }
+
+  /// Zooms the camera out by 1/1.25x about the pane center (or
+  /// [Offset.zero] before first layout publishes a pane size). No-op
+  /// when locked. Camera-only: never touches the document, never
+  /// notifies.
+  void zoomOut() {
+    if (isLocked) return;
+    _container.read(latticeCameraProvider.notifier).zoomBy(
+          1 / 1.25,
+          focal: _paneCenter(),
+        );
+  }
+
+  /// Frames the document content in the pane: computes the union of the
+  /// document absolute rects (via [latticeAbsoluteRect] with an
+  /// [Offset.zero] origin assumption — the same documented assumption as
+  /// the minimap) and sets the camera viewport so the union fits the pane
+  /// with [padding] logical px on each side, zoomed no higher than
+  /// [maxZoom]. Empty document, unpublished pane size, fully padded-out
+  /// pane, or non-finite result: silent no-op (no camera write, no
+  /// notify). No-op when locked. Camera-only: never touches the
+  /// document, never notifies controller listeners.
+  void fitView({double padding = 48, double maxZoom = 1.0}) {
+    if (isLocked) return;
+    final Map<String, LatticeNode> nodes =
+        _container.read(latticeDocumentProvider).nodes;
+    if (nodes.isEmpty) return;
+    final Size? pane = _container.read(latticePaneSizeProvider);
+    if (pane == null) return;
+    Rect? bounds;
+    for (final String id in nodes.keys) {
+      final Rect rect = latticeAbsoluteRect(
+        nodes,
+        id,
+        defaultOrigin: Offset.zero,
+      );
+      bounds = bounds == null ? rect : bounds.expandToInclude(rect);
+    }
+    final Rect content = bounds!;
+    final double contentWidth = content.width == 0 ? 1 : content.width;
+    final double contentHeight = content.height == 0 ? 1 : content.height;
+    final double availableWidth = pane.width - padding * 2;
+    final double availableHeight = pane.height - padding * 2;
+    if (availableWidth <= 0 || availableHeight <= 0) return;
+    final double zoom = math.min(
+      math.min(
+        availableWidth / contentWidth,
+        availableHeight / contentHeight,
+      ),
+      maxZoom,
+    );
+    if (zoom <= 0 || !zoom.isFinite) return;
+    final Offset paneCenter = Offset(pane.width / 2, pane.height / 2);
+    _container.read(latticeCameraProvider.notifier).setViewport(
+          LatticeViewportValue(
+            offset: paneCenter - content.center * zoom,
+            zoom: zoom,
+          ),
+        );
+  }
+
+  /// Copies the live camera viewport into the document with one
+  /// history-free `replace` + notify. No-op (no replace, no notify) when
+  /// the document viewport already equals the camera viewport.
+  void saveViewport() {
+    final LatticeViewportValue viewport =
+        _container.read(latticeCameraProvider.notifier).viewport;
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    if (current.viewport == viewport) return;
+    _container
+        .read(latticeDocumentProvider.notifier)
+        .replace(current.copyWith(viewport: viewport));
+    notifyListeners();
+  }
+
+  /// Pane center in screen px, or [Offset.zero] before [LatticeCanvas]
+  /// publishes its first layout size.
+  Offset _paneCenter() {
+    final Size? pane = _container.read(latticePaneSizeProvider);
+    if (pane == null) return Offset.zero;
+    return Offset(pane.width / 2, pane.height / 2);
+  }
+
   /// Drops selected node/edge ids absent from [document] via
   /// [select] (which skips emission when nothing changes).
   void _coerceSelection(LatticeDocument document) {
@@ -623,6 +736,7 @@ class LatticeController extends ChangeNotifier {
   /// selected (tap-then-drag in one gesture). Unknown ids are a no-op.
   /// Selection/drag state only: never notifies controller listeners.
   void beginNodeDrag(String id) {
+    if (isLocked) return;
     final Map<String, LatticeNode> nodes =
         _container.read(latticeDocumentProvider).nodes;
     _syncHitIndex(nodes);
@@ -724,6 +838,7 @@ class LatticeController extends ChangeNotifier {
   /// otherwise a silent no-op (no drag state, no history, no notify).
   /// Session-only: never notifies controller listeners.
   void beginResize(String id, LatticeResizeHandle handle) {
+    if (isLocked) return;
     final LatticeNode? node =
         _container.read(latticeDocumentProvider).nodes[id];
     if (node == null || node.resizable != true) return;
@@ -903,6 +1018,7 @@ class LatticeController extends ChangeNotifier {
   /// handle's flow center ([_handleFlowCenter]). Session-only: no
   /// document replace, no history, no controller notification.
   void beginConnect(LatticeEndpoint from) {
+    if (isLocked) return;
     _container.read(latticeDragProvider.notifier).set(
           LatticeDragState.connect(
             from: from,
@@ -970,6 +1086,7 @@ class LatticeController extends ChangeNotifier {
   /// history, no notification. Session-only: never notifies controller
   /// listeners.
   void beginReconnect(String edgeId, {required bool sourceEnd}) {
+    if (isLocked) return;
     final LatticeEdge? edge = _container
         .read(latticeDocumentProvider)
         .edges[edgeId];
@@ -1141,6 +1258,7 @@ class LatticeController extends ChangeNotifier {
   /// Starts a marquee at [screenPosition], anchoring the selection rect
   /// in flow coordinates.
   void beginMarquee(Offset screenPosition) {
+    if (isLocked) return;
     _marqueeAnchor = screenToFlow(screenPosition);
     _container.read(latticeDragProvider.notifier).set(
           LatticeDragState.marquee(
