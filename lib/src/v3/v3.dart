@@ -33,3 +33,5 @@ export 'lattice_lock.dart';
 export 'canvas_toolbar.dart';
 export 'canvas_panel.dart';
 export 'keyboard_shortcuts.dart';
+export 'lattice_a11y.dart';
+export 'dataflow_providers.dart';

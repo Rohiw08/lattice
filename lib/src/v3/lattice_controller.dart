@@ -229,6 +229,27 @@ class LatticeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Replaces the `data` payload of node [nodeId] via `copyWith` with a
+  /// single history `push`, one `replace`, and one notification. No-op
+  /// (no history, no replace, no notify) for unknown ids or when the
+  /// payload is already equal.
+  void updateNodeData(String nodeId, Object? data) {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    final LatticeNode? node = current.nodes[nodeId];
+    if (node == null) return;
+    final LatticeNode updated = node.copyWith(data: data);
+    if (updated == node) return;
+    _history.push(current);
+    final Map<String, LatticeNode> nodes =
+        Map<String, LatticeNode>.of(current.nodes);
+    nodes[nodeId] = updated;
+    _container
+        .read(latticeDocumentProvider.notifier)
+        .replace(current.copyWith(nodes: nodes));
+    notifyListeners();
+  }
+
   /// Removes nodes [ids] (edges untouched; cascade is Task 4).
   /// Notifies listeners exactly once. No-op (no push, no replace, no
   /// notify) when nothing is removed.

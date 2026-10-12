@@ -128,13 +128,22 @@ class _LatticeNodeShell extends ConsumerWidget {
     final Widget body = nodeBuilders[node.type]?.call(context, node, selected) ??
         _defaultNodeBody(node, selected);
     final Map<String, LatticeHandle> handles = node.resolveHandles();
+    final String label = node.semanticsLabel ??
+        (node.data is String ? node.data as String : null) ??
+        node.id;
+    final bool selectable = node.selectable ?? true;
     if (handles.isEmpty) {
       return Positioned(
         left: rect.left,
         top: rect.top,
         width: rect.width,
         height: rect.height,
-        child: body,
+        child: Semantics(
+          label: label,
+          button: selectable,
+          selected: selected,
+          child: body,
+        ),
       );
     }
     // Handle overlay: node bodies are user builders, so the shell mounts
@@ -145,21 +154,26 @@ class _LatticeNodeShell extends ConsumerWidget {
       top: rect.top,
       width: rect.width,
       height: rect.height,
-      child: Stack(
-        children: <Widget>[
-          body,
-          for (final MapEntry<String, LatticeHandle> entry
-              in handles.entries)
-            Positioned(
-              left: entry.value.position.dx +
-                  entry.value.size.width / 2 -
-                  latticeHandleHitExtent(entry.value.size.width) / 2,
-              top: entry.value.position.dy +
-                  entry.value.size.height / 2 -
-                  latticeHandleHitExtent(entry.value.size.height) / 2,
-              child: LatticeHandleWidget(nodeId: id, handle: entry.value),
-            ),
-        ],
+      child: Semantics(
+        label: label,
+        button: selectable,
+        selected: selected,
+        child: Stack(
+          children: <Widget>[
+            body,
+            for (final MapEntry<String, LatticeHandle> entry
+                in handles.entries)
+              Positioned(
+                left: entry.value.position.dx +
+                    entry.value.size.width / 2 -
+                    latticeHandleHitExtent(entry.value.size.width) / 2,
+                top: entry.value.position.dy +
+                    entry.value.size.height / 2 -
+                    latticeHandleHitExtent(entry.value.size.height) / 2,
+                child: LatticeHandleWidget(nodeId: id, handle: entry.value),
+              ),
+          ],
+        ),
       ),
     );
   }
