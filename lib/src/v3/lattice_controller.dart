@@ -113,6 +113,109 @@ class LatticeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Inserts (or overwrites, on duplicate id) node [n].
+  /// Notifies listeners exactly once.
+  void addNode(LatticeNode n) {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    // V3-4 Task 2: route through history
+    _container
+        .read(latticeDocumentProvider.notifier)
+        .replace(current.withNode(n));
+    notifyListeners();
+  }
+
+  /// Inserts (or overwrites, on duplicate id) edge [e].
+  /// Notifies listeners exactly once.
+  void addEdge(LatticeEdge e) {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    // V3-4 Task 2: route through history
+    _container
+        .read(latticeDocumentProvider.notifier)
+        .replace(current.withEdge(e));
+    notifyListeners();
+  }
+
+  /// Applies [positions] to existing nodes only (unknown ids ignored) with
+  /// a single `replace` + notify once. No-op (no replace, no notify) when
+  /// nothing effectively changes.
+  void moveNodes(Map<String, Offset> positions) {
+    if (positions.isEmpty) return;
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    Map<String, LatticeNode>? next;
+    positions.forEach((String id, Offset position) {
+      final LatticeNode? node = (next ?? current.nodes)[id];
+      if (node == null || node.position == position) return;
+      next ??= Map<String, LatticeNode>.of(current.nodes);
+      next![id] = node.copyWith(position: position);
+    });
+    if (next == null) return;
+    // V3-4 Task 2: route through history
+    _container
+        .read(latticeDocumentProvider.notifier)
+        .replace(current.copyWith(nodes: next));
+    notifyListeners();
+  }
+
+  /// Removes nodes [ids] (edges untouched; cascade is Task 4).
+  /// Notifies listeners exactly once.
+  void removeNodes(Set<String> ids) {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    // V3-4 Task 2: route through history
+    _container
+        .read(latticeDocumentProvider.notifier)
+        .replace(current.withoutNodes(ids));
+    notifyListeners();
+  }
+
+  /// Removes edges [ids]. Notifies listeners exactly once.
+  void removeEdges(Set<String> ids) {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    // V3-4 Task 2: route through history
+    _container
+        .read(latticeDocumentProvider.notifier)
+        .replace(current.withoutEdges(ids));
+    notifyListeners();
+  }
+
+  /// Sets the session selection. Selection-only: never notifies
+  /// controller listeners.
+  void select(Set<String> nodeIds, [Set<String> edgeIds = const {}]) {
+    _container.read(latticeSelectionProvider.notifier).setSelection(
+          LatticeSelection(
+            nodes: Set<String>.of(nodeIds),
+            edges: Set<String>.of(edgeIds),
+          ),
+        );
+  }
+
+  /// Clears the session selection. Never notifies controller listeners.
+  void deselectAll() {
+    _container.read(latticeSelectionProvider.notifier).clear();
+  }
+
+  /// Selects all node + edge ids in the document. Never notifies
+  /// controller listeners.
+  void selectAll() {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    _container.read(latticeSelectionProvider.notifier).setSelection(
+          LatticeSelection(
+            nodes: Set<String>.of(current.nodes.keys),
+            edges: Set<String>.of(current.edges.keys),
+          ),
+        );
+  }
+
+  /// Returns the current document (same instance, no copy).
+  LatticeDocument save() {
+    return _container.read(latticeDocumentProvider);
+  }
+
   /// Marks the controller as mounted. Canvas use only.
   @internal
   void attach() {
