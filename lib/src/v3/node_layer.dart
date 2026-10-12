@@ -6,6 +6,7 @@ import 'lattice_cull.dart';
 import 'lattice_handle.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
+import 'lattice_theme.dart';
 import 'node_resizer.dart';
 import 'session_providers.dart';
 
@@ -126,7 +127,7 @@ class _LatticeNodeShell extends ConsumerWidget {
               ) &
               (liveSize ?? node.size));
     final Widget body = nodeBuilders[node.type]?.call(context, node, selected) ??
-        _defaultNodeBody(node, selected);
+        _defaultNodeBody(node, selected, _themeOf(context));
     final Map<String, LatticeHandle> handles = node.resolveHandles();
     final String label = node.semanticsLabel ??
         (node.data is String ? node.data as String : null) ??
@@ -179,17 +180,21 @@ class _LatticeNodeShell extends ConsumerWidget {
   }
 }
 
-Widget _defaultNodeBody(LatticeNode node, bool selected) {
+/// Theme of the nearest [LatticeThemeScope], or the light theme when the
+/// layer is mounted standalone (no scope).
+LatticeTheme _themeOf(BuildContext context) =>
+    LatticeThemeScope.maybeOf(context) ?? LatticeTheme.light();
+
+Widget _defaultNodeBody(LatticeNode node, bool selected, LatticeTheme theme) {
+  final LatticeNodeStyle style = theme.resolvedNode;
   return Container(
     decoration: BoxDecoration(
-      color: const Color(0xFFFFFFFF),
+      color: style.background,
       border: Border.all(
-        color: selected
-            ? const Color(0xFF2563EB)
-            : const Color(0xFF94A3B8),
-        width: selected ? 2.0 : 1.0,
+        color: selected ? style.selectedBorder : style.border,
+        width: selected ? style.selectedBorderWidth : style.borderWidth,
       ),
-      borderRadius: BorderRadius.circular(8.0),
+      borderRadius: BorderRadius.circular(style.borderRadius),
     ),
     alignment: Alignment.center,
     child: Text(

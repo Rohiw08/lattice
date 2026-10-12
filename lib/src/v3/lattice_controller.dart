@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'lattice_callbacks.dart';
 import 'lattice_camera.dart';
 import 'lattice_clipboard.dart';
 import 'lattice_codecs.dart';
@@ -66,6 +67,7 @@ class LatticeController extends ChangeNotifier {
 
   final ProviderContainer _container;
   LatticeOptions _options;
+  LatticeCallbacks? _callbacks;
   bool _attached = false;
   bool _disposed = false;
 
@@ -131,6 +133,17 @@ class LatticeController extends ChangeNotifier {
     _options = value;
   }
 
+  /// Observation hooks attached by the owning canvas (or directly by user
+  /// code). Null until [attachCallbacks] runs.
+  LatticeCallbacks? get callbacks => _callbacks;
+
+  /// Attaches [callbacks] to this session. Canvas use only: called once in
+  /// [LatticeCanvas.initState]; later attachments overwrite earlier ones.
+  @internal
+  void attachCallbacks(LatticeCallbacks callbacks) {
+    _callbacks = callbacks;
+  }
+
   /// Whether a [LatticeCanvas] is currently mounted on this controller.
   bool get isAttached => _attached;
 
@@ -169,10 +182,11 @@ class LatticeController extends ChangeNotifier {
   }
 
   /// Replaces the whole document and clears the selection.
-  /// Notifies listeners exactly once.
+  /// Notifies listeners exactly once. `onSelectionChange` fires when the
+  /// clear actually changed a non-empty selection.
   void load(LatticeDocument document) {
     _container.read(latticeDocumentProvider.notifier).replace(document);
-    _container.read(latticeSelectionProvider.notifier).clear();
+    deselectAll();
     _history.reset();
     notifyListeners();
   }
@@ -190,6 +204,7 @@ class LatticeController extends ChangeNotifier {
         .read(latticeDocumentProvider.notifier)
         .replace(next);
     notifyListeners();
+    _callbacks?.onNodesAdded?.call(<LatticeNode>[n]);
   }
 
   /// Inserts (or overwrites, on duplicate id) edge [e].
@@ -205,6 +220,7 @@ class LatticeController extends ChangeNotifier {
         .read(latticeDocumentProvider.notifier)
         .replace(next);
     notifyListeners();
+    _callbacks?.onEdgesAdded?.call(<LatticeEdge>[e]);
   }
 
   /// Applies [positions] to existing nodes only (unknown ids ignored) with
@@ -258,11 +274,16 @@ class LatticeController extends ChangeNotifier {
         _container.read(latticeDocumentProvider);
     final LatticeDocument next = current.withoutNodes(ids);
     if (next == current) return;
+    final List<LatticeNode> removed = <LatticeNode>[
+      for (final String id in current.nodes.keys)
+        if (ids.contains(id)) current.nodes[id]!,
+    ];
     _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
         .replace(next);
     notifyListeners();
+    _callbacks?.onNodesRemoved?.call(removed);
   }
 
   /// Removes edges [ids]. Notifies listeners exactly once. No-op (no
@@ -272,11 +293,16 @@ class LatticeController extends ChangeNotifier {
         _container.read(latticeDocumentProvider);
     final LatticeDocument next = current.withoutEdges(ids);
     if (next == current) return;
+    final List<LatticeEdge> removed = <LatticeEdge>[
+      for (final String id in current.edges.keys)
+        if (ids.contains(id)) current.edges[id]!,
+    ];
     _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
         .replace(next);
     notifyListeners();
+    _callbacks?.onEdgesRemoved?.call(removed);
   }
 
   /// Deletes nodes [nodeIds] plus ALL descendants (walked downward via
@@ -357,6 +383,12 @@ class LatticeController extends ChangeNotifier {
     _container.read(latticeDocumentProvider.notifier).replace(next);
     _coerceSelection(next);
     notifyListeners();
+    if (removedNodes.isNotEmpty) {
+      _callbacks?.onNodesRemoved?.call(removedNodes);
+    }
+    if (removedEdges.isNotEmpty) {
+      _callbacks?.onEdgesRemoved?.call(removedEdges);
+    }
     return LatticeDeletedElements(
       nodes: removedNodes,
       edges: removedEdges,
@@ -375,32 +407,50 @@ class LatticeController extends ChangeNotifier {
   }
 
   /// Sets the session selection. Selection-only: never notifies
-  /// controller listeners.
+  /// controller listeners. [callbacks]' `onSelectionChange` fires once,
+  /// after the provider write, only when the selection actually changed.
   void select(Set<String> nodeIds, [Set<String> edgeIds = const {}]) {
-    _container.read(latticeSelectionProvider.notifier).setSelection(
-          LatticeSelection(
-            nodes: Set<String>.of(nodeIds),
-            edges: Set<String>.of(edgeIds),
-          ),
-        );
+    final LatticeSelection next = LatticeSelection(
+      nodes: Set<String>.of(nodeIds),
+      edges: Set<String>.of(edgeIds),
+    );
+    final LatticeSelection current =
+        _container.read(latticeSelectionProvider);
+    _container.read(latticeSelectionProvider.notifier).setSelection(next);
+    if (next != current) {
+      _callbacks?.onSelectionChange?.call(next);
+    }
   }
 
   /// Clears the session selection. Never notifies controller listeners.
+  /// `onSelectionChange` fires once when the selection was non-empty.
   void deselectAll() {
+    final LatticeSelection current =
+        _container.read(latticeSelectionProvider);
     _container.read(latticeSelectionProvider.notifier).clear();
+    if (!current.isEmpty) {
+      _callbacks?.onSelectionChange?.call(
+        _container.read(latticeSelectionProvider),
+      );
+    }
   }
 
   /// Selects all node + edge ids in the document. Never notifies
-  /// controller listeners.
+  /// controller listeners. `onSelectionChange` fires once when the
+  /// selection actually changed.
   void selectAll() {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
-    _container.read(latticeSelectionProvider.notifier).setSelection(
-          LatticeSelection(
-            nodes: Set<String>.of(current.nodes.keys),
-            edges: Set<String>.of(current.edges.keys),
-          ),
-        );
+    final LatticeSelection next = LatticeSelection(
+      nodes: Set<String>.of(current.nodes.keys),
+      edges: Set<String>.of(current.edges.keys),
+    );
+    final LatticeSelection previous =
+        _container.read(latticeSelectionProvider);
+    _container.read(latticeSelectionProvider.notifier).setSelection(next);
+    if (next != previous) {
+      _callbacks?.onSelectionChange?.call(next);
+    }
   }
 
   /// Returns the current document (same instance, no copy).
@@ -462,6 +512,13 @@ class LatticeController extends ChangeNotifier {
   /// resize) and the camera verbs below no-op; selection taps still work.
   bool get isLocked => _container.read(latticeLockProvider);
 
+  /// Whether gesture starts and the camera verbs are enabled: the session is
+  /// unlocked AND `options.interactive` is true. Distinct from [isLocked]
+  /// (a session toggle): `interactive: false` is a render-only canvas.
+  /// Controller/router use only.
+  @internal
+  bool get gesturesEnabled => !isLocked && _options.interactive;
+
   /// Flips the session lock. Session-only: never notifies controller
   /// listeners (controls rebuild by watching [latticeLockProvider]).
   void toggleLock() {
@@ -469,10 +526,11 @@ class LatticeController extends ChangeNotifier {
   }
 
   /// Zooms the camera in by 1.25x about the pane center (or [Offset.zero]
-  /// before first layout publishes a pane size). No-op when locked.
-  /// Camera-only: never touches the document, never notifies.
+  /// before first layout publishes a pane size). No-op when locked or when
+  /// `options.interactive` is false. Camera-only: never touches the
+  /// document, never notifies.
   void zoomIn() {
-    if (isLocked) return;
+    if (!gesturesEnabled) return;
     _container.read(latticeCameraProvider.notifier).zoomBy(
           1.25,
           focal: _paneCenter(),
@@ -481,10 +539,10 @@ class LatticeController extends ChangeNotifier {
 
   /// Zooms the camera out by 1/1.25x about the pane center (or
   /// [Offset.zero] before first layout publishes a pane size). No-op
-  /// when locked. Camera-only: never touches the document, never
-  /// notifies.
+  /// when locked or when `options.interactive` is false. Camera-only:
+  /// never touches the document, never notifies.
   void zoomOut() {
-    if (isLocked) return;
+    if (!gesturesEnabled) return;
     _container.read(latticeCameraProvider.notifier).zoomBy(
           1 / 1.25,
           focal: _paneCenter(),
@@ -498,10 +556,11 @@ class LatticeController extends ChangeNotifier {
   /// with [padding] logical px on each side, zoomed no higher than
   /// [maxZoom]. Empty document, unpublished pane size, fully padded-out
   /// pane, or non-finite result: silent no-op (no camera write, no
-  /// notify). No-op when locked. Camera-only: never touches the
-  /// document, never notifies controller listeners.
+  /// notify). No-op when locked or when `options.interactive` is false.
+  /// Camera-only: never touches the document, never notifies controller
+  /// listeners.
   void fitView({double padding = 48, double maxZoom = 1.0}) {
-    if (isLocked) return;
+    if (!gesturesEnabled) return;
     final Map<String, LatticeNode> nodes =
         _container.read(latticeDocumentProvider).nodes;
     if (nodes.isEmpty) return;
@@ -542,6 +601,7 @@ class LatticeController extends ChangeNotifier {
   /// Copies the live camera viewport into the document with one
   /// history-free `replace` + notify. No-op (no replace, no notify) when
   /// the document viewport already equals the camera viewport.
+  /// `onViewportChange` fires once with the committed viewport.
   void saveViewport() {
     final LatticeViewportValue viewport =
         _container.read(latticeCameraProvider.notifier).viewport;
@@ -552,6 +612,7 @@ class LatticeController extends ChangeNotifier {
         .read(latticeDocumentProvider.notifier)
         .replace(current.copyWith(viewport: viewport));
     notifyListeners();
+    _callbacks?.onViewportChange?.call(viewport);
   }
 
   /// Pane center in screen px, or [Offset.zero] before [LatticeCanvas]
@@ -737,18 +798,17 @@ class LatticeController extends ChangeNotifier {
   /// ties broken by smallest id) whose absolute rect contains the flow
   /// point, or `null` on empty space. Selects exactly the hit node;
   /// clears the selection otherwise (single emission; no-op when empty).
-  /// Selection-only: never notifies controller listeners.
+  /// Selection-only: never notifies controller listeners; goes through
+  /// [select]/[deselectAll], so `onSelectionChange` fires on a real change.
   void tapAt(Offset screenPosition) {
     final Map<String, LatticeNode> nodes =
         _container.read(latticeDocumentProvider).nodes;
     _syncHitIndex(nodes);
     final String? hit = _hitNodeAt(nodes, screenToFlow(screenPosition));
     if (hit == null) {
-      _container.read(latticeSelectionProvider.notifier).clear();
+      deselectAll();
     } else {
-      _container
-          .read(latticeSelectionProvider.notifier)
-          .setSelection(LatticeSelection(nodes: <String>{hit}));
+      select(<String>{hit});
     }
   }
 
@@ -757,7 +817,7 @@ class LatticeController extends ChangeNotifier {
   /// selected (tap-then-drag in one gesture). Unknown ids are a no-op.
   /// Selection/drag state only: never notifies controller listeners.
   void beginNodeDrag(String id) {
-    if (isLocked) return;
+    if (!gesturesEnabled) return;
     final Map<String, LatticeNode> nodes =
         _container.read(latticeDocumentProvider).nodes;
     _syncHitIndex(nodes);
@@ -766,9 +826,7 @@ class LatticeController extends ChangeNotifier {
     final LatticeSelection selection =
         _container.read(latticeSelectionProvider);
     if (!selection.nodes.contains(id)) {
-      _container
-          .read(latticeSelectionProvider.notifier)
-          .setSelection(LatticeSelection(nodes: <String>{id}));
+      select(<String>{id});
     }
     _dragStartPositions = <String, Offset>{id: node.position};
     _dragAccumulated = Offset.zero;
@@ -859,7 +917,7 @@ class LatticeController extends ChangeNotifier {
   /// otherwise a silent no-op (no drag state, no history, no notify).
   /// Session-only: never notifies controller listeners.
   void beginResize(String id, LatticeResizeHandle handle) {
-    if (isLocked) return;
+    if (!gesturesEnabled) return;
     final LatticeNode? node =
         _container.read(latticeDocumentProvider).nodes[id];
     if (node == null || node.resizable != true) return;
@@ -953,10 +1011,12 @@ class LatticeController extends ChangeNotifier {
         width = height * ratio;
       }
     }
-    // V3-6 Task 6: replace these hardcoded floors/ceilings with
-    // LatticeOptions resize ceilings.
-    const Size minFallback = Size(40, 40);
-    const Size canvasMax = Size(2000, 2000);
+    // Floors/ceilings come from LatticeOptions: per-node minSize/maxSize
+    // win, with the options bounds as the canvas-wide fallback.
+    final Size minFallback =
+        Size(_options.resizeMinSize, _options.resizeMinSize);
+    final Size canvasMax =
+        Size(_options.resizeMaxSize, _options.resizeMaxSize);
     final Size minSize = node.minSize ?? minFallback;
     final double maxWidth = math.min(
       node.maxSize?.width ?? canvasMax.width,
@@ -1039,7 +1099,7 @@ class LatticeController extends ChangeNotifier {
   /// handle's flow center ([_handleFlowCenter]). Session-only: no
   /// document replace, no history, no controller notification.
   void beginConnect(LatticeEndpoint from) {
-    if (isLocked) return;
+    if (!gesturesEnabled) return;
     _container.read(latticeDragProvider.notifier).set(
           LatticeDragState.connect(
             from: from,
@@ -1068,8 +1128,9 @@ class LatticeController extends ChangeNotifier {
   /// non-connect session) cancels silently: no history, no notify.
   /// Otherwise validates via [latticeValidateConnection] (defaults: no
   /// self-connections, no duplicates) — invalid cancels silently; valid
-  /// mints `edge_<n>` via [addEdge] (one history entry) then resets the
-  /// drag to idle.
+  /// mints `edge_<n>` via [addEdge] (one history entry, one `onEdgesAdded`)
+  /// then resets the drag to idle and fires `onConnect` with the created
+  /// edge.
   void endConnect(LatticeEndpoint? target) {
     final LatticeDragState drag = _container.read(latticeDragProvider);
     final LatticeEndpoint? from = drag.from;
@@ -1092,12 +1153,16 @@ class LatticeController extends ChangeNotifier {
           );
       return;
     }
-    addEdge(
-      LatticeEdge(id: _freshEdgeId(current), source: from, target: target),
+    final LatticeEdge edge = LatticeEdge(
+      id: _freshEdgeId(current),
+      source: from,
+      target: target,
     );
+    addEdge(edge);
     _container.read(latticeDragProvider.notifier).set(
           const LatticeDragState.idle(),
         );
+    _callbacks?.onConnect?.call(edge);
   }
 
   /// Starts a reconnect session for edge [edgeId]: the end flagged by
@@ -1107,7 +1172,7 @@ class LatticeController extends ChangeNotifier {
   /// history, no notification. Session-only: never notifies controller
   /// listeners.
   void beginReconnect(String edgeId, {required bool sourceEnd}) {
-    if (isLocked) return;
+    if (!gesturesEnabled) return;
     final LatticeEdge? edge = _container
         .read(latticeDocumentProvider)
         .edges[edgeId];
@@ -1279,7 +1344,7 @@ class LatticeController extends ChangeNotifier {
   /// Starts a marquee at [screenPosition], anchoring the selection rect
   /// in flow coordinates.
   void beginMarquee(Offset screenPosition) {
-    if (isLocked) return;
+    if (!gesturesEnabled) return;
     _marqueeAnchor = screenToFlow(screenPosition);
     _container.read(latticeDragProvider.notifier).set(
           LatticeDragState.marquee(
@@ -1320,9 +1385,7 @@ class LatticeController extends ChangeNotifier {
             ...hits,
           }
         : hits;
-    _container
-        .read(latticeSelectionProvider.notifier)
-        .setSelection(LatticeSelection(nodes: next));
+    select(next);
     _container.read(latticeDragProvider.notifier).set(
           const LatticeDragState.idle(),
         );

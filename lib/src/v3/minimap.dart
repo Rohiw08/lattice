@@ -5,6 +5,7 @@ import 'lattice_camera.dart';
 import 'lattice_cull.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
+import 'lattice_theme.dart';
 import 'lattice_viewport_value.dart';
 import 'session_providers.dart';
 
@@ -42,6 +43,9 @@ class LatticeMinimap extends ConsumerWidget {
 
     final Rect bounds = _contentBounds(nodes);
     final _MinimapMapping mapping = _MinimapMapping(bounds, size);
+    final LatticeTheme theme =
+        LatticeThemeScope.maybeOf(context) ?? LatticeTheme.light();
+    final LatticeMinimapStyle style = theme.resolvedMinimap;
 
     final List<Rect> nodeRects = <Rect>[
       for (final String id in nodes.keys)
@@ -94,12 +98,20 @@ class LatticeMinimap extends ConsumerWidget {
           children: <Widget>[
             CustomPaint(
               size: Size.square(size),
-              painter: _MinimapNodePainter(rects: nodeRects),
+              painter: _MinimapNodePainter(
+                rects: nodeRects,
+                background: style.background,
+                nodeColor: style.node,
+              ),
             ),
             CustomPaint(
               key: const ValueKey<String>('minimapViewport'),
               size: Size.square(size),
-              painter: _MinimapViewportPainter(rect: viewportRect),
+              painter: _MinimapViewportPainter(
+                rect: viewportRect,
+                color: style.viewport,
+                strokeWidth: style.viewportWidth,
+              ),
             ),
           ],
         ),
@@ -165,16 +177,26 @@ class _MinimapMapping {
   }
 }
 
-/// Paints one filled rect per node (single [Paint], single paint pass).
+/// Paints the minimap surface fill, then one filled rect per node
+/// (single [Paint], single paint pass).
 class _MinimapNodePainter extends CustomPainter {
-  _MinimapNodePainter({required this.rects});
+  _MinimapNodePainter({
+    required this.rects,
+    required this.background,
+    required this.nodeColor,
+  });
 
   final List<Rect> rects;
+  final Color background;
+  final Color nodeColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // V3-6 Task 6: theme
-    final Paint paint = Paint()..color = const Color(0xFFCBD5E1);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = background,
+    );
+    final Paint paint = Paint()..color = nodeColor;
     for (final Rect rect in rects) {
       canvas.drawRect(rect, paint);
     }
@@ -182,6 +204,10 @@ class _MinimapNodePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MinimapNodePainter oldDelegate) {
+    if (background != oldDelegate.background ||
+        nodeColor != oldDelegate.nodeColor) {
+      return true;
+    }
     if (rects.length != oldDelegate.rects.length) return true;
     for (var i = 0; i < rects.length; i++) {
       if (rects[i] != oldDelegate.rects[i]) return true;
@@ -192,24 +218,31 @@ class _MinimapNodePainter extends CustomPainter {
 
 /// Paints the viewport rect as a stroked outline.
 class _MinimapViewportPainter extends CustomPainter {
-  _MinimapViewportPainter({required this.rect});
+  _MinimapViewportPainter({
+    required this.rect,
+    required this.color,
+    required this.strokeWidth,
+  });
 
   final Rect? rect;
+  final Color color;
+  final double strokeWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
     final Rect? target = rect;
     if (target == null) return;
-    // V3-6 Task 6: theme
     final Paint paint = Paint()
-      ..color = const Color(0xFF64748B)
+      ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
+      ..strokeWidth = strokeWidth;
     canvas.drawRect(target, paint);
   }
 
   @override
   bool shouldRepaint(covariant _MinimapViewportPainter oldDelegate) {
-    return rect != oldDelegate.rect;
+    return rect != oldDelegate.rect ||
+        color != oldDelegate.color ||
+        strokeWidth != oldDelegate.strokeWidth;
   }
 }

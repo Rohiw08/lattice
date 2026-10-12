@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
 import 'lattice_selection.dart';
+import 'lattice_theme.dart';
 import 'session_providers.dart';
 
 /// Which border point of a node is being dragged to resize it.
@@ -18,7 +19,8 @@ enum LatticeResizeHandle {
   left,
 }
 
-// V3-6 Task 6: move these hardcoded visuals into LatticeTheme.
+/// Handle square edge length in flow px. The theme carries paint values
+/// only, so the square size stays a constant.
 const double kLatticeResizeHandleSize = 10.0;
 
 /// Flow-space center of [handle] on the border of [nodeRect].
@@ -129,6 +131,9 @@ class LatticeNodeResizer extends ConsumerWidget {
     }
     final LatticeDragState drag = ref.watch(latticeDragProvider);
     final Rect rect = latticeResizeNodeRect(nodes, drag, id);
+    final LatticeTheme theme =
+        LatticeThemeScope.maybeOf(context) ?? LatticeTheme.light();
+    final LatticeNodeStyle nodeStyle = theme.resolvedNode;
     return Stack(
       children: <Widget>[
         for (final LatticeResizeHandle handle in LatticeResizeHandle.values)
@@ -142,10 +147,10 @@ class LatticeNodeResizer extends ConsumerWidget {
             child: Container(
               key: ValueKey<String>('lattice-resize-${handle.name}'),
               decoration: BoxDecoration(
-                // V3-6 Task 6: source fill/border from LatticeTheme.
-                color: const Color(0xFFFFFFFF),
+                // Surface fill + selection accent from the theme.
+                color: nodeStyle.background,
                 border: Border.all(
-                  color: const Color(0xFF2563EB),
+                  color: nodeStyle.selectedBorder,
                   width: 1.0,
                 ),
               ),

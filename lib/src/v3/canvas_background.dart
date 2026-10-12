@@ -2,13 +2,18 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'lattice_camera.dart';
+import 'lattice_theme.dart';
 import 'lattice_viewport_value.dart';
 
 /// Background pattern for the canvas pane.
-enum LatticeBackgroundStyle { dots, lines, none }
+enum LatticeBackgroundPattern { dots, lines, none }
 
 /// Screen-space canvas background (dots or grid lines) derived from the
 /// camera matrix.
+///
+/// The pattern comes from [style]; the paint colors come from the nearest
+/// [LatticeThemeScope] background component (light fallback when mounted
+/// standalone).
 ///
 /// Watches ONLY [latticeCameraProvider]: camera ticks repaint it, but
 /// document/selection/drag emissions never rebuild it. The painter's
@@ -17,22 +22,28 @@ enum LatticeBackgroundStyle { dots, lines, none }
 class LatticeBackground extends ConsumerWidget {
   const LatticeBackground({
     super.key,
-    this.style = LatticeBackgroundStyle.dots,
+    this.style = LatticeBackgroundPattern.dots,
     this.gap = 24,
   });
 
-  final LatticeBackgroundStyle style;
+  final LatticeBackgroundPattern style;
   final double gap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final Matrix4 matrix = ref.watch(latticeCameraProvider);
+    final LatticeTheme theme =
+        LatticeThemeScope.maybeOf(context) ?? LatticeTheme.light();
+    final LatticeBackgroundStyle background = theme.resolvedBackground;
     return SizedBox.expand(
       child: CustomPaint(
         painter: LatticeBackgroundPainter(
           matrix: matrix,
           style: style,
           gap: gap,
+          dotColor: background.dotColor,
+          lineColor: background.lineColor,
+          dotRadius: background.dotRadius,
         ),
       ),
     );
@@ -41,22 +52,28 @@ class LatticeBackground extends ConsumerWidget {
 
 /// Paints [style] in screen space: the grid spacing is [gap] scaled by
 /// the camera zoom (clamped to 8..96px to avoid dot explosion at extreme
-/// zooms), offset by the camera translation modulo the spacing. Dot
-/// radius stays constant at 1.5px regardless of zoom.
+/// zooms), offset by the camera translation modulo the spacing. Dots use
+/// [dotRadius] (constant in screen space), lines use [lineColor].
 class LatticeBackgroundPainter extends CustomPainter {
   LatticeBackgroundPainter({
     required this.matrix,
     required this.style,
     required this.gap,
+    required this.dotColor,
+    required this.lineColor,
+    required this.dotRadius,
   });
 
   final Matrix4 matrix;
-  final LatticeBackgroundStyle style;
+  final LatticeBackgroundPattern style;
   final double gap;
+  final Color dotColor;
+  final Color lineColor;
+  final double dotRadius;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (style == LatticeBackgroundStyle.none) return;
+    if (style == LatticeBackgroundPattern.none) return;
     final LatticeViewportValue viewport = LatticeViewportValue.fromMatrix(
       matrix,
     );
@@ -65,20 +82,18 @@ class LatticeBackgroundPainter extends CustomPainter {
     final double startX = _positiveMod(viewport.offset.dx, spacing);
     final double startY = _positiveMod(viewport.offset.dy, spacing);
 
-    if (style == LatticeBackgroundStyle.dots) {
-      // V3-6 Task 6: theme
-      final Paint paint = Paint()..color = const Color(0xFFE2E8F0);
+    if (style == LatticeBackgroundPattern.dots) {
+      final Paint paint = Paint()..color = dotColor;
       for (var x = startX; x <= size.width; x += spacing) {
         for (var y = startY; y <= size.height; y += spacing) {
-          canvas.drawCircle(Offset(x, y), 1.5, paint);
+          canvas.drawCircle(Offset(x, y), dotRadius, paint);
         }
       }
       return;
     }
 
-    // V3-6 Task 6: theme
     final Paint paint = Paint()
-      ..color = const Color(0xFFF1F5F9)
+      ..color = lineColor
       ..strokeWidth = 1.0;
     for (var x = startX; x <= size.width; x += spacing) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
@@ -92,7 +107,10 @@ class LatticeBackgroundPainter extends CustomPainter {
   bool shouldRepaint(covariant LatticeBackgroundPainter oldDelegate) {
     return !identical(matrix, oldDelegate.matrix) ||
         style != oldDelegate.style ||
-        gap != oldDelegate.gap;
+        gap != oldDelegate.gap ||
+        dotColor != oldDelegate.dotColor ||
+        lineColor != oldDelegate.lineColor ||
+        dotRadius != oldDelegate.dotRadius;
   }
 }
 

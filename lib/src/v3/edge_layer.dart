@@ -6,6 +6,7 @@ import 'lattice_camera.dart';
 import 'lattice_cull.dart';
 import 'lattice_document.dart';
 import 'lattice_edge.dart';
+import 'lattice_theme.dart';
 import 'session_providers.dart';
 
 /// Paint-version counter for the edge layer.
@@ -27,10 +28,11 @@ final latticeEdgePaintVersionProvider =
   LatticeEdgePaintVersion.new,
 );
 
-/// Minimal edge stroke theming.
+/// Edge stroke theming: selected/unselected color + width pairs for the
+/// single edge painter.
 ///
-/// Full theming lands in V3-6; this value class only carries the
-/// selected/unselected color + width pairs the single painter needs.
+/// The theme's edge component is a [LatticeEdgeStyle]; the values here are
+/// the paint-only subset the layer needs.
 @immutable
 class LatticeEdgeStyle {
   const LatticeEdgeStyle({
@@ -140,6 +142,10 @@ class LatticeEdgePainter extends CustomPainter {
 
 /// Single-painter edge layer, mounted under the node layer.
 ///
+/// The effective [LatticeEdgeStyle] is the explicit [style] when given,
+/// else the nearest [LatticeThemeScope]'s edge style, else the light
+/// default.
+///
 /// Owns an [EdgePathCache] in the [_LatticeEdgeLayerBody] state so the
 /// cache survives rebuilds. On each build the state syncs the cache to
 /// the current document and bumps [latticeEdgePaintVersionProvider]
@@ -149,13 +155,15 @@ class LatticeEdgePainter extends CustomPainter {
 /// same as the cull) and whose endpoints exist; `hidden == true` edges
 /// are skipped.
 class LatticeEdgeLayer extends ConsumerWidget {
-  const LatticeEdgeLayer({super.key, this.style = const LatticeEdgeStyle()});
+  const LatticeEdgeLayer({super.key, this.style});
 
-  final LatticeEdgeStyle style;
+  final LatticeEdgeStyle? style;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return _LatticeEdgeLayerBody(style: style);
+    final LatticeTheme theme =
+        LatticeThemeScope.maybeOf(context) ?? LatticeTheme.light();
+    return _LatticeEdgeLayerBody(style: style ?? theme.resolvedEdge);
   }
 }
 

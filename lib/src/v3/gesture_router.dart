@@ -198,10 +198,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
   void _onPointerMove(PointerMoveEvent event) {
     _pointers[event.pointer] = event.localPosition;
     if (_panning) {
-      // Locked sessions swallow pan gestures: the `_panning` state machine
-      // still runs (so the gesture can't strand a node/marquee session),
-      // but the camera write is skipped.
-      if (_controller.isLocked) return;
+      // Locked or non-interactive sessions swallow pan gestures: the
+      // `_panning` state machine still runs (so the gesture can't strand
+      // a node/marquee session), but the camera write is skipped.
+      if (!_controller.gesturesEnabled) return;
       _controller.container
           .read(latticeCameraProvider.notifier)
           .panBy(event.delta);
