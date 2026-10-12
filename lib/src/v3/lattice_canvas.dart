@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'edge_layer.dart';
 import 'lattice_controller.dart';
 import 'lattice_cull.dart';
 import 'lattice_scope.dart';
@@ -87,6 +88,7 @@ class _LatticeCanvasState extends State<LatticeCanvas> {
               key: const ValueKey<String>('latticePane'),
               children: [
                 const SizedBox.expand(),
+                const LatticeEdgeLayer(),
                 LatticeNodeLayer(nodeBuilders: widget.nodeBuilders),
                 ...widget.overlays,
               ],

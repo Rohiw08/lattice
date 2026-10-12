@@ -19,3 +19,4 @@ export 'edge_paths.dart';
 export 'edge_path_cache.dart';
 export 'lattice_cull.dart';
 export 'node_layer.dart';
+export 'edge_layer.dart';
