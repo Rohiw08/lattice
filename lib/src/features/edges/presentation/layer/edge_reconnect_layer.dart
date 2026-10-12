@@ -13,6 +13,8 @@ class EdgeReconnectLayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Set-identity watch (not epoch): reconnect dots only depend on edge
+    // selection — node-selection emissions skip this layer entirely.
     final selected = ref.watch(
       internalControllerProvider.select((s) => s.selectedEdges),
     );

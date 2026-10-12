@@ -15,6 +15,40 @@ import 'package:lattice/lattice.dart';
 Offset benchGridPos(int i, {int cols = 30}) =>
     Offset((i % cols) * 100.0, (i ~/ cols) * 50.0);
 
+/// Sweep grid position: fixed 30-col layout, rows=ceil(N/30).
+/// Same formula as [benchGridPos]; separate name so sweep cells read
+/// explicitly in reports.
+Offset sweepGridPos(int i, {int cols = 30}) =>
+    Offset((i % cols) * 100.0, (i ~/ cols) * 50.0);
+
+/// Dense edges: chain (i-1→i) plus i-2→i plus i-3→i.
+/// N=100 → 99 + 98 + 97 = 294; N=450 → 449 + 448 + 447 = 1344.
+Map<String, FlowEdge> benchDenseEdges(int count, {int cols = 30}) {
+  final edges = <String, FlowEdge>{};
+  for (var i = 1; i < count; i++) {
+    edges['conn-$i'] = FlowEdge(
+      id: 'conn-$i',
+      sourceNodeId: 'node-${i - 1}',
+      targetNodeId: 'node-$i',
+    );
+    if (i >= 2) {
+      edges['conn-$i-b'] = FlowEdge(
+        id: 'conn-$i-b',
+        sourceNodeId: 'node-${i - 2}',
+        targetNodeId: 'node-$i',
+      );
+    }
+    if (i >= 3) {
+      edges['conn-$i-c'] = FlowEdge(
+        id: 'conn-$i-c',
+        sourceNodeId: 'node-${i - 3}',
+        targetNodeId: 'node-$i',
+      );
+    }
+  }
+  return edges;
+}
+
 /// 50x30 grid nodes with chain-friendly ids.
 Map<String, FlowNode<String>> benchGridNodes({
   required int count,

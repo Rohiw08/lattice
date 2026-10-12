@@ -31,9 +31,6 @@ import 'package:lattice/lattice.dart';
 - **React Flow parity** — familiar API surface (`fitView`, `getNodesBounds`,
   `onConnect`, …) for developers coming from React Flow.
 
-<!-- TODO(publish): add a screenshot/GIF of the canvas here and a matching
-     `screenshots:` entry in pubspec.yaml before the first pub.dev release. -->
-
 ## Quick start
 
 ```dart

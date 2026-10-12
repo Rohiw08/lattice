@@ -109,6 +109,9 @@ void watchSelectionChange(
   WidgetRef ref,
   void Function(CanvasSelection selection) onChange,
 ) {
+  // Record-of-sets watch: set instances change only on real selection
+  // changes (service fast paths guard rewraps), so identity compare keeps
+  // this to one call per selection commit.
   ref.listen<(Set<String>, Set<String>)>(
     flowStateProvider.select(
       (s) => (s.selectedNodes, s.selectedEdges),

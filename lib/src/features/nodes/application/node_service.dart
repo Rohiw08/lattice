@@ -34,6 +34,7 @@ class NodeService {
     final newNodes = Map<String, FlowNode>.from(state.nodes);
     final newNodeStates = Map<String, NodeRuntimeState>.from(state.nodeStates);
     var nextZ = state.maxZIndex;
+    var added = 0;
 
     for (final node in nodes) {
       if (newNodes.containsKey(node.id)) continue;
@@ -57,11 +58,15 @@ class NodeService {
 
       final newNode = node.copyWith(zIndex: assignedZ);
       newNodes[newNode.id] = newNode;
+      added++;
       // Initialize a default runtime state so nodes are interactable immediately
       if (!newNodeStates.containsKey(newNode.id)) {
         newNodeStates[newNode.id] = const NodeRuntimeState();
       }
     }
+
+    // All duplicates: return the identical state (no emission, no history).
+    if (added == 0) return state;
 
     // Second pass: if a parent was added in this batch after its children,
     // bump any children that ended up at or below the parent (auto only).
@@ -81,6 +86,7 @@ class NodeService {
       nodeStates: newNodeStates,
       maxZIndex: maxZ,
       minZIndex: newMinZ,
+      zOrderEpoch: state.zOrderEpoch + 1,
     );
   }
 
@@ -137,9 +143,16 @@ class NodeService {
       newSelectedNodes.remove(nodeId);
     }
 
+    // Bump the epoch only when the selection actually shrank (only removals
+    // happen above, so a length change is the exact condition).
+    final selectionChanged =
+        newSelectedNodes.length != state.selectedNodes.length;
+
     return state.copyWith(
       nodes: newNodes,
       selectedNodes: newSelectedNodes,
+      selectionEpoch:
+          selectionChanged ? state.selectionEpoch + 1 : state.selectionEpoch,
     );
   }
 
@@ -327,10 +340,17 @@ FlowCanvasState updateNode(
       minZ = math.min(minZ, n.zIndex);
     }
 
+    // Bump the z-order epoch only when the z landscape actually moved —
+    // position/data-only updates must not trash the layer sort cache.
+    final oldZ = state.nodes[node.id]!.zIndex;
+    final zChanged = newNodes[node.id]!.zIndex != oldZ ||
+        maxZ != state.maxZIndex ||
+        minZ != state.minZIndex;
     return state.copyWith(
       nodes: newNodes,
       maxZIndex: maxZ,
       minZIndex: minZ,
+      zOrderEpoch: zChanged ? state.zOrderEpoch + 1 : state.zOrderEpoch,
     );
   }
 

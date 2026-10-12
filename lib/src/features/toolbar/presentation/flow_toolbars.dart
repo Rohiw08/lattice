@@ -217,6 +217,15 @@ class FlowEdgeToolbar extends ConsumerWidget {
           if (edge == null || (edge.hidden ?? false)) {
             return const SizedBox.shrink();
           }
+          // Lazy-geometry demand fill (same pattern as cull/portal): the
+          // selected edge is always cull-included, but build order across
+          // layers is unspecified, so ensure here too (missing-only).
+          controller.edgeGeometryService.ensureGeoms(
+            state,
+            [edgeId],
+            defaultOrigin:
+                ref.read(flowOptionsProvider).nodeOptions.nodeOrigin,
+          );
           final geom = controller.edgeGeometryService.getGeom(edgeId);
           final anchor = flowPoint ?? geom?.bounds.center;
           if (anchor == null) return const SizedBox.shrink();

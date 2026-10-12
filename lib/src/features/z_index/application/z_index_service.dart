@@ -14,6 +14,7 @@ class ZIndexService {
     return state.copyWith(
       nodes: updatedNodes,
       maxZIndex: newZIndex,
+      zOrderEpoch: state.zOrderEpoch + 1,
     );
   }
 
@@ -30,6 +31,7 @@ class ZIndexService {
     return state.copyWith(
       nodes: updatedNodes,
       minZIndex: newZIndex,
+      zOrderEpoch: state.zOrderEpoch + 1,
     );
   }
 
@@ -50,6 +52,7 @@ class ZIndexService {
     return state.copyWith(
       nodes: updatedNodes,
       maxZIndex: zIndex - 1,
+      zOrderEpoch: state.zOrderEpoch + 1,
     );
   }
 
@@ -70,6 +73,7 @@ class ZIndexService {
     return state.copyWith(
       nodes: updatedNodes,
       minZIndex: zIndex - state.selectedNodes.length,
+      zOrderEpoch: state.zOrderEpoch + 1,
     );
   }
 }

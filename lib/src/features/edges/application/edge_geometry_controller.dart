@@ -41,9 +41,16 @@ class EdgeGeometryController {
         _spatialIndex = spatialIndex;
 
   /// Returns whether edge paths were rebuilt (layout repaint signal).
+  ///
+  /// [eagerAll]: when false, a fresh (empty-cache) mount skips the full cache
+  /// fill — the cull filter demand-fills visible edges on build instead, so
+  /// offscreen edges cost nothing until panned into view. Pass false exactly
+  /// when viewport culling is on; cull-off canvases keep the eager fill (no
+  /// other demand trigger exists without culling).
   bool updateGeometryIfNeeded(
     FlowCanvasState newState, {
     Offset defaultOrigin = Offset.zero,
+    bool eagerAll = true,
   }) {
     final updateInfo = _shouldUpdateEdgeGeometry(newState);
 
@@ -53,8 +60,12 @@ class EdgeGeometryController {
     }
 
     if (updateInfo.fullUpdate) {
-      _edgeGeometryService.updateCache(newState, newState.edges.keys,
-          defaultOrigin: defaultOrigin);
+      if (eagerAll) {
+        _edgeGeometryService.updateCache(newState, newState.edges.keys,
+            defaultOrigin: defaultOrigin);
+      }
+      _updateCaches(newState);
+      return eagerAll;
     } else {
       if (updateInfo.removedEdges.isNotEmpty) {
         _edgeGeometryService.removeEdges(updateInfo.removedEdges);

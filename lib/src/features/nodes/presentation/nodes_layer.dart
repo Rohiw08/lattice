@@ -97,11 +97,23 @@ class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
   /// one pump. See the drag-freeze branch in `buildStack`.
   Set<String> _lastCulledIds = const {};
 
+  /// Sort-cache key + entries (perf: skip the O(N log N) z-sort when nothing
+  /// that affects order changed). Keyed on exactly the sort inputs: z-order
+  /// epoch, selection epoch (elevate-on-select boost), node count
+  /// (membership), the elevate flag, and this band. Moves bump none of these
+  /// and correctly skip; add/remove/update bump zOrder or length and re-sort.
+  int? _sortKey;
+  List<MapEntry<String, FlowNode>> _sortedEntries = const [];
+
   @override
   Widget build(BuildContext context) {
     final ref = this.ref;
     ref.watch(internalControllerProvider
         .select((state) => '${state.nodes.length}-${state.maxZIndex}'));
+    // z-order epoch: sendToBack / mid-range reorderings change paint order
+    // without touching length, maxZ, or selection — without this the layer
+    // would never rebuild for them.
+    ref.watch(internalControllerProvider.select((s) => s.zOrderEpoch));
 
     final vpOpts = context.flowCanvasOptions.viewportOptions;
     final elevateOnSelect =
@@ -146,43 +158,57 @@ class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
 
     Widget buildStack() {
       final state = ref.read(internalControllerProvider);
-      var entries = state.nodes.entries
-          .where((e) => e.value.renderLayer == layer)
-          .toList()
-        ..sort((a, b) {
-          final za = _effectiveZ(
-            a.value,
-            selected: state.selectedNodes.contains(a.key),
-            elevateOnSelect: elevateOnSelect,
-          );
-          final zb = _effectiveZ(
-            b.value,
-            selected: state.selectedNodes.contains(b.key),
-            elevateOnSelect: elevateOnSelect,
-          );
-          final cmp = za.compareTo(zb);
-          if (cmp != 0) return cmp;
-          return a.key.compareTo(b.key);
-        });
+      final key = Object.hash(
+        state.zOrderEpoch,
+        state.selectionEpoch,
+        state.nodes.length,
+        elevateOnSelect,
+        layer,
+      );
+      if (_sortKey != key) {
+        _sortKey = key;
+        if (kDebugMode) FlowCanvasDebug.countNodeSort();
+        var fresh = state.nodes.entries
+            .where((e) => e.value.renderLayer == layer)
+            .toList()
+          ..sort((a, b) {
+            final za = _effectiveZ(
+              a.value,
+              selected: state.selectedNodes.contains(a.key),
+              elevateOnSelect: elevateOnSelect,
+            );
+            final zb = _effectiveZ(
+              b.value,
+              selected: state.selectedNodes.contains(b.key),
+              elevateOnSelect: elevateOnSelect,
+            );
+            final cmp = za.compareTo(zb);
+            if (cmp != 0) return cmp;
+            return a.key.compareTo(b.key);
+          });
 
-      if (entries.isEmpty) {
-        _widgets.clear();
-        return const SizedBox.shrink();
-      }
+        if (fresh.isEmpty) {
+          _widgets.clear();
+          _sortedEntries = const [];
+          return const SizedBox.shrink();
+        }
 
-      // Evict widgets for nodes that left this render layer; reuse stable
-      // instances for the rest so cascades skip unchanged nodes entirely.
-      final ids = entries.map((e) => e.key).toSet();
-      _widgets.removeWhere((id, _) => !ids.contains(id));
-      for (final entry in entries) {
-        _widgets.putIfAbsent(
-          entry.key,
-          () => _NodeWidget(
-            key: ValueKey('${layer.name}_${entry.key}'),
-            nodeId: entry.key,
-          ),
-        );
+        // Evict widgets for nodes that left this render layer; reuse stable
+        // instances for the rest so cascades skip unchanged nodes entirely.
+        final ids = fresh.map((e) => e.key).toSet();
+        _widgets.removeWhere((id, _) => !ids.contains(id));
+        for (final entry in fresh) {
+          _widgets.putIfAbsent(
+            entry.key,
+            () => _NodeWidget(
+              key: ValueKey('${layer.name}_${entry.key}'),
+              nodeId: entry.key,
+            ),
+          );
+        }
+        _sortedEntries = fresh;
       }
+      var entries = _sortedEntries;
 
       final session = notifier.interactionSession;
       final dragging = session.draggingNodeIds;
@@ -242,6 +268,7 @@ class _FlowNodesLayerState extends ConsumerState<FlowNodesLayer> {
 
       if (kDebugMode) {
         FlowCanvasDebug.countNodesBuilt(entries.length);
+        FlowCanvasDebug.countNodeLayerPass();
         if (FlowCanvasDebug.logInteraction) {
           final mountedIds = entries.map((e) => e.key).toList()..sort();
           final sig =
@@ -497,6 +524,14 @@ class _NodeWidgetState extends ConsumerState<_NodeWidget> {
 }
 
 /// Node chrome / custom builder — may rebuild on select/hover/drag flags.
+///
+/// Subscribes to every content field EXCEPT pure layout inputs
+/// (position/origin/zIndex/parentId — owned by the [Positioned] wrapper and
+/// the layer sort, which rebuild independently). Position/size-anchor-only
+/// commits (bulk moves, drag commits) keep the record equal and skip the
+/// entire subtree rebuild. Contract (React Flow parity): node `data` is
+/// immutable — replace the object, never mutate it in place. Custom builders
+/// must not render position/origin/zIndex/parentId (layout duplicates).
 class _NodeBody extends ConsumerWidget {
   const _NodeBody({required this.nodeId});
 
@@ -504,23 +539,46 @@ class _NodeBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Single subscription for node + selection + runtime (see _NodeWidgetState
-    // docs): same rebuild decisions as three separate selects, one third of
-    // the per-emission subscription tax.
+    // Single subscription for content + selection + runtime (see
+    // _NodeWidgetState docs): same rebuild decisions as separate selects,
+    // one third of the per-emission subscription tax.
+    if (kDebugMode) FlowCanvasDebug.countBodyBuild();
     final record = ref.watch(
-      internalControllerProvider.select(
-        (s) => (
-          s.nodes[nodeId],
+      internalControllerProvider.select((s) {
+        final node = s.nodes[nodeId];
+        return (
+          node?.type,
+          node?.data,
+          node?.size,
+          node?.handles,
+          node?.style,
+          node?.hidden,
+          node?.draggable,
+          node?.selectable,
+          node?.hoverable,
+          node?.connectable,
+          node?.deletable,
+          node?.resizable,
+          node?.minSize,
+          node?.maxSize,
+          node?.keepAspectRatio,
+          node?.shouldResize,
+          node?.focusable,
+          node?.dragHandle,
+          node?.semanticsLabel,
+          node?.expandParent,
+          node?.extent,
           s.selectedNodes.contains(nodeId),
           s.nodeStates[nodeId] ?? const NodeRuntimeState(),
-        ),
-      ),
+        );
+      }),
     );
-    final node = record.$1;
+    final node =
+        ref.read(internalControllerProvider).nodes[nodeId];
     if (node == null) return const SizedBox.shrink();
 
-    final isSelected = record.$2;
-    final runtime = record.$3;
+    final isSelected = record.$22;
+    final runtime = record.$23;
 
     return ref.read(nodeRegistryProvider).buildWidget(
           NodeProps.fromNode(

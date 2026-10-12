@@ -157,16 +157,22 @@ class _NodeA11yAnchorState extends ConsumerState<_NodeA11yAnchor> {
 
   @override
   Widget build(BuildContext context) {
-    final node = ref.watch(
-      internalControllerProvider.select((s) => s.nodes[widget.nodeId]),
+    // Single subscription for node + selection (invariant #6 pattern: same
+    // rebuild decisions as two separate selects, half the per-emission
+    // subscription tax across N anchors).
+    final record = ref.watch(
+      internalControllerProvider.select(
+        (s) => (
+          s.nodes[widget.nodeId],
+          s.selectedNodes.contains(widget.nodeId),
+        ),
+      ),
     );
+    final node = record.$1;
     if (node == null) return const SizedBox.shrink();
 
     final focusable = node.isFocusable(context) && !node.isHidden(context);
-    final selected = ref.watch(
-      internalControllerProvider
-          .select((s) => s.selectedNodes.contains(widget.nodeId)),
-    );
+    final selected = record.$2;
     final hint = ref.watch(
       flowOptionsProvider.select((o) => o.a11yOptions.labels.nodeSelectHint),
     );

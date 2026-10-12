@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:lattice/src/core/debug/flow_canvas_debug.dart';
 import 'package:lattice/src/core/state/flow_canvas_state.dart';
 import 'package:lattice/src/features/edges/domain/edge_index.dart';
 import 'package:lattice/src/features/edges/domain/model/edge.dart';
@@ -8,6 +9,7 @@ import 'package:lattice/src/features/nodes/domain/models/node.dart';
 import 'package:lattice/src/features/nodes/domain/node_layout.dart';
 import 'package:lattice/src/core/utils/edge_path_creator.dart';
 import 'package:lattice/src/core/enums/enums.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 /// Cached tangent at path ends for markers (avoids computeMetrics every paint).
@@ -117,6 +119,20 @@ class EdgeGeometryService {
     }
   }
 
+  /// Computes geometry for [edgeIds] that lack it (version-checked no-op
+  /// for cached ones). Used by the cull filter so lazy mounts fill visible
+  /// edges on demand instead of computing every edge eagerly at mount.
+  void ensureGeoms(
+    FlowCanvasState state,
+    Iterable<String> edgeIds, {
+    Offset defaultOrigin = Offset.zero,
+  }) {
+    for (final id in edgeIds) {
+      if (_edgeCache.containsKey(id)) continue;
+      _ensureEdgeGeom(state, id, defaultOrigin: defaultOrigin);
+    }
+  }
+
   /// Updates only edges connected to specific nodes (OPTIMIZED).
   void updateEdgesForNodes(
       FlowCanvasState state, Set<String> nodeIds, EdgeIndex edgeIndex,
@@ -211,6 +227,8 @@ class EdgeGeometryService {
 
     final oldVersion = _edgeVersion[edgeId];
     if (oldVersion == version) return;
+
+    if (kDebugMode) FlowCanvasDebug.countGeoCompute();
 
     // Resolve the source connection point. Prefer the edge's named handle;
     // when it is null or unknown, fall back to the node's first source-capable

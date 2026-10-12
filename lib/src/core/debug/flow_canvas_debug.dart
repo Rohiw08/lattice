@@ -26,6 +26,12 @@ class FlowCanvasDebug {
   static int _nodesBuilt = 0;
   static int _panCommits = 0;
   static int _dragCommits = 0;
+  static int _nodeLayerPasses = 0;
+  static int _nodeSorts = 0;
+  static int _geoComputes = 0;
+  static int _edgeCullPasses = 0;
+  static int _edgeMapCopies = 0;
+  static int _bodyBuilds = 0;
 
   /// Painted edge paths since the last [resetCounters].
   static int get edgePaintCount => _edgePaintCount;
@@ -39,6 +45,24 @@ class FlowCanvasDebug {
   /// Committed node drags since the last [resetCounters].
   static int get dragCommits => _dragCommits;
 
+  /// Node-layer filter+sort passes since the last [resetCounters].
+  static int get nodeLayerPasses => _nodeLayerPasses;
+
+  /// Node z-sort executions since the last [resetCounters].
+  static int get nodeSorts => _nodeSorts;
+
+  /// Edge geometry computations since the last [resetCounters].
+  static int get geoComputes => _geoComputes;
+
+  /// Edge-layer cull evaluations since the last [resetCounters].
+  static int get edgeCullPasses => _edgeCullPasses;
+
+  /// Edge map-copy constructions since the last [resetCounters].
+  static int get edgeMapCopies => _edgeMapCopies;
+
+  /// Node body builds since the last [resetCounters].
+  static int get bodyBuilds => _bodyBuilds;
+
   /// Zeros all counters. Call before the interaction you want to measure
   /// (tests use this plus [snapshot] to assert commit counts).
   static void resetCounters() {
@@ -46,6 +70,12 @@ class FlowCanvasDebug {
     _nodesBuilt = 0;
     _panCommits = 0;
     _dragCommits = 0;
+    _nodeLayerPasses = 0;
+    _nodeSorts = 0;
+    _geoComputes = 0;
+    _edgeCullPasses = 0;
+    _edgeMapCopies = 0;
+    _bodyBuilds = 0;
   }
 
   /// Current counter values as a record (for assertions and log lines).
@@ -79,6 +109,42 @@ class FlowCanvasDebug {
   static void countDragCommit() {
     if (!kDebugMode) return;
     _dragCommits++;
+  }
+
+  /// Adds one to [nodeLayerPasses]. No-op outside debug builds.
+  static void countNodeLayerPass() {
+    if (!kDebugMode) return;
+    _nodeLayerPasses++;
+  }
+
+  /// Adds one to [nodeSorts]. No-op outside debug builds.
+  static void countNodeSort() {
+    if (!kDebugMode) return;
+    _nodeSorts++;
+  }
+
+  /// Adds one to [geoComputes]. No-op outside debug builds.
+  static void countGeoCompute() {
+    if (!kDebugMode) return;
+    _geoComputes++;
+  }
+
+  /// Adds one to [edgeCullPasses]. No-op outside debug builds.
+  static void countEdgeCullPass() {
+    if (!kDebugMode) return;
+    _edgeCullPasses++;
+  }
+
+  /// Adds one to [edgeMapCopies]. No-op outside debug builds.
+  static void countEdgeMapCopy() {
+    if (!kDebugMode) return;
+    _edgeMapCopies++;
+  }
+
+  /// Adds one to [bodyBuilds]. No-op outside debug builds.
+  static void countBodyBuild() {
+    if (!kDebugMode) return;
+    _bodyBuilds++;
   }
 
   static void _log(String name, String message, [Object? detail]) {

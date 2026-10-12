@@ -84,9 +84,15 @@ class EdgeService {
     final newEdges = Map<String, FlowEdge>.from(state.edges);
     newEdges.remove(edgeId);
 
+    // Rewrap + bump only when the selection actually shrinks (same-content
+    // rewraps fire spurious selection callbacks downstream).
+    if (!state.selectedEdges.contains(edgeId)) {
+      return state.copyWith(edges: newEdges);
+    }
     return state.copyWith(
       edges: newEdges,
       selectedEdges: Set<String>.from(state.selectedEdges)..remove(edgeId),
+      selectionEpoch: state.selectionEpoch + 1,
     );
   }
 
@@ -113,9 +119,14 @@ class EdgeService {
     }
     if (!changed) return state;
 
+    final pruned = state.selectedEdges.intersection(removed.toSet());
+    if (pruned.isEmpty) {
+      return state.copyWith(edges: newEdges);
+    }
     return state.copyWith(
       edges: newEdges,
       selectedEdges: Set<String>.from(state.selectedEdges)..removeAll(removed),
+      selectionEpoch: state.selectionEpoch + 1,
     );
   }
 

@@ -60,6 +60,16 @@ class FlowEdgeLabelPortal extends ConsumerWidget {
         final state = controller.currentState;
         final live = controller.liveViewport.viewport;
         Offset toViewer(Offset flow) => flow * live.zoom + live.offset;
+        // Lazy-geometry demand fill (same pattern as the edge cull filter):
+        // with culling on, mount skips the full cache fill, so a labeled edge
+        // can reach this builder before its path exists. Missing-only, so
+        // cached labels cost one map hit per tick.
+        controller.edgeGeometryService.ensureGeoms(
+          state,
+          ids,
+          defaultOrigin:
+              ref.read(flowOptionsProvider).nodeOptions.nodeOrigin,
+        );
         final children = <Widget>[];
         for (final id in ids) {
           final edge = state.edges[id];

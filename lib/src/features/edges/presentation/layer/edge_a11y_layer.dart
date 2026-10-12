@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lattice/src/core/options/components/edge_options.dart';
 import 'package:lattice/src/core/providers/providers.dart';
+import 'package:lattice/src/features/viewport/domain/visible_flow_region.dart';
 
 /// Keyboard focus + screen-reader anchors for edges.
 ///
@@ -26,36 +27,96 @@ class EdgeA11yLayer extends ConsumerWidget {
     ref.watch(
       internalControllerProvider.select((s) => s.geometryRevision),
     );
+    // Set-identity watch (not epoch): edge anchors only depend on edge
+    // selection, and the set instance changes only on real edge-selection
+    // changes — node-selection emissions skip this layer entirely.
     final selected = ref.watch(
       internalControllerProvider.select((s) => s.selectedEdges),
     );
+    // Pan/zoom must add anchors for edges scrolled into view: their geometry
+    // is demand-filled (lazy mount), and no provider emission fires on a pure
+    // camera move — so the layer also listens to the live matrix when culling
+    // is on. Without culling the eager fill covers everything.
+    final cullOn = ref
+        .read(flowOptionsProvider)
+        .viewportOptions
+        .onlyRenderVisibleElements;
+    // Rebuild when the pane size lands (post-frame) so frame-1 anchors
+    // resolve even if this layer built before the edge layer's cull fill.
+    ref.watch(
+      internalControllerProvider.select((s) => s.viewportSize),
+    );
 
-    const anchorSize = 32.0;
-    final anchors = <Widget>[];
-    for (final entry in edges.entries) {
-      final edge = entry.value;
-      if (edge.isHidden(context) || !edge.isFocusable(context)) continue;
-      final geom = controller.edgeGeometryService.getGeom(entry.key);
-      if (geom == null) continue;
-      final center = geom.bounds.center;
-      anchors.add(
-        Positioned(
-          left: center.dx - anchorSize / 2,
-          top: center.dy - anchorSize / 2,
-          width: anchorSize,
-          height: anchorSize,
-          child: IgnorePointer(
-            child: _EdgeA11yAnchor(
-              key: ValueKey('edge-a11y-${entry.key}'),
-              edgeId: entry.key,
-              selected: selected.contains(entry.key),
+    Widget buildAnchors() {
+      final state = controller.currentState;
+      // Visible-subset demand fill (NOT ensure-all: that would recompute
+      // every offscreen edge and defeat the lazy mount). Endpoints decide
+      // visibility without geometry; only survivors compute.
+      if (cullOn) {
+        final size = state.viewportSize;
+        if (size != null && !size.isEmpty) {
+          final opts = ref.read(flowOptionsProvider);
+          final rect = computeVisibleFlowRectFromCanvasTransform(
+            controller.transformationController.value,
+            size,
+            padding: opts.viewportOptions.renderCullingPadding,
+          );
+          final origin = opts.nodeOptions.nodeOrigin;
+          final visibleIds = <String>[];
+          for (final entry in edges.entries) {
+            final s = state.nodes[entry.value.sourceNodeId];
+            final t = state.nodes[entry.value.targetNodeId];
+            if (s == null || t == null) {
+              visibleIds.add(entry.key);
+              continue;
+            }
+            if (flowNodeOverlapsRect(s, rect, state.nodes,
+                    defaultOrigin: origin) ||
+                flowNodeOverlapsRect(t, rect, state.nodes,
+                    defaultOrigin: origin)) {
+              visibleIds.add(entry.key);
+            }
+          }
+          controller.edgeGeometryService.ensureGeoms(
+            state,
+            visibleIds,
+            defaultOrigin: origin,
+          );
+        }
+      }
+      const anchorSize = 32.0;
+      final anchors = <Widget>[];
+      for (final entry in edges.entries) {
+        final edge = entry.value;
+        if (edge.isHidden(context) || !edge.isFocusable(context)) continue;
+        final geom = controller.edgeGeometryService.getGeom(entry.key);
+        if (geom == null) continue;
+        final center = geom.bounds.center;
+        anchors.add(
+          Positioned(
+            left: center.dx - anchorSize / 2,
+            top: center.dy - anchorSize / 2,
+            width: anchorSize,
+            height: anchorSize,
+            child: IgnorePointer(
+              child: _EdgeA11yAnchor(
+                key: ValueKey('edge-a11y-${entry.key}'),
+                edgeId: entry.key,
+                selected: selected.contains(entry.key),
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
+      if (anchors.isEmpty) return const SizedBox.shrink();
+      return Stack(children: anchors);
     }
-    if (anchors.isEmpty) return const SizedBox.shrink();
-    return Stack(children: anchors);
+
+    if (!cullOn) return buildAnchors();
+    return ListenableBuilder(
+      listenable: controller.transformationController,
+      builder: (context, _) => buildAnchors(),
+    );
   }
 }
 

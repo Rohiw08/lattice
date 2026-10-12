@@ -95,8 +95,11 @@ class FlowEdgeLayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(internalControllerProvider.notifier);
     final theme = FlowCanvasThemeProvider.of(context);
-    final defaultEdgeStyle = (theme.edge ?? FlowEdgeStyle.system(context))
-        .merge(EdgeOptions.resolve(context).style);
+    // Resolved once per build (not per call site): same object, fewer
+    // InheritedWidget lookups + merges across the painters below.
+    final edgeOpts = EdgeOptions.resolve(context);
+    final defaultEdgeStyle =
+        (theme.edge ?? FlowEdgeStyle.system(context)).merge(edgeOpts.style);
     final session = controller.interactionSession;
 
     final paintState = ref.watch(
@@ -116,8 +119,8 @@ class FlowEdgeLayer extends ConsumerWidget {
       return true;
     });
 
-    final elevate = EdgeOptions.resolve(context).elevateEdgeOnSelect;
-    final globalLabel = EdgeOptions.resolve(context).label;
+    final elevate = edgeOpts.elevateEdgeOnSelect;
+    final globalLabel = edgeOpts.label;
     // An edge shows a label when it (or the global default) provides one.
     bool hasLabel(MapEntry<String, FlowEdge> entry) =>
         entry.value.label != null || globalLabel != null;
@@ -139,10 +142,19 @@ class FlowEdgeLayer extends ConsumerWidget {
     final connOpts = ref.read(flowOptionsProvider).connectionOptions;
     final flowState = ref.read(internalControllerProvider);
 
+    /// Counted copy for painter inputs (Phase-0 cost pin, no behavior change).
+    Map<String, FlowEdge> copied(
+      Iterable<MapEntry<String, FlowEdge>> entries,
+    ) {
+      if (kDebugMode) FlowCanvasDebug.countEdgeMapCopy();
+      return Map.fromEntries(entries);
+    }
+
     List<MapEntry<String, FlowEdge>> cull(
       List<MapEntry<String, FlowEdge>> source, {
       required Set<String> alwaysInclude,
     }) {
+      if (kDebugMode) FlowCanvasDebug.countEdgeCullPass();
       if (!vpOpts.onlyRenderVisibleElements) return source;
       if (paintState.dragMode == DragMode.node ||
           paintState.dragMode == DragMode.connection) {
@@ -160,9 +172,40 @@ class FlowEdgeLayer extends ConsumerWidget {
         size,
         padding: vpOpts.renderCullingPadding,
       );
+      // Lazy-geometry demand fill lives in the filter below (not as a broad
+      // pre-pass): visibility is decided from endpoint node rects (no
+      // geometry needed), and only surviving candidates compute geometry.
+      // A broad ensure-all here would recompute every offscreen edge too.
+      final origin =
+          ref.read(flowOptionsProvider).nodeOptions.nodeOrigin;
       return source.where((entry) {
-        if (alwaysInclude.contains(entry.key)) return true;
-        final geom = controller.edgeGeometryService.getGeom(entry.key);
+        if (alwaysInclude.contains(entry.key)) {
+          controller.edgeGeometryService.ensureGeoms(
+            flowState,
+            [entry.key],
+            defaultOrigin: origin,
+          );
+          return true;
+        }
+        final edge = entry.value;
+        final s = flowState.nodes[edge.sourceNodeId];
+        final t = flowState.nodes[edge.targetNodeId];
+        if (s == null || t == null) return true;
+        if (!flowNodeOverlapsRect(s, rect, flowState.nodes,
+                defaultOrigin: origin) &&
+            !flowNodeOverlapsRect(t, rect, flowState.nodes,
+                defaultOrigin: origin)) {
+          return false;
+        }
+        var geom = controller.edgeGeometryService.getGeom(entry.key);
+        if (geom == null) {
+          controller.edgeGeometryService.ensureGeoms(
+            flowState,
+            [entry.key],
+            defaultOrigin: origin,
+          );
+          geom = controller.edgeGeometryService.getGeom(entry.key);
+        }
         if (geom == null) return true;
         return geom.bounds.overlaps(rect);
       }).toList();
@@ -209,8 +252,8 @@ class FlowEdgeLayer extends ConsumerWidget {
             RepaintBoundary(
               child: CustomPaint(
                 painter: EdgePainter(
-                  edgesSelectable: EdgeOptions.resolve(context).selectable,
-                  edges: Map.fromEntries(staticOrdered),
+                  edgesSelectable: edgeOpts.selectable,
+                  edges: copied(staticOrdered),
                   edgeStates: paintState.edgeStates,
                   theme: theme,
                   defaultEdgeStyle: defaultEdgeStyle,
@@ -229,7 +272,8 @@ class FlowEdgeLayer extends ConsumerWidget {
             if (animatedOrdered.isNotEmpty)
               RepaintBoundary(
                 child: _AnimatedEdgesPaint(
-                  edges: Map.fromEntries(animatedOrdered),
+                  edges: copied(animatedOrdered),
+                  edgesSelectable: edgeOpts.selectable,
                   edgeStates: paintState.edgeStates,
                   theme: theme,
                   defaultEdgeStyle: defaultEdgeStyle,
@@ -245,8 +289,8 @@ class FlowEdgeLayer extends ConsumerWidget {
             RepaintBoundary(
               child: CustomPaint(
                 painter: EdgePainter(
-                  edgesSelectable: EdgeOptions.resolve(context).selectable,
-                  edges: Map.fromEntries(
+                  edgesSelectable: edgeOpts.selectable,
+                  edges: copied(
                     activeOrdered.where((e) => !e.value.animated),
                   ),
                   edgeStates: paintState.edgeStates,
@@ -264,9 +308,10 @@ class FlowEdgeLayer extends ConsumerWidget {
             if (activeOrdered.any((e) => e.value.animated))
               RepaintBoundary(
                 child: _AnimatedEdgesPaint(
-                  edges: Map.fromEntries(
+                  edges: copied(
                     activeOrdered.where((e) => e.value.animated),
                   ),
+                  edgesSelectable: edgeOpts.selectable,
                   edgeStates: paintState.edgeStates,
                   theme: theme,
                   defaultEdgeStyle: defaultEdgeStyle,
@@ -287,6 +332,7 @@ class FlowEdgeLayer extends ConsumerWidget {
                     paintState,
                     precomputedPaths,
                     theme,
+                    globalLabel,
                   ),
                 ),
             ...animatedOrdered
@@ -299,6 +345,7 @@ class FlowEdgeLayer extends ConsumerWidget {
                     paintState,
                     precomputedPaths,
                     theme,
+                    globalLabel,
                   ),
                 ),
             ...activeOrdered
@@ -311,6 +358,7 @@ class FlowEdgeLayer extends ConsumerWidget {
                     paintState,
                     precomputedPaths,
                     theme,
+                    globalLabel,
                   ),
                 ),
             if (connOpts.connectionLineBuilder == null)
@@ -392,6 +440,7 @@ class FlowEdgeLayer extends ConsumerWidget {
     PainterState paintState,
     Map<String, Path> precomputedPaths,
     FlowCanvasTheme theme,
+    Widget? globalLabel,
   ) {
     final path = precomputedPaths[edgeId];
     if (path == null) return const SizedBox.shrink();
@@ -432,7 +481,7 @@ class FlowEdgeLayer extends ConsumerWidget {
       disabled: !edgeSelectable,
       style: labelStyle,
       // Global default label (EdgeOptions.label) when the edge has none.
-      child: edge.label ?? EdgeOptions.resolve(context).label,
+      child: edge.label ?? globalLabel,
     );
   }
 }
@@ -448,6 +497,7 @@ class _AnimatedEdgesPaint extends StatefulWidget {
     required this.precomputedPaths,
     required this.geometryEpoch,
     required this.liveStamp,
+    required this.edgesSelectable,
     this.geoms,
     this.versions,
   });
@@ -461,6 +511,7 @@ class _AnimatedEdgesPaint extends StatefulWidget {
   final Map<String, int>? versions;
   final int geometryEpoch;
   final int liveStamp;
+  final bool edgesSelectable;
 
   @override
   State<_AnimatedEdgesPaint> createState() => _AnimatedEdgesPaintState();
@@ -502,7 +553,7 @@ class _AnimatedEdgesPaintState extends State<_AnimatedEdgesPaint>
     if (controller == null) {
       return CustomPaint(
         painter: EdgePainter(
-          edgesSelectable: EdgeOptions.resolve(context).selectable,
+          edgesSelectable: widget.edgesSelectable,
           edges: widget.edges,
           edgeStates: widget.edgeStates,
           theme: widget.theme,
@@ -522,7 +573,7 @@ class _AnimatedEdgesPaintState extends State<_AnimatedEdgesPaint>
       builder: (context, _) {
         return CustomPaint(
           painter: EdgePainter(
-            edgesSelectable: EdgeOptions.resolve(context).selectable,
+            edgesSelectable: widget.edgesSelectable,
             edges: widget.edges,
             edgeStates: widget.edgeStates,
             theme: widget.theme,

@@ -98,6 +98,16 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
     this.initialState,
   });
 
+  /// Identity-based notify gate (perf): every write path mints a fresh state
+  /// object, so `identical` is false exactly when something was committed.
+  /// The default `!=` gate would run Freezed deep-`==` over every map on every
+  /// emission; downstream `.select()`s still compare their slices, so no
+  /// widget rebuild behavior changes (verified by the suite + cost pins).
+  @override
+  bool updateShouldNotify(FlowCanvasState oldState, FlowCanvasState newState) {
+    return !identical(oldState, newState);
+  }
+
   bool _viewportSyncFromState = false;
   bool _viewportCallbackScheduled = false;
   FlowViewport? _pendingLiveCallbackViewport;
@@ -259,7 +269,11 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
       return candidate;
     }
     final changed = edgeGeometry.updateGeometryIfNeeded(candidate,
-        defaultOrigin: ref.read(flowOptionsProvider).nodeOptions.nodeOrigin);
+        defaultOrigin: ref.read(flowOptionsProvider).nodeOptions.nodeOrigin,
+        // Cull-on canvases demand-fill visible edges in the cull filter, so
+        // the mount-time full fill is skipped; cull-off keeps it (no other
+        // demand trigger exists).
+        eagerAll: !ref.read(flowOptionsProvider).viewportOptions.onlyRenderVisibleElements);
     if (!changed) return candidate;
     return candidate.copyWith(
       geometryRevision: oldState.geometryRevision + 1,
@@ -323,8 +337,11 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
       }
     }
     if (cbs.onSelectionChange != null) {
-      final selChanged = oldState.selectedNodes != newState.selectedNodes ||
-          oldState.selectedEdges != newState.selectedEdges;
+      // Epoch compare (not set identity): set instances are re-wrapped on
+      // real changes only, but identity cannot tell same-content rewraps
+      // apart — the epoch can. Fires exactly on selection commits.
+      final selChanged =
+          oldState.selectionEpoch != newState.selectionEpoch;
       if (selChanged) {
         cbs.onSelectionChange!(CanvasSelection(
           nodeIds: Set<String>.from(newState.selectedNodes),
@@ -653,9 +670,12 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
     final staleEdges =
         newState.selectedEdges.intersection(removedEdgeIds.toSet());
     if (staleEdges.isNotEmpty) {
+      // Defensive: EdgeService already prunes (with the epoch bump), so this
+      // is normally empty. Kept for custom EdgeService overrides.
       newState = newState.copyWith(
         selectedEdges: Set<String>.from(newState.selectedEdges)
           ..removeAll(staleEdges),
+        selectionEpoch: newState.selectionEpoch + 1,
       );
     }
     mutate((_) => newState);
@@ -706,11 +726,29 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
     final oldState = state;
     spatialIndex.rebuild(newState.nodes.values, newState.edges);
     bumpSpatialVersion();
-    final finalized = _commitGeometry(oldState, newState);
+    // Epoch rules for a wholesale document swap: selection bumps only when
+    // membership actually changes (same-content rewraps must not fire
+    // onSelectionChange); z-order always re-sorts once for the new doc.
+    final selectionChanged = !_sameIdSet(
+            oldState.selectedNodes, newState.selectedNodes) ||
+        !_sameIdSet(oldState.selectedEdges, newState.selectedEdges);
+    final finalized = _commitGeometry(
+      oldState,
+      newState.copyWith(
+        selectionEpoch: selectionChanged
+            ? oldState.selectionEpoch + 1
+            : oldState.selectionEpoch,
+        zOrderEpoch: oldState.zOrderEpoch + 1,
+      ),
+    );
     state = finalized;
     _history.init(finalized);
     _onStateChanged(oldState, finalized);
   }
+
+  /// Order-independent id-set equality (Dart Set `==` is identity-based).
+  static bool _sameIdSet(Set<String> a, Set<String> b) =>
+      a.length == b.length && a.containsAll(b);
 
   /// Flips the master element-interaction switch (React Flow `setInteractive`
   /// / Controls `showInteractive`). Transient write (no history entry):
@@ -781,6 +819,12 @@ class FlowCanvasInternalController extends Notifier<FlowCanvasState>
       lastClickedEdgeId: oldState.lastClickedEdgeId,
       geometryRevision: oldState.geometryRevision,
       edgeLiveStamp: oldState.edgeLiveStamp,
+      // Epochs follow the preserved local UI state, not the remote doc
+      // (which resets them via fromJson): selection/runtime are local, so
+      // their epochs stay; z-order is a fresh landscape, so it re-sorts once.
+      selectionEpoch: oldState.selectionEpoch,
+      runtimeEpoch: oldState.runtimeEpoch,
+      zOrderEpoch: oldState.zOrderEpoch + 1,
       nodeStates: nodeStates,
       edgeStates: edgeStates,
       handleStates: handleStates,

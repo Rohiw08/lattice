@@ -1,0 +1,21 @@
+{
+  "fixture": "fair-sweep-v1",
+  "cols": 30,
+  "spacing": [100, 50],
+  "nodeSize": [50, 30],
+  "viewport": [800, 600],
+  "minZoom": 0.2,
+  "theme": "light",
+  "edgeType": "bezier",
+  "labels": false,
+  "dashes": false,
+  "label": "centered id, fontSize 8",
+  "seedBase": 42,
+  "sizes": [100, 500, 1000, 2500],
+  "edgeModes": ["chain", "dense"],
+  "cullModes": ["on", "off"],
+  "runs": {"le500": 3, "ge1000": 2},
+  "scenarios": ["mount", "drag", "select", "relocate", "remount"],
+  "drag": {"moves": 10, "step": [10, 0], "displacementAssertGt": 5},
+  "relocateBounds": [3200, 2400]
+}

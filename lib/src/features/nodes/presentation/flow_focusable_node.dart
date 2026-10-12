@@ -22,7 +22,7 @@ import 'package:lattice/src/features/viewport/domain/visible_flow_region.dart';
 /// Because it never wraps/unwraps a ring, node content is not remounted on
 /// focus changes — in-node State (text controllers, field focus, scroll) is
 /// preserved without any reparenting trick.
-class FlowFocusableNode extends ConsumerStatefulWidget {
+class FlowFocusableNode extends ConsumerWidget {
   const FlowFocusableNode({
     super.key,
     required this.nodeId,
@@ -32,18 +32,13 @@ class FlowFocusableNode extends ConsumerStatefulWidget {
   final String nodeId;
   final Widget child;
 
-  @override
-  ConsumerState<FlowFocusableNode> createState() => _FlowFocusableNodeState();
-}
-
-class _FlowFocusableNodeState extends ConsumerState<FlowFocusableNode> {
-  void _handleFocusChange(bool focused) {
-    if (!mounted || !focused) return;
+  void _handleFocusChange(WidgetRef ref, String nodeId, bool focused) {
+    if (!focused) return;
     final options = ref.read(flowOptionsProvider);
     if (!options.a11yOptions.autoPanOnNodeFocus) return;
     final controller = ref.read(internalControllerProvider.notifier);
     final state = controller.currentState;
-    final node = state.nodes[widget.nodeId];
+    final node = state.nodes[nodeId];
     if (node == null) return;
     // Pan only when the node is actually offscreen. Pointer focus always
     // lands on visible content (tapping it proves it), so an unconditional
@@ -62,14 +57,14 @@ class _FlowFocusableNodeState extends ConsumerState<FlowFocusableNode> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // Observer only: never focusable, never traversable, no semantics.
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
       includeSemantics: false,
-      onFocusChange: _handleFocusChange,
-      child: widget.child,
+      onFocusChange: (focused) => _handleFocusChange(ref, nodeId, focused),
+      child: child,
     );
   }
 }

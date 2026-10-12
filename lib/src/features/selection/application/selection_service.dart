@@ -11,6 +11,21 @@ import 'package:lattice/src/features/edges/domain/edge_state.dart';
 
 /// A stateless service for handling business logic related to selection.
 class SelectionService {
+  /// Bumps [FlowCanvasState.selectionEpoch] iff [next]'s selection differs
+  /// from [prev]'s (content, order-independent). Choke point for the epoch:
+  /// services are pure so only the final returned state is ever emitted —
+  /// intermediate bumps are overwritten and each gesture costs exactly one.
+  static FlowCanvasState _withSelectionEpoch(
+    FlowCanvasState prev,
+    FlowCanvasState next,
+  ) {
+    if (_sameMembership(next.selectedNodes, prev.selectedNodes) &&
+        _sameMembership(next.selectedEdges, prev.selectedEdges)) {
+      return next;
+    }
+    return next.copyWith(selectionEpoch: prev.selectionEpoch + 1);
+  }
+
   /// Returns list of selected nodes (full models).
   List<FlowNode> getSelectedNodes(FlowCanvasState state) =>
       state.selectedNodes.map((id) => state.nodes[id]!).toList();
@@ -27,9 +42,12 @@ class SelectionService {
     final newNodeStates = Map<String, NodeRuntimeState>.from(state.nodeStates);
     newNodeStates[nodeId] = (newNodeStates[nodeId] ?? const NodeRuntimeState())
         .copyWith(selected: true);
-    return state.copyWith(
-      selectedNodes: newSelectedNodes,
-      nodeStates: newNodeStates,
+    return _withSelectionEpoch(
+      state,
+      state.copyWith(
+        selectedNodes: newSelectedNodes,
+        nodeStates: newNodeStates,
+      ),
     );
   }
 
@@ -40,9 +58,12 @@ class SelectionService {
     final newNodeStates = Map<String, NodeRuntimeState>.from(state.nodeStates);
     newNodeStates[nodeId] = (newNodeStates[nodeId] ?? const NodeRuntimeState())
         .copyWith(selected: false);
-    return state.copyWith(
-      selectedNodes: newSelectedNodes,
-      nodeStates: newNodeStates,
+    return _withSelectionEpoch(
+      state,
+      state.copyWith(
+        selectedNodes: newSelectedNodes,
+        nodeStates: newNodeStates,
+      ),
     );
   }
 
@@ -53,9 +74,12 @@ class SelectionService {
     final newEdgeStates = Map<String, EdgeRuntimeState>.from(state.edgeStates);
     newEdgeStates[edgeId] = (newEdgeStates[edgeId] ?? const EdgeRuntimeState())
         .copyWith(selected: true);
-    return state.copyWith(
-      selectedEdges: newSelectedEdges,
-      edgeStates: newEdgeStates,
+    return _withSelectionEpoch(
+      state,
+      state.copyWith(
+        selectedEdges: newSelectedEdges,
+        edgeStates: newEdgeStates,
+      ),
     );
   }
 
@@ -66,9 +90,12 @@ class SelectionService {
     final newEdgeStates = Map<String, EdgeRuntimeState>.from(state.edgeStates);
     newEdgeStates[edgeId] = (newEdgeStates[edgeId] ?? const EdgeRuntimeState())
         .copyWith(selected: false);
-    return state.copyWith(
-      selectedEdges: newSelectedEdges,
-      edgeStates: newEdgeStates,
+    return _withSelectionEpoch(
+      state,
+      state.copyWith(
+        selectedEdges: newSelectedEdges,
+        edgeStates: newEdgeStates,
+      ),
     );
   }
 
@@ -102,9 +129,12 @@ class SelectionService {
     newNodeStates[nodeId] = (newNodeStates[nodeId] ?? const NodeRuntimeState())
         .copyWith(selected: true);
 
-    return deselectedState.copyWith(
-      selectedNodes: {nodeId},
-      nodeStates: newNodeStates,
+    return _withSelectionEpoch(
+      state,
+      deselectedState.copyWith(
+        selectedNodes: {nodeId},
+        nodeStates: newNodeStates,
+      ),
     );
   }
 
@@ -131,9 +161,12 @@ class SelectionService {
     newEdgeStates[edgeId] = (newEdgeStates[edgeId] ?? const EdgeRuntimeState())
         .copyWith(selected: true);
 
-    return deselectedState.copyWith(
-      selectedEdges: {edgeId},
-      edgeStates: newEdgeStates,
+    return _withSelectionEpoch(
+      state,
+      deselectedState.copyWith(
+        selectedEdges: {edgeId},
+        edgeStates: newEdgeStates,
+      ),
     );
   }
 
@@ -161,11 +194,14 @@ class SelectionService {
           const EdgeRuntimeState(selected: true);
     }
 
-    return state.copyWith(
-      selectedNodes: newSelectedNodes,
-      selectedEdges: newSelectedEdges,
-      nodeStates: newNodeStates,
-      edgeStates: newEdgeStates,
+    return _withSelectionEpoch(
+      state,
+      state.copyWith(
+        selectedNodes: newSelectedNodes,
+        selectedEdges: newSelectedEdges,
+        nodeStates: newNodeStates,
+        edgeStates: newEdgeStates,
+      ),
     );
   }
 
@@ -188,17 +224,23 @@ class SelectionService {
               .copyWith(selected: false);
     }
 
-    return state.copyWith(
-      selectedNodes: {},
-      selectedEdges: {},
-      nodeStates: newNodeStates,
-      edgeStates: newEdgeStates,
+    return _withSelectionEpoch(
+      state,
+      state.copyWith(
+        selectedNodes: {},
+        selectedEdges: {},
+        nodeStates: newNodeStates,
+        edgeStates: newEdgeStates,
+      ),
     );
   }
 
   FlowCanvasState startBoxSelection(FlowCanvasState state, Offset position) {
-    return deselectAll(state).copyWith(
-      selectionRect: Rect.fromPoints(position, position),
+    return _withSelectionEpoch(
+      state,
+      deselectAll(state).copyWith(
+        selectionRect: Rect.fromPoints(position, position),
+      ),
     );
   }
 
@@ -292,12 +334,15 @@ class SelectionService {
               .copyWith(selected: true);
     }
 
-    return state.copyWith(
-      selectionRect: newSelectionRect,
-      selectedNodes: newSelectedNodes.toSet(),
-      selectedEdges: newSelectedEdges,
-      nodeStates: newNodeStates,
-      edgeStates: newEdgeStates,
+    return _withSelectionEpoch(
+      state,
+      state.copyWith(
+        selectionRect: newSelectionRect,
+        selectedNodes: newSelectedNodes.toSet(),
+        selectedEdges: newSelectedEdges,
+        nodeStates: newNodeStates,
+        edgeStates: newEdgeStates,
+      ),
     );
   }
 
