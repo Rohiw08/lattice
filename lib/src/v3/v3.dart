@@ -10,4 +10,6 @@ export 'lattice_selection.dart';
 export 'lattice_viewport_value.dart';
 export 'lattice_controller.dart';
 export 'lattice_options.dart';
+export 'lattice_scope.dart';
+export 'lattice_canvas.dart';
 export 'session_providers.dart';
