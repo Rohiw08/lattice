@@ -6,6 +6,7 @@ import 'lattice_cull.dart';
 import 'lattice_handle.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
+import 'node_resizer.dart';
 import 'session_providers.dart';
 
 /// Builds a node body for [node]; [selected] mirrors the session selection.
@@ -31,7 +32,15 @@ class LatticeNodeLayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final Set<String> culled = ref.watch(latticeCullProvider);
     final List<String> ids = culled.toList()..sort();
-    return _NodeShellStack(ids: ids, nodeBuilders: nodeBuilders);
+    return Stack(
+      children: <Widget>[
+        _NodeShellStack(ids: ids, nodeBuilders: nodeBuilders),
+        // Selection overlay: resize handles for the single selected
+        // resizable node (renders nothing otherwise). Sibling of the
+        // shells so it paints above node bodies in the same flow space.
+        const LatticeNodeResizer(),
+      ],
+    );
   }
 }
 
@@ -103,12 +112,19 @@ class _LatticeNodeShell extends ConsumerWidget {
     final Offset? live = ref.watch(
       latticeDragProvider.select((drag) => drag.livePositions[id]),
     );
-    final Rect rect = live == null
+    final Size? liveSize = ref.watch(
+      latticeDragProvider.select((drag) => drag.liveSizes[id]),
+    );
+    final Rect rect = (live == null && liveSize == null)
         ? latticeAbsoluteRect(nodes, id, defaultOrigin: Offset.zero)
         : (latticeAnchorTopLeft(
-                node.copyWith(position: live), Offset.zero,
+                node.copyWith(
+                  position: live ?? node.position,
+                  size: liveSize ?? node.size,
+                ),
+                Offset.zero,
               ) &
-              node.size);
+              (liveSize ?? node.size));
     final Widget body = nodeBuilders[node.type]?.call(context, node, selected) ??
         _defaultNodeBody(node, selected);
     final Map<String, LatticeHandle> handles = node.resolveHandles();

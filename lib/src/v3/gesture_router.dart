@@ -9,6 +9,8 @@ import 'lattice_handle.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
 import 'lattice_scope.dart';
+import 'lattice_selection.dart';
+import 'node_resizer.dart';
 import 'session_providers.dart';
 
 /// Screen-space input router for the lattice pane.
@@ -69,6 +71,7 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
   String? _downNodeId;
   LatticeEndpoint? _downHandle;
   bool _nodeDragging = false;
+  bool _resizing = false;
   bool _connecting = false;
   bool _marquee = false;
   bool _panning = false;
@@ -118,6 +121,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
         _nodeDragging = false;
         _controller.endNodeDrag();
       }
+      if (_resizing) {
+        _resizing = false;
+        _controller.endResize();
+      }
       if (_connecting) {
         _connecting = false;
         _controller.endConnect(null);
@@ -140,6 +147,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
         _nodeDragging = false;
         _controller.endNodeDrag();
       }
+      if (_resizing) {
+        _resizing = false;
+        _controller.endResize();
+      }
       if (_connecting) {
         _connecting = false;
         _controller.endConnect(null);
@@ -159,6 +170,17 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     if (_pointers.length > 2 || _primaryPointer != null) return;
     _primaryPointer = event.pointer;
     _downPosition = event.localPosition;
+    // Resizer handles win over connect handles and node bodies: a press
+    // on the single selected resizable node's border starts a resize,
+    // never a connect or a node drag.
+    final _ResizeHit? resizeHit = _hitResizeHandle(event.localPosition);
+    if (resizeHit != null) {
+      _downNodeId = null;
+      _controller.beginResize(resizeHit.id, resizeHit.handle);
+      _resizing = true;
+      _addRoute(event.pointer);
+      return;
+    }
     _downHandle = _hitHandle(event.localPosition);
     if (_downHandle != null) {
       // Press on a handle starts a connect session instead of a node
@@ -182,6 +204,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
       return;
     }
     if (event.pointer != _primaryPointer) return;
+    if (_resizing) {
+      _controller.updateResize(event.delta);
+      return;
+    }
     if (_connecting) {
       _controller.updateConnect(event.localPosition);
       return;
@@ -228,7 +254,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     if (event.pointer != _primaryPointer) return;
     _primaryPointer = null;
-    if (_connecting) {
+    if (_resizing) {
+      _resizing = false;
+      _controller.endResize();
+    } else if (_connecting) {
       _connecting = false;
       _controller.endConnect(_hitHandle(event.localPosition));
     } else if (_nodeDragging) {
@@ -253,7 +282,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     if (event.pointer != _primaryPointer) return;
     _primaryPointer = null;
-    if (_connecting) {
+    if (_resizing) {
+      _resizing = false;
+      _controller.endResize();
+    } else if (_connecting) {
       _connecting = false;
       _controller.endConnect(null);
     } else if (_nodeDragging) {
@@ -280,7 +312,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     if (event.pointer != _primaryPointer) return;
     _primaryPointer = null;
-    if (_connecting) {
+    if (_resizing) {
+      _resizing = false;
+      _controller.endResize();
+    } else if (_connecting) {
       _connecting = false;
       _controller.endConnect(null);
     } else if (_nodeDragging) {
@@ -319,6 +354,31 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
         }
       });
     }
+  }
+
+  /// Router-side resizer hit test (no selection side effects): when the
+  /// selection is exactly one resizable node, the handle whose square
+  /// contains the flow point, or `null`. Callers probe this BEFORE
+  /// [_hitHandle]/[_hitNode] so border presses resize instead of
+  /// connecting or dragging.
+  _ResizeHit? _hitResizeHandle(Offset screenPosition) {
+    final ProviderContainer container = _controller.container;
+    final Set<String> selected =
+        container.read(latticeSelectionProvider).nodes;
+    if (selected.length != 1) return null;
+    final String id = selected.single;
+    final Map<String, LatticeNode> nodes =
+        container.read(latticeDocumentProvider).nodes;
+    final LatticeNode? node = nodes[id];
+    if (node == null || node.resizable != true) return null;
+    final LatticeDragState drag = container.read(latticeDragProvider);
+    final Rect rect = latticeResizeNodeRect(nodes, drag, id);
+    final LatticeResizeHandle? handle = hitTestResizeHandle(
+      _controller.screenToFlow(screenPosition),
+      rect,
+    );
+    if (handle == null) return null;
+    return _ResizeHit(id: id, handle: handle);
   }
 
   /// Router-side hit test (no selection side effects): topmost node
@@ -398,4 +458,12 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
       container.read(latticeHoverProvider.notifier).set(null);
     }
   }
+}
+
+/// Node + handle struck by [_GestureRouterBodyState._hitResizeHandle].
+class _ResizeHit {
+  const _ResizeHit({required this.id, required this.handle});
+
+  final String id;
+  final LatticeResizeHandle handle;
 }

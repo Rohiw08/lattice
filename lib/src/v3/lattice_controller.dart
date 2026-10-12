@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +18,7 @@ import 'lattice_options.dart';
 import 'lattice_selection.dart';
 import 'lattice_spatial_index.dart';
 import 'lattice_viewport_value.dart';
+import 'node_resizer.dart';
 import 'session_providers.dart';
 
 /// Elements removed by [LatticeController.deleteElements] (or
@@ -100,6 +103,15 @@ class LatticeController extends ChangeNotifier {
   /// Accumulated deltas apply to these — never to re-read mutated state.
   Map<String, Offset> _dragStartPositions = const <String, Offset>{};
   Offset _dragAccumulated = Offset.zero;
+
+  /// Resize session: the node + handle from [beginResize], the drag-start
+  /// document size/position, and the accumulated flow delta. Deltas
+  /// accumulate onto the start values — never onto re-read live state.
+  String? _resizeNodeId;
+  LatticeResizeHandle? _resizeHandle;
+  Size? _resizeStartSize;
+  Offset? _resizeStartPosition;
+  Offset _resizeAccumulated = Offset.zero;
 
   /// Marquee anchor in flow coordinates, set by [beginMarquee].
   Offset? _marqueeAnchor;
@@ -657,7 +669,11 @@ class LatticeController extends ChangeNotifier {
             _dragAccumulated,
     };
     _container.read(latticeDragProvider.notifier).set(
-          LatticeDragState.node(ids: drag.ids, livePositions: live),
+          LatticeDragState.node(
+            ids: drag.ids,
+            livePositions: live,
+            liveSizes: drag.liveSizes,
+          ),
         );
   }
 
@@ -699,6 +715,188 @@ class LatticeController extends ChangeNotifier {
             const LatticeDragState.idle(),
           );
     }
+  }
+
+  /// Starts a resize session for node [id] via [handle], recording the
+  /// drag-start document size/position and seeding the drag state with
+  /// both the live position and the live size. Requires the node to
+  /// exist and be resizable (`resizable ?? false` — default off);
+  /// otherwise a silent no-op (no drag state, no history, no notify).
+  /// Session-only: never notifies controller listeners.
+  void beginResize(String id, LatticeResizeHandle handle) {
+    final LatticeNode? node =
+        _container.read(latticeDocumentProvider).nodes[id];
+    if (node == null || node.resizable != true) return;
+    _resizeNodeId = id;
+    _resizeHandle = handle;
+    _resizeStartSize = node.size;
+    _resizeStartPosition = node.position;
+    _resizeAccumulated = Offset.zero;
+    _container.read(latticeDragProvider.notifier).set(
+          LatticeDragState.node(
+            ids: <String>{id},
+            livePositions: <String, Offset>{id: node.position},
+            liveSizes: <String, Size>{id: node.size},
+          ),
+        );
+  }
+
+  /// Advances the active resize session by [screenDelta], converted to a
+  /// flow delta via the current zoom (`flowDelta = screenDelta / zoom`).
+  /// The new size is the drag-start size plus the signed accumulated
+  /// delta per handle direction (right/bottom grow with +, left/top grow
+  /// with − and shift the position so the opposite edge stays fixed),
+  /// clamped to `minSize` / `maxSize` / the canvas max; `keepAspectRatio`
+  /// locks the drag-start ratio, scaling by the dominant axis. Position
+  /// shifts only for left/top handles. Writes go to the drag session
+  /// (live) only: zero document emissions, zero history, no notify.
+  /// No-op unless a resize session is active.
+  void updateResize(Offset screenDelta) {
+    final String? id = _resizeNodeId;
+    final LatticeResizeHandle? handle = _resizeHandle;
+    final Size? startSize = _resizeStartSize;
+    final Offset? startPosition = _resizeStartPosition;
+    if (id == null ||
+        handle == null ||
+        startSize == null ||
+        startPosition == null) {
+      return;
+    }
+    final LatticeDragState drag = _container.read(latticeDragProvider);
+    if (!drag.isActive || !drag.ids.contains(id)) return;
+    final LatticeNode? node =
+        _container.read(latticeDocumentProvider).nodes[id];
+    if (node == null) return;
+    final Matrix4 matrix = _container.read(latticeCameraProvider);
+    final double zoom = LatticeViewportValue.fromMatrix(matrix).zoom;
+    final double scale = zoom == 0.0 ? 1.0 : zoom;
+    _resizeAccumulated += screenDelta / scale;
+    final double dx = _resizeAccumulated.dx;
+    final double dy = _resizeAccumulated.dy;
+    double deltaWidth = 0;
+    double deltaHeight = 0;
+    var west = false;
+    var north = false;
+    switch (handle) {
+      case LatticeResizeHandle.topLeft:
+        deltaWidth = -dx;
+        deltaHeight = -dy;
+        west = true;
+        north = true;
+      case LatticeResizeHandle.top:
+        deltaHeight = -dy;
+        north = true;
+      case LatticeResizeHandle.topRight:
+        deltaWidth = dx;
+        deltaHeight = -dy;
+        north = true;
+      case LatticeResizeHandle.right:
+        deltaWidth = dx;
+      case LatticeResizeHandle.bottomRight:
+        deltaWidth = dx;
+        deltaHeight = dy;
+      case LatticeResizeHandle.bottom:
+        deltaHeight = dy;
+      case LatticeResizeHandle.bottomLeft:
+        deltaWidth = -dx;
+        deltaHeight = dy;
+        west = true;
+      case LatticeResizeHandle.left:
+        deltaWidth = -dx;
+        west = true;
+    }
+    double width = startSize.width + deltaWidth;
+    double height = startSize.height + deltaHeight;
+    if (node.keepAspectRatio &&
+        startSize.width > 0 &&
+        startSize.height > 0) {
+      final double ratio = startSize.width / startSize.height;
+      if (deltaWidth.abs() >= deltaHeight.abs()) {
+        height = width / ratio;
+      } else {
+        width = height * ratio;
+      }
+    }
+    // V3-6 Task 6: replace these hardcoded floors/ceilings with
+    // LatticeOptions resize ceilings.
+    const Size minFallback = Size(40, 40);
+    const Size canvasMax = Size(2000, 2000);
+    final Size minSize = node.minSize ?? minFallback;
+    final double maxWidth = math.min(
+      node.maxSize?.width ?? canvasMax.width,
+      canvasMax.width,
+    );
+    final double maxHeight = math.min(
+      node.maxSize?.height ?? canvasMax.height,
+      canvasMax.height,
+    );
+    width = width.clamp(
+      minSize.width,
+      math.max(maxWidth, minSize.width),
+    );
+    height = height.clamp(
+      minSize.height,
+      math.max(maxHeight, minSize.height),
+    );
+    var left = startPosition.dx;
+    var top = startPosition.dy;
+    if (west) left += startSize.width - width;
+    if (north) top += startSize.height - height;
+    _container.read(latticeDragProvider.notifier).set(
+          LatticeDragState.node(
+            ids: <String>{id},
+            livePositions: <String, Offset>{id: Offset(left, top)},
+            liveSizes: <String, Size>{id: Size(width, height)},
+          ),
+        );
+  }
+
+  /// Commits the active resize session to the document (size, plus the
+  /// shifted position for left/top handles) via one history `push`, one
+  /// `replace`, one notification, then resets the drag to idle. A
+  /// session with no effective change is silent: no history, no notify
+  /// (still resets the drag). No-op unless a resize session started via
+  /// [beginResize]; never steals a plain node-drag session.
+  void endResize() {
+    final String? id = _resizeNodeId;
+    _resizeNodeId = null;
+    _resizeHandle = null;
+    _resizeStartSize = null;
+    _resizeStartPosition = null;
+    _resizeAccumulated = Offset.zero;
+    if (id == null) return;
+    final LatticeDragState drag = _container.read(latticeDragProvider);
+    if (!drag.isActive || !drag.ids.contains(id)) return;
+    final Size? liveSize = drag.liveSizes[id];
+    if (liveSize == null) return;
+    final Map<String, LatticeNode> nodes =
+        _container.read(latticeDocumentProvider).nodes;
+    final LatticeNode? current = nodes[id];
+    if (current == null) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    final Offset livePosition = drag.livePositions[id] ?? current.position;
+    if (liveSize == current.size && livePosition == current.position) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    final LatticeDocument document =
+        _container.read(latticeDocumentProvider);
+    _history.push(document);
+    final Map<String, LatticeNode> next = Map<String, LatticeNode>.of(nodes);
+    next[id] = current.copyWith(position: livePosition, size: liveSize);
+    _container
+        .read(latticeDocumentProvider.notifier)
+        .replace(document.copyWith(nodes: next));
+    _container.read(latticeDragProvider.notifier).set(
+          const LatticeDragState.idle(),
+        );
+    notifyListeners();
   }
 
   /// Starts a connect session from [from], seeding `liveEnd` at the

@@ -28,3 +28,4 @@ export 'lattice_connection.dart';
 export 'handle_widget.dart';
 export 'minimap.dart';
 export 'canvas_background.dart';
+export 'node_resizer.dart';

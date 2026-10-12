@@ -53,6 +53,7 @@ class LatticeDragState {
   const LatticeDragState.idle()
       : ids = const {},
         livePositions = const {},
+        liveSizes = const {},
         rect = null,
         from = null,
         liveEnd = null,
@@ -62,6 +63,7 @@ class LatticeDragState {
   const LatticeDragState.node({
     required this.ids,
     required this.livePositions,
+    this.liveSizes = const {},
   })  : rect = null,
         from = null,
         liveEnd = null,
@@ -71,6 +73,7 @@ class LatticeDragState {
   const LatticeDragState.marquee({required this.rect})
       : ids = const {},
         livePositions = const {},
+        liveSizes = const {},
         from = null,
         liveEnd = null,
         reconnectEdgeId = null,
@@ -84,6 +87,7 @@ class LatticeDragState {
         liveEnd = liveEnd,
         ids = const {},
         livePositions = const {},
+        liveSizes = const {},
         rect = null,
         _active = true;
 
@@ -92,6 +96,10 @@ class LatticeDragState {
 
   /// Per-frame pointer-driven positions (node variant).
   final Map<String, Offset> livePositions;
+
+  /// Per-frame pointer-driven sizes, keyed by node id (resize sessions).
+  /// Empty for plain node drags; shells read `liveSizes[id] ?? node.size`.
+  final Map<String, Size> liveSizes;
 
   /// Current selection rectangle (marquee variant).
   final Rect? rect;
