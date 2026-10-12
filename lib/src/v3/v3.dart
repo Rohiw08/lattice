@@ -8,4 +8,6 @@ export 'lattice_node.dart';
 export 'lattice_layout.dart';
 export 'lattice_selection.dart';
 export 'lattice_viewport_value.dart';
+export 'lattice_controller.dart';
+export 'lattice_options.dart';
 export 'session_providers.dart';
