@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'lattice_camera.dart';
 import 'lattice_clipboard.dart';
+import 'lattice_codecs.dart';
 import 'lattice_document.dart';
 import 'lattice_edge.dart';
 import 'lattice_history.dart';
@@ -14,6 +15,21 @@ import 'lattice_selection.dart';
 import 'lattice_spatial_index.dart';
 import 'lattice_viewport_value.dart';
 import 'session_providers.dart';
+
+/// Elements removed by [LatticeController.deleteElements] (or
+/// [LatticeController.deleteSelection]): the pre-image objects, in document
+/// iteration order. Empty when nothing was removed.
+class LatticeDeletedElements {
+  const LatticeDeletedElements({
+    this.nodes = const [],
+    this.edges = const [],
+  });
+
+  final List<LatticeNode> nodes;
+  final List<LatticeEdge> edges;
+
+  bool get isEmpty => nodes.isEmpty && edges.isEmpty;
+}
 
 /// User-owned controller for a lattice canvas session.
 ///
@@ -221,6 +237,101 @@ class LatticeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Deletes nodes [nodeIds] plus ALL descendants (walked downward via
+  /// `parentId` chains from the requested set, cycle-safe through a visited
+  /// set), all edges connected to any removed node, and explicitly listed
+  /// edges [edgeIds]. Nodes with `deletable: false` survive — even when
+  /// listed — and so do their connected edges unless those edges are
+  /// explicitly listed; explicitly listed edges with `deletable: false`
+  /// survive as well. Cascade-connected edges are always pruned (their
+  /// endpoints would otherwise dangle), whatever their flag.
+  ///
+  /// One history `push`, one `replace`, one notification, then the
+  /// selection is coerced to surviving ids. Empty result → no push,
+  /// no replace, no notify at all. Returns the removed objects.
+  LatticeDeletedElements deleteElements({
+    Set<String> nodeIds = const {},
+    Set<String> edgeIds = const {},
+  }) {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    if (nodeIds.isEmpty && edgeIds.isEmpty) {
+      return const LatticeDeletedElements();
+    }
+    final Map<String, List<String>> children = <String, List<String>>{};
+    for (final LatticeNode node in current.nodes.values) {
+      final String? parentId = node.parentId;
+      if (parentId != null) {
+        (children[parentId] ??= <String>[]).add(node.id);
+      }
+    }
+    final Set<String> closure = Set<String>.of(nodeIds);
+    final List<String> queue = List<String>.of(nodeIds);
+    while (queue.isNotEmpty) {
+      final String id = queue.removeLast();
+      for (final String child in children[id] ?? const <String>[]) {
+        if (closure.add(child)) queue.add(child);
+      }
+    }
+    final Set<String> removedNodeIds = <String>{};
+    for (final String id in closure) {
+      final LatticeNode? node = current.nodes[id];
+      if (node != null && node.deletable != false) {
+        removedNodeIds.add(id);
+      }
+    }
+    final Set<String> removedEdgeIds = <String>{};
+    for (final LatticeEdge edge in current.edges.values) {
+      if (removedNodeIds.contains(edge.source.nodeId) ||
+          removedNodeIds.contains(edge.target.nodeId)) {
+        removedEdgeIds.add(edge.id);
+      } else if (edgeIds.contains(edge.id) && edge.deletable != false) {
+        removedEdgeIds.add(edge.id);
+      }
+    }
+    if (removedNodeIds.isEmpty && removedEdgeIds.isEmpty) {
+      return const LatticeDeletedElements();
+    }
+    final List<LatticeNode> removedNodes = <LatticeNode>[
+      for (final String id in current.nodes.keys)
+        if (removedNodeIds.contains(id)) current.nodes[id]!,
+    ];
+    final List<LatticeEdge> removedEdges = <LatticeEdge>[
+      for (final String id in current.edges.keys)
+        if (removedEdgeIds.contains(id)) current.edges[id]!,
+    ];
+    final Map<String, LatticeNode> nodes =
+        Map<String, LatticeNode>.of(current.nodes)
+          ..removeWhere(
+            (String id, LatticeNode _) => removedNodeIds.contains(id),
+          );
+    final Map<String, LatticeEdge> edges =
+        Map<String, LatticeEdge>.of(current.edges)
+          ..removeWhere(
+            (String id, LatticeEdge _) => removedEdgeIds.contains(id),
+          );
+    final LatticeDocument next = current.copyWith(nodes: nodes, edges: edges);
+    _history.push(current);
+    _container.read(latticeDocumentProvider.notifier).replace(next);
+    _coerceSelection(next);
+    notifyListeners();
+    return LatticeDeletedElements(
+      nodes: removedNodes,
+      edges: removedEdges,
+    );
+  }
+
+  /// Deletes the current selection via [deleteElements]. Empty selection
+  /// (or an undeletable one) → empty result, no history, no notify.
+  LatticeDeletedElements deleteSelection() {
+    final LatticeSelection selection =
+        _container.read(latticeSelectionProvider);
+    return deleteElements(
+      nodeIds: selection.nodes,
+      edgeIds: selection.edges,
+    );
+  }
+
   /// Sets the session selection. Selection-only: never notifies
   /// controller listeners.
   void select(Set<String> nodeIds, [Set<String> edgeIds = const {}]) {
@@ -253,6 +364,17 @@ class LatticeController extends ChangeNotifier {
   /// Returns the current document (same instance, no copy).
   LatticeDocument save() {
     return _container.read(latticeDocumentProvider);
+  }
+
+  /// Serializes the current document (`document.toJson(encode)`).
+  Map<String, Object?> toJson([EncodeNodeData? encode]) {
+    return document.toJson(encode);
+  }
+
+  /// Replaces the document from [json] via [load] (hence resets history
+  /// and clears the selection, with exactly one notification).
+  void loadJson(Map<String, Object?> json, [DecodeNodeData? decode]) {
+    load(LatticeDocument.fromJson(json, decode));
   }
 
   /// Whether [undo] would restore a document.
