@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'lattice_camera.dart';
+import 'lattice_clipboard.dart';
 import 'lattice_document.dart';
 import 'lattice_edge.dart';
 import 'lattice_history.dart';
@@ -49,6 +50,22 @@ class LatticeController extends ChangeNotifier {
   /// verb records its pre-image here before replacing.
   final LatticeHistoryController _history = LatticeHistoryController();
 
+  /// Session clipboard payload (copy/paste/duplicate source).
+  final LatticeClipboard _clipboard = LatticeClipboard();
+
+  /// Monotonic fresh-id counter for pasted copies (`node_copy_<n>` /
+  /// `edge_copy_<n>`). Skips ids already present in the target document.
+  int _copyCounter = 0;
+
+  /// Top-left of the copied node bounds at [copySelection] time; the
+  /// anchor `paste`/`duplicateSelection` measure deltas against. Null
+  /// when the clipboard payload is empty.
+  Offset? _clipboardAnchor;
+
+  /// Number of edges in the copied payload; sizes the per-node fresh-id
+  /// sets so the clipboard pool always covers retained edges.
+  int _clipboardEdgeCount = 0;
+
   /// Controller-owned hit-test index, synced lazily on every verb that
   /// queries it: full `rebuild` when the key set changed, `moveNode`
   /// deltas otherwise (same pattern as the cull controller).
@@ -81,10 +98,12 @@ class LatticeController extends ChangeNotifier {
   bool get isAttached => _attached;
 
   /// Replaces the document's nodes, keeping edges and viewport.
+  /// Bulk setter with `load` semantics: resets history (no push).
   /// Notifies listeners exactly once.
   void setNodes(Iterable<LatticeNode> nodes) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
+    _history.reset();
     _container.read(latticeDocumentProvider.notifier).replace(
           current.copyWith(
             nodes: <String, LatticeNode>{
@@ -96,10 +115,12 @@ class LatticeController extends ChangeNotifier {
   }
 
   /// Replaces the document's edges, keeping nodes and viewport.
+  /// Bulk setter with `load` semantics: resets history (no push).
   /// Notifies listeners exactly once.
   void setEdges(Iterable<LatticeEdge> edges) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
+    _history.reset();
     _container.read(latticeDocumentProvider.notifier).replace(
           current.copyWith(
             edges: <String, LatticeEdge>{
@@ -120,26 +141,32 @@ class LatticeController extends ChangeNotifier {
   }
 
   /// Inserts (or overwrites, on duplicate id) node [n].
-  /// Notifies listeners exactly once.
+  /// Notifies listeners exactly once. No-op (no push, no replace, no
+  /// notify) when the document is already equal.
   void addNode(LatticeNode n) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
+    final LatticeDocument next = current.withNode(n);
+    if (next == current) return;
     _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
-        .replace(current.withNode(n));
+        .replace(next);
     notifyListeners();
   }
 
   /// Inserts (or overwrites, on duplicate id) edge [e].
-  /// Notifies listeners exactly once.
+  /// Notifies listeners exactly once. No-op (no push, no replace, no
+  /// notify) when the document is already equal.
   void addEdge(LatticeEdge e) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
+    final LatticeDocument next = current.withEdge(e);
+    if (next == current) return;
     _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
-        .replace(current.withEdge(e));
+        .replace(next);
     notifyListeners();
   }
 
@@ -166,25 +193,31 @@ class LatticeController extends ChangeNotifier {
   }
 
   /// Removes nodes [ids] (edges untouched; cascade is Task 4).
-  /// Notifies listeners exactly once.
+  /// Notifies listeners exactly once. No-op (no push, no replace, no
+  /// notify) when nothing is removed.
   void removeNodes(Set<String> ids) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
+    final LatticeDocument next = current.withoutNodes(ids);
+    if (next == current) return;
     _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
-        .replace(current.withoutNodes(ids));
+        .replace(next);
     notifyListeners();
   }
 
-  /// Removes edges [ids]. Notifies listeners exactly once.
+  /// Removes edges [ids]. Notifies listeners exactly once. No-op (no
+  /// push, no replace, no notify) when nothing is removed.
   void removeEdges(Set<String> ids) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
+    final LatticeDocument next = current.withoutEdges(ids);
+    if (next == current) return;
     _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
-        .replace(current.withoutEdges(ids));
+        .replace(next);
     notifyListeners();
   }
 
@@ -229,24 +262,160 @@ class LatticeController extends ChangeNotifier {
   bool get canRedo => _history.canRedo;
 
   /// Restores the pre-image of the last document verb. Replaces the
-  /// document and notifies exactly once. No-op (no replace, no notify)
+  /// document and notifies exactly once. Coerces the selection to ids
+  /// present in the restored document. No-op (no replace, no notify)
   /// when the undo stack is empty.
   void undo() {
     final LatticeDocument? previous =
         _history.undo(_container.read(latticeDocumentProvider));
     if (previous == null) return;
     _container.read(latticeDocumentProvider.notifier).replace(previous);
+    _coerceSelection(previous);
     notifyListeners();
   }
 
   /// Reapplies the document undone by [undo]. Replaces the document
-  /// and notifies exactly once. No-op (no replace, no notify) when the
+  /// and notifies exactly once. Coerces the selection to ids present
+  /// in the restored document. No-op (no replace, no notify) when the
   /// redo stack is empty.
   void redo() {
     final LatticeDocument? next =
         _history.redo(_container.read(latticeDocumentProvider));
     if (next == null) return;
     _container.read(latticeDocumentProvider.notifier).replace(next);
+    _coerceSelection(next);
+    notifyListeners();
+  }
+
+  /// Drops selected node/edge ids absent from [document] via
+  /// [select] (which skips emission when nothing changes).
+  void _coerceSelection(LatticeDocument document) {
+    final LatticeSelection selection =
+        _container.read(latticeSelectionProvider);
+    if (selection.isEmpty) return;
+    final Set<String> nodes = <String>{
+      for (final String id in selection.nodes)
+        if (document.nodes.containsKey(id)) id,
+    };
+    final Set<String> edges = <String>{
+      for (final String id in selection.edges)
+        if (document.edges.containsKey(id)) id,
+    };
+    select(nodes, edges);
+  }
+
+  /// Stores the selected nodes plus the edges fully inside the selection
+  /// (both endpoints selected) into the clipboard. An empty selection
+  /// clears the payload. Never touches history, never notifies.
+  void copySelection() {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    final LatticeSelection selection =
+        _container.read(latticeSelectionProvider);
+    if (selection.isEmpty) {
+      _clipboard.store(nodes: const [], edges: const []);
+      _clipboardAnchor = null;
+      _clipboardEdgeCount = 0;
+      return;
+    }
+    final List<LatticeNode> nodes = <LatticeNode>[
+      for (final String id in selection.nodes)
+        if (current.nodes[id] case final LatticeNode node) node,
+    ];
+    if (nodes.isEmpty) {
+      _clipboard.store(nodes: const [], edges: const []);
+      _clipboardAnchor = null;
+      _clipboardEdgeCount = 0;
+      return;
+    }
+    final Set<String> nodeIds = <String>{
+      for (final LatticeNode node in nodes) node.id,
+    };
+    final List<LatticeEdge> edges = <LatticeEdge>[
+      for (final LatticeEdge edge in current.edges.values)
+        if (nodeIds.contains(edge.source.nodeId) &&
+            nodeIds.contains(edge.target.nodeId))
+          edge,
+    ];
+    _clipboard.store(nodes: nodes, edges: edges);
+    var left = double.infinity;
+    var top = double.infinity;
+    for (final LatticeNode node in nodes) {
+      if (node.position.dx < left) left = node.position.dx;
+      if (node.position.dy < top) top = node.position.dy;
+    }
+    _clipboardAnchor = Offset(left, top);
+    _clipboardEdgeCount = edges.length;
+  }
+
+  /// Pastes the clipboard payload with its anchor at [at] (delta =
+  /// `at - payloadAnchor`) as ONE history entry, then selects the new
+  /// nodes. No-op (no history, no notify) when the clipboard is empty.
+  /// Notifies listeners exactly once.
+  void paste({required Offset at}) {
+    final Offset? anchor = _clipboardAnchor;
+    if (!_clipboard.hasPayload || anchor == null) return;
+    _pasteAt(at - anchor);
+  }
+
+  /// Copies the selection then pastes it at +40,+40 as ONE history entry.
+  /// No-op (no history, no notify) on an empty selection.
+  void duplicateSelection() {
+    copySelection();
+    final Offset? anchor = _clipboardAnchor;
+    if (!_clipboard.hasPayload || anchor == null) return;
+    _pasteAt(const Offset(40, 40));
+  }
+
+  /// Pastes the clipboard payload shifted by [delta]: one history push,
+  /// one replace, one notification, then selects the new nodes. Fresh ids
+  /// (`node_copy_<n>` / `edge_copy_<n>`) come from the monotonic counter,
+  /// skipping ids already present in the target document.
+  void _pasteAt(Offset delta) {
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    final Set<String> taken = <String>{
+      ...current.nodes.keys,
+      ...current.edges.keys,
+    };
+    String freshNodeId() {
+      while (true) {
+        final String id = 'node_copy_${++_copyCounter}';
+        if (taken.add(id)) return id;
+      }
+    }
+
+    String freshEdgeId() {
+      while (true) {
+        final String id = 'edge_copy_${++_copyCounter}';
+        if (taken.add(id)) return id;
+      }
+    }
+
+    final int edgeCount = _clipboardEdgeCount;
+    final pasted = _clipboard.paste(
+      delta: delta,
+      freshIds: () => <String>{
+        freshNodeId(),
+        for (var i = 0; i < edgeCount; i++) freshEdgeId(),
+      },
+    );
+    final Map<String, LatticeNode> nodes =
+        Map<String, LatticeNode>.of(current.nodes);
+    for (final LatticeNode node in pasted.nodes) {
+      nodes[node.id] = node;
+    }
+    final Map<String, LatticeEdge> edges =
+        Map<String, LatticeEdge>.of(current.edges);
+    for (final LatticeEdge edge in pasted.edges) {
+      edges[edge.id] = edge;
+    }
+    final LatticeDocument next =
+        current.copyWith(nodes: nodes, edges: edges);
+    if (next == current) return;
+    _history.push(current);
+    _container.read(latticeDocumentProvider.notifier).replace(next);
+    select(<String>{for (final LatticeNode node in pasted.nodes) node.id});
     notifyListeners();
   }
 

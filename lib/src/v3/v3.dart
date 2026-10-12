@@ -21,4 +21,5 @@ export 'lattice_cull.dart';
 export 'node_layer.dart';
 export 'edge_layer.dart';
 export 'lattice_history.dart';
+export 'lattice_clipboard.dart';
 export 'gesture_router.dart';
