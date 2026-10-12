@@ -5,4 +5,5 @@ export 'lattice_document.dart';
 export 'lattice_edge.dart';
 export 'lattice_handle.dart';
 export 'lattice_node.dart';
+export 'lattice_layout.dart';
 export 'lattice_viewport_value.dart';
