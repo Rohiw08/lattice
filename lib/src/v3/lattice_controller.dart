@@ -393,11 +393,22 @@ class LatticeController extends ChangeNotifier {
     }
 
     final int edgeCount = _clipboardEdgeCount;
+    // The clipboard protocol takes the first set element as the node id
+    // and pools leftovers for edges: mint the full edge pool on the first
+    // call only, singletons thereafter, so a paste of N nodes + E edges
+    // advances the counter by exactly N + E (no per-node burn).
+    var firstFreshCall = true;
     final pasted = _clipboard.paste(
       delta: delta,
-      freshIds: () => <String>{
-        freshNodeId(),
-        for (var i = 0; i < edgeCount; i++) freshEdgeId(),
+      freshIds: () {
+        final Set<String> ids = <String>{freshNodeId()};
+        if (firstFreshCall) {
+          firstFreshCall = false;
+          for (var i = 0; i < edgeCount; i++) {
+            ids.add(freshEdgeId());
+          }
+        }
+        return ids;
       },
     );
     final Map<String, LatticeNode> nodes =

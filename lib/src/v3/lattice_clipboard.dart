@@ -14,7 +14,7 @@ class LatticeClipboard {
   List<LatticeEdge> _edges = const <LatticeEdge>[];
 
   /// Whether a paste would produce content.
-  bool get hasPayload => _nodes.isNotEmpty || _edges.isNotEmpty;
+  bool get hasPayload => _nodes.isNotEmpty;
 
   /// Replaces the payload. Storing empty lists clears it.
   void store({
@@ -98,8 +98,12 @@ LatticeNode _moved(
   if (oldParent == null) {
     return node.copyWith(id: newId, position: position);
   }
-  // copyWith cannot null parentId, so rebuild explicitly; [remap]
-  // yields null for external parents (detach).
+  final String? newParent = remap[oldParent];
+  if (newParent != null) {
+    return node.copyWith(id: newId, position: position, parentId: newParent);
+  }
+  // copyWith cannot null parentId, so rebuild explicitly for the
+  // detach-to-null case only ([remap] yields null for external parents).
   return LatticeNode(
     id: newId,
     type: node.type,

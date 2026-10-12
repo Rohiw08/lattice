@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lattice/src/v3/v3.dart';
 
@@ -146,6 +148,90 @@ void main() {
         ),
         throwsStateError,
       );
+    });
+
+    test('edges-only payload has no payload', () {
+      final clipboard = LatticeClipboard();
+      clipboard.store(
+        nodes: const [],
+        edges: [_edge('e1', 'a', 'b')],
+      );
+      expect(clipboard.hasPayload, isFalse);
+    });
+
+    test('paste preserves all fields on internally-parented copies', () {
+      final clipboard = LatticeClipboard();
+      final child = LatticeNode(
+        id: 'c',
+        type: 'custom',
+        position: const Offset(30, 40),
+        origin: const Offset(1, 2),
+        size: const Size(200, 100),
+        data: const {'k': 'v'},
+        parentId: 'p',
+        zIndex: 7,
+        handles: const {
+          'h': LatticeHandle(
+            id: 'h',
+            type: LatticeHandleType.source,
+            position: Offset(3, 4),
+          ),
+        },
+        hidden: true,
+        draggable: false,
+        selectable: false,
+        hoverable: false,
+        connectable: false,
+        deletable: false,
+        resizable: true,
+        focusable: true,
+        minSize: const Size(50, 20),
+        maxSize: const Size(400, 200),
+        keepAspectRatio: true,
+        expandParent: true,
+        dragHandle: true,
+        semanticsLabel: 'label',
+        extent: const Rect.fromLTWH(0, 0, 10, 10),
+      );
+      clipboard.store(
+        nodes: [_node('p', const Offset(10, 20)), child],
+        edges: const [],
+      );
+      var n = 0;
+      final pasted = clipboard.paste(
+        delta: const Offset(5, 5),
+        freshIds: () {
+          n++;
+          return <String>{'m$n'};
+        },
+      );
+      expect(pasted.nodes, hasLength(2));
+      final LatticeNode copy = pasted.nodes[1];
+      expect(copy.id, equals('m2'));
+      // Parent was pasted too: remapped to the pasted parent id.
+      expect(copy.parentId, equals('m1'));
+      expect(copy.position, equals(const Offset(35, 45)));
+      expect(copy.type, equals(child.type));
+      expect(copy.origin, equals(child.origin));
+      expect(copy.size, equals(child.size));
+      expect(copy.data, equals(child.data));
+      expect(copy.zIndex, equals(child.zIndex));
+      expect(copy.handles, equals(child.handles));
+      expect(copy.hidden, equals(child.hidden));
+      expect(copy.draggable, equals(child.draggable));
+      expect(copy.selectable, equals(child.selectable));
+      expect(copy.hoverable, equals(child.hoverable));
+      expect(copy.connectable, equals(child.connectable));
+      expect(copy.deletable, equals(child.deletable));
+      expect(copy.resizable, equals(child.resizable));
+      expect(copy.focusable, equals(child.focusable));
+      expect(copy.minSize, equals(child.minSize));
+      expect(copy.maxSize, equals(child.maxSize));
+      expect(copy.keepAspectRatio, equals(child.keepAspectRatio));
+      expect(copy.expandParent, equals(child.expandParent));
+      expect(copy.dragHandle, equals(child.dragHandle));
+      expect(copy.semanticsLabel, equals(child.semanticsLabel));
+      expect(copy.extent, equals(child.extent));
     });
   });
 
@@ -300,6 +386,51 @@ void main() {
       controller.duplicateSelection();
       expect(notifications, equals(2));
       expect(controller.canUndo, isFalse);
+    });
+
+    test('pasting N nodes + E edges advances the id counter by exactly N+E',
+        () {
+      final controller = LatticeController(
+        initialNodes: [
+          _node('a', const Offset(10, 20)),
+          _node('b', const Offset(50, 60)),
+        ],
+        initialEdges: [_edge('e1', 'a', 'b')],
+      );
+      addTearDown(controller.dispose);
+      int ordinal(String id) =>
+          int.parse(id.substring(id.lastIndexOf('_') + 1));
+      controller.select(const {'a', 'b'});
+      controller.copySelection();
+      controller.paste(at: const Offset(100, 100));
+      final Set<String> afterFirst = <String>{
+        ...controller.document.nodes.keys,
+        ...controller.document.edges.keys,
+      };
+      final Set<String> fresh1 =
+          afterFirst.difference(<String>{'a', 'b', 'e1'});
+      // N=2 nodes + E=1 edge minted exactly 3 ids: ordinals 1..3.
+      expect(fresh1, hasLength(3));
+      expect(
+        fresh1.where((String id) => id.startsWith('node_copy_')),
+        hasLength(2),
+      );
+      expect(
+        fresh1.where((String id) => id.startsWith('edge_copy_')),
+        hasLength(1),
+      );
+      expect(fresh1.map(ordinal).toSet(), equals(<int>{1, 2, 3}));
+      // A second paste of the same payload continues densely at 4..6
+      // (no per-node edge-id burn) with all ids unique.
+      controller.paste(at: const Offset(300, 300));
+      final Set<String> afterSecond = <String>{
+        ...controller.document.nodes.keys,
+        ...controller.document.edges.keys,
+      };
+      final Set<String> fresh2 = afterSecond.difference(afterFirst);
+      expect(fresh2, hasLength(3));
+      expect(fresh2.map(ordinal).toSet(), equals(<int>{4, 5, 6}));
+      expect(afterSecond.length, equals(afterFirst.length + 3));
     });
   });
 }
