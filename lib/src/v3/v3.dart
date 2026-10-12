@@ -14,3 +14,6 @@ export 'lattice_scope.dart';
 export 'lattice_canvas.dart';
 export 'lattice_camera.dart';
 export 'session_providers.dart';
+export 'lattice_spatial_index.dart';
+export 'edge_paths.dart';
+export 'edge_path_cache.dart';
