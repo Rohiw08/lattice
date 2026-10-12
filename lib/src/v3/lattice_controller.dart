@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'lattice_camera.dart';
 import 'lattice_document.dart';
 import 'lattice_edge.dart';
+import 'lattice_history.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
 import 'lattice_options.dart';
@@ -43,6 +44,10 @@ class LatticeController extends ChangeNotifier {
   LatticeOptions _options;
   bool _attached = false;
   bool _disposed = false;
+
+  /// Undo/redo history (plain field, not a provider). Every document
+  /// verb records its pre-image here before replacing.
+  final LatticeHistoryController _history = LatticeHistoryController();
 
   /// Controller-owned hit-test index, synced lazily on every verb that
   /// queries it: full `rebuild` when the key set changed, `moveNode`
@@ -110,6 +115,7 @@ class LatticeController extends ChangeNotifier {
   void load(LatticeDocument document) {
     _container.read(latticeDocumentProvider.notifier).replace(document);
     _container.read(latticeSelectionProvider.notifier).clear();
+    _history.reset();
     notifyListeners();
   }
 
@@ -118,7 +124,7 @@ class LatticeController extends ChangeNotifier {
   void addNode(LatticeNode n) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
-    // V3-4 Task 2: route through history
+    _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
         .replace(current.withNode(n));
@@ -130,7 +136,7 @@ class LatticeController extends ChangeNotifier {
   void addEdge(LatticeEdge e) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
-    // V3-4 Task 2: route through history
+    _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
         .replace(current.withEdge(e));
@@ -152,7 +158,7 @@ class LatticeController extends ChangeNotifier {
       next![id] = node.copyWith(position: position);
     });
     if (next == null) return;
-    // V3-4 Task 2: route through history
+    _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
         .replace(current.copyWith(nodes: next));
@@ -164,7 +170,7 @@ class LatticeController extends ChangeNotifier {
   void removeNodes(Set<String> ids) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
-    // V3-4 Task 2: route through history
+    _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
         .replace(current.withoutNodes(ids));
@@ -175,7 +181,7 @@ class LatticeController extends ChangeNotifier {
   void removeEdges(Set<String> ids) {
     final LatticeDocument current =
         _container.read(latticeDocumentProvider);
-    // V3-4 Task 2: route through history
+    _history.push(current);
     _container
         .read(latticeDocumentProvider.notifier)
         .replace(current.withoutEdges(ids));
@@ -214,6 +220,34 @@ class LatticeController extends ChangeNotifier {
   /// Returns the current document (same instance, no copy).
   LatticeDocument save() {
     return _container.read(latticeDocumentProvider);
+  }
+
+  /// Whether [undo] would restore a document.
+  bool get canUndo => _history.canUndo;
+
+  /// Whether [redo] would reapply a document.
+  bool get canRedo => _history.canRedo;
+
+  /// Restores the pre-image of the last document verb. Replaces the
+  /// document and notifies exactly once. No-op (no replace, no notify)
+  /// when the undo stack is empty.
+  void undo() {
+    final LatticeDocument? previous =
+        _history.undo(_container.read(latticeDocumentProvider));
+    if (previous == null) return;
+    _container.read(latticeDocumentProvider.notifier).replace(previous);
+    notifyListeners();
+  }
+
+  /// Reapplies the document undone by [undo]. Replaces the document
+  /// and notifies exactly once. No-op (no replace, no notify) when the
+  /// redo stack is empty.
+  void redo() {
+    final LatticeDocument? next =
+        _history.redo(_container.read(latticeDocumentProvider));
+    if (next == null) return;
+    _container.read(latticeDocumentProvider.notifier).replace(next);
+    notifyListeners();
   }
 
   /// Marks the controller as mounted. Canvas use only.
@@ -343,6 +377,7 @@ class LatticeController extends ChangeNotifier {
     if (moved) {
       final LatticeDocument current =
           _container.read(latticeDocumentProvider);
+      _history.coalescePush(current);
       _container
           .read(latticeDocumentProvider.notifier)
           .replace(current.copyWith(nodes: next));
