@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lattice/src/v3/v3.dart';
 
@@ -108,6 +109,52 @@ void main() {
       final LatticeEdgePainter painter = _edgePainter(tester);
       expect(painter.paintedIdsForTest, contains('e1'));
       expect(painter.paintedIdsForTest, isNot(contains('eBad')));
+    });
+
+    testWidgets('paint hook survives an equal-contents rebuild',
+        (tester) async {
+      final LatticeNode a = _node('a', Offset.zero);
+      final LatticeNode b = _node('b', const Offset(300, 0));
+      final controller = LatticeController(
+        initialNodes: <LatticeNode>[a, b],
+        initialEdges: <LatticeEdge>[_edge('e1', 'a', 'b')],
+      );
+      addTearDown(controller.dispose);
+
+      // Pump the edge layer in isolation (no node layer / Stack sibling):
+      // with siblings, a Stack repaint would repaint the new delegate
+      // anyway and mask the discarded-delegate bug this pins.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: UncontrolledProviderScope(
+            container: controller.container,
+            child: const LatticeEdgeLayer(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final LatticeEdgePainter before = _edgePainter(tester);
+      expect(before.paintedIdsForTest, contains('e1'));
+
+      // Document write that is a no-op for the edge layer: adding an
+      // edgeless node rebuilds the layer with equal painter contents, so
+      // shouldRepaint is false and the new delegate never paints.
+      // (A byte-equal setNodes write would not rebuild at all: Riverpod
+      // dedupes == documents.)
+      controller.setNodes(<LatticeNode>[
+        a,
+        b,
+        _node('u', const Offset(50, 400)),
+      ]);
+      await tester.pump();
+      await tester.pump();
+
+      final LatticeEdgePainter after = _edgePainter(tester);
+      expect(identical(after, before), isFalse);
+      expect(after.shouldRepaint(before), isFalse);
+      expect(after.paintedIdsForTest, contains('e1'));
     });
   });
 }

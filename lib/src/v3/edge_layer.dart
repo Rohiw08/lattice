@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -64,25 +63,37 @@ class LatticeEdgeStyle {
 ///
 /// Each path in [paths] is drawn exactly once; color/width come from
 /// [style] by [selectedEdges] membership.
+///
+/// [paintedIdsRecorder], when supplied, is the shared backing store for
+/// [paintedIdsForTest]: the layer's `State` owns one list across builds
+/// and passes it to every painter, so the hook still reflects what is on
+/// screen when an equal-contents rebuild yields `shouldRepaint == false`
+/// (the new delegate is discarded and never paints). The painter refills
+/// the list in place on every [paint] — never reassigns it — so all
+/// delegates sharing the list observe the same ids.
 class LatticeEdgePainter extends CustomPainter {
   LatticeEdgePainter({
     required this.paths,
     required this.edges,
     required this.selectedEdges,
     required this.style,
-  });
+    List<String>? paintedIdsRecorder,
+  }) : _paintedIds = paintedIdsRecorder ?? <String>[];
 
   final Map<String, Path> paths;
   final Map<String, LatticeEdge> edges;
   final Set<String> selectedEdges;
   final LatticeEdgeStyle style;
 
-  List<String> _paintedIds = const <String>[];
+  final List<String> _paintedIds;
 
   /// Ids actually painted in the last [paint] call.
   ///
   /// Test hook: lets widget tests assert which edges the layer handed
-  /// to the painter without pixel sampling.
+  /// to the painter without pixel sampling. When the painter was built
+  /// with a shared recorder, this reflects the on-screen painting even
+  /// if this delegate instance never painted (discarded `shouldRepaint`
+  /// false rebuild).
   List<String> get paintedIdsForTest =>
       List<String>.unmodifiable(_paintedIds);
 
@@ -98,7 +109,9 @@ class LatticeEdgePainter extends CustomPainter {
       canvas.drawPath(path, paint);
       painted.add(id);
     });
-    _paintedIds = painted;
+    _paintedIds
+      ..clear()
+      ..addAll(painted);
   }
 
   @override
@@ -159,6 +172,7 @@ class _LatticeEdgeLayerBody extends ConsumerStatefulWidget {
 class _LatticeEdgeLayerBodyState
     extends ConsumerState<_LatticeEdgeLayerBody> {
   final EdgePathCache _cache = EdgePathCache();
+  final List<String> _paintedIds = <String>[];
   int _lastCount = 0;
 
   @override
@@ -212,6 +226,7 @@ class _LatticeEdgeLayerBodyState
           edges: edges,
           selectedEdges: selectedEdges,
           style: widget.style,
+          paintedIdsRecorder: _paintedIds,
         ),
       ),
     );
