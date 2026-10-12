@@ -32,3 +32,4 @@ export 'node_resizer.dart';
 export 'lattice_lock.dart';
 export 'canvas_toolbar.dart';
 export 'canvas_panel.dart';
+export 'keyboard_shortcuts.dart';
