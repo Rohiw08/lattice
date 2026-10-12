@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'lattice_camera.dart';
 import 'lattice_controller.dart';
+import 'lattice_edge.dart';
+import 'lattice_handle.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
 import 'lattice_scope.dart';
@@ -65,7 +67,9 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
   int? _primaryPointer;
   Offset? _downPosition;
   String? _downNodeId;
+  LatticeEndpoint? _downHandle;
   bool _nodeDragging = false;
+  bool _connecting = false;
   bool _marquee = false;
   bool _panning = false;
 
@@ -114,6 +118,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
         _nodeDragging = false;
         _controller.endNodeDrag();
       }
+      if (_connecting) {
+        _connecting = false;
+        _controller.endConnect(null);
+      }
       if (_marquee) {
         _marquee = false;
         _controller.endMarquee();
@@ -121,6 +129,7 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
       _primaryPointer = null;
       _downPosition = null;
       _downNodeId = null;
+      _downHandle = null;
       _panning = true;
       _addRoute(event.pointer);
       return;
@@ -131,6 +140,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
         _nodeDragging = false;
         _controller.endNodeDrag();
       }
+      if (_connecting) {
+        _connecting = false;
+        _controller.endConnect(null);
+      }
       if (_marquee) {
         _marquee = false;
         _controller.endMarquee();
@@ -138,6 +151,7 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
       _primaryPointer = null;
       _downPosition = null;
       _downNodeId = null;
+      _downHandle = null;
       _panning = true;
       _addRoute(event.pointer);
       return;
@@ -145,6 +159,16 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     if (_pointers.length > 2 || _primaryPointer != null) return;
     _primaryPointer = event.pointer;
     _downPosition = event.localPosition;
+    _downHandle = _hitHandle(event.localPosition);
+    if (_downHandle != null) {
+      // Press on a handle starts a connect session instead of a node
+      // drag; the threshold branch below never fires for this gesture.
+      _downNodeId = null;
+      _controller.beginConnect(_downHandle!);
+      _connecting = true;
+      _addRoute(event.pointer);
+      return;
+    }
     _downNodeId = _hitNode(event.localPosition);
     _addRoute(event.pointer);
   }
@@ -158,6 +182,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
       return;
     }
     if (event.pointer != _primaryPointer) return;
+    if (_connecting) {
+      _controller.updateConnect(event.localPosition);
+      return;
+    }
     final Offset? down = _downPosition;
     if (down == null) return;
     final Offset position = event.localPosition;
@@ -200,7 +228,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     if (event.pointer != _primaryPointer) return;
     _primaryPointer = null;
-    if (_nodeDragging) {
+    if (_connecting) {
+      _connecting = false;
+      _controller.endConnect(_hitHandle(event.localPosition));
+    } else if (_nodeDragging) {
       _nodeDragging = false;
       _controller.endNodeDrag();
     } else if (_marquee) {
@@ -211,6 +242,7 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     _downPosition = null;
     _downNodeId = null;
+    _downHandle = null;
   }
 
   void _onPointerCancel(PointerCancelEvent event) {
@@ -221,7 +253,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     if (event.pointer != _primaryPointer) return;
     _primaryPointer = null;
-    if (_nodeDragging) {
+    if (_connecting) {
+      _connecting = false;
+      _controller.endConnect(null);
+    } else if (_nodeDragging) {
       _nodeDragging = false;
       _controller.endNodeDrag();
     } else if (_marquee) {
@@ -230,6 +265,7 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     _downPosition = null;
     _downNodeId = null;
+    _downHandle = null;
   }
 
   /// Safety net for ups/cancels outside the pane (the [Listener] never
@@ -244,7 +280,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     if (event.pointer != _primaryPointer) return;
     _primaryPointer = null;
-    if (_nodeDragging) {
+    if (_connecting) {
+      _connecting = false;
+      _controller.endConnect(null);
+    } else if (_nodeDragging) {
       _nodeDragging = false;
       _controller.endNodeDrag();
     } else if (_marquee) {
@@ -255,6 +294,7 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
     }
     _downPosition = null;
     _downNodeId = null;
+    _downHandle = null;
   }
 
   void _addRoute(int pointer) {
@@ -307,6 +347,41 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
       }
     }
     return best;
+  }
+
+  /// Router-side handle hit test: the handle of the topmost node at
+  /// [screenPosition] whose screen rect (handle center ± 10px) contains
+  /// the point, or `null`. Reuses [_hitNode] for the node pick, then
+  /// probes that node's resolved handle geometry (node screen position
+  /// + handle position).
+  LatticeEndpoint? _hitHandle(Offset screenPosition) {
+    final String? nodeId = _hitNode(screenPosition);
+    if (nodeId == null) return null;
+    final ProviderContainer container = _controller.container;
+    final Map<String, LatticeNode> nodes =
+        container.read(latticeDocumentProvider).nodes;
+    final LatticeNode? node = nodes[nodeId];
+    if (node == null) return null;
+    final Matrix4 matrix = container.read(latticeCameraProvider);
+    final Offset nodeTopLeft = latticeAbsoluteTopLeft(
+      nodes,
+      nodeId,
+      defaultOrigin: Offset.zero,
+    );
+    for (final MapEntry<String, LatticeHandle> entry
+        in node.resolveHandles().entries) {
+      final LatticeHandle handle = entry.value;
+      final Offset centerFlow = nodeTopLeft +
+          handle.position +
+          Offset(handle.size.width / 2, handle.size.height / 2);
+      final Offset centerScreen =
+          MatrixUtils.transformPoint(matrix, centerFlow);
+      final Offset delta = screenPosition - centerScreen;
+      if (delta.dx.abs() <= 10 && delta.dy.abs() <= 10) {
+        return LatticeEndpoint(nodeId: nodeId, handleId: entry.key);
+      }
+    }
+    return null;
   }
 
   void _updateHover(Offset screenPosition) {

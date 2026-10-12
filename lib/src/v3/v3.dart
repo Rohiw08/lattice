@@ -24,3 +24,4 @@ export 'lattice_history.dart';
 export 'lattice_clipboard.dart';
 export 'gesture_router.dart';
 export 'lattice_connection.dart';
+export 'handle_widget.dart';

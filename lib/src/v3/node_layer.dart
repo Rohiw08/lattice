@@ -1,7 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'handle_widget.dart';
 import 'lattice_cull.dart';
+import 'lattice_handle.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
 import 'session_providers.dart';
@@ -109,12 +111,40 @@ class _LatticeNodeShell extends ConsumerWidget {
               node.size);
     final Widget body = nodeBuilders[node.type]?.call(context, node, selected) ??
         _defaultNodeBody(node, selected);
+    final Map<String, LatticeHandle> handles = node.resolveHandles();
+    if (handles.isEmpty) {
+      return Positioned(
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        child: body,
+      );
+    }
+    // Handle overlay: node bodies are user builders, so the shell mounts
+    // a LatticeHandleWidget per resolved handle in a Stack above the
+    // body. Each hit area is centered on its handle rect center.
     return Positioned(
       left: rect.left,
       top: rect.top,
       width: rect.width,
       height: rect.height,
-      child: body,
+      child: Stack(
+        children: <Widget>[
+          body,
+          for (final MapEntry<String, LatticeHandle> entry
+              in handles.entries)
+            Positioned(
+              left: entry.value.position.dx +
+                  entry.value.size.width / 2 -
+                  latticeHandleHitExtent(entry.value.size.width) / 2,
+              top: entry.value.position.dy +
+                  entry.value.size.height / 2 -
+                  latticeHandleHitExtent(entry.value.size.height) / 2,
+              child: LatticeHandleWidget(nodeId: id, handle: entry.value),
+            ),
+        ],
+      ),
     );
   }
 }

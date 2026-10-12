@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'lattice_camera.dart';
 import 'lattice_clipboard.dart';
 import 'lattice_codecs.dart';
+import 'lattice_connection.dart';
 import 'lattice_document.dart';
 import 'lattice_edge.dart';
+import 'lattice_handle.dart';
 import 'lattice_history.dart';
 import 'lattice_layout.dart';
 import 'lattice_node.dart';
@@ -72,6 +74,11 @@ class LatticeController extends ChangeNotifier {
   /// Monotonic fresh-id counter for pasted copies (`node_copy_<n>` /
   /// `edge_copy_<n>`). Skips ids already present in the target document.
   int _copyCounter = 0;
+
+  /// Monotonic fresh-id counter for connect-minted edges (`edge_<n>`).
+  /// Separate from [_copyCounter]: the `edge_` prefix can never collide
+  /// with pasted `edge_copy_<n>` ids.
+  int _edgeCounter = 0;
 
   /// Top-left of the copied node bounds at [copySelection] time; the
   /// anchor `paste`/`duplicateSelection` measure deltas against. Null
@@ -691,6 +698,122 @@ class LatticeController extends ChangeNotifier {
       _container.read(latticeDragProvider.notifier).set(
             const LatticeDragState.idle(),
           );
+    }
+  }
+
+  /// Starts a connect session from [from], seeding `liveEnd` at the
+  /// handle's flow center ([_handleFlowCenter]). Session-only: no
+  /// document replace, no history, no controller notification.
+  void beginConnect(LatticeEndpoint from) {
+    _container.read(latticeDragProvider.notifier).set(
+          LatticeDragState.connect(
+            from: from,
+            liveEnd: _handleFlowCenter(from),
+          ),
+        );
+  }
+
+  /// Advances the active connect session's `liveEnd` to [screenEnd]
+  /// converted to flow coordinates. Session-only (no document, no
+  /// history, no notification). No-op unless a connect is active.
+  void updateConnect(Offset screenEnd) {
+    final LatticeDragState drag = _container.read(latticeDragProvider);
+    final LatticeEndpoint? from = drag.from;
+    if (!drag.isActive || from == null || drag.liveEnd == null) return;
+    _container.read(latticeDragProvider.notifier).set(
+          LatticeDragState.connect(
+            from: from,
+            liveEnd: screenToFlow(screenEnd),
+            reconnectEdgeId: drag.reconnectEdgeId,
+          ),
+        );
+  }
+
+  /// Ends the active connect session. A `null` target (or an inactive /
+  /// non-connect session) cancels silently: no history, no notify.
+  /// Otherwise validates via [latticeValidateConnection] (defaults: no
+  /// self-connections, no duplicates) — invalid cancels silently; valid
+  /// mints `edge_<n>` via [addEdge] (one history entry) then resets the
+  /// drag to idle.
+  void endConnect(LatticeEndpoint? target) {
+    final LatticeDragState drag = _container.read(latticeDragProvider);
+    final LatticeEndpoint? from = drag.from;
+    if (!drag.isActive || from == null || drag.liveEnd == null) return;
+    if (target == null) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    if (!latticeValidateConnection(
+      source: from,
+      target: target,
+      doc: current,
+    )) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    addEdge(
+      LatticeEdge(id: _freshEdgeId(current), source: from, target: target),
+    );
+    _container.read(latticeDragProvider.notifier).set(
+          const LatticeDragState.idle(),
+        );
+  }
+
+  /// Flow-space center of [endpoint]'s handle: node absolute top-left +
+  /// handle rect center. A null `handleId` (default port) resolves to the
+  /// first source-type handle's center, else the node rect center.
+  Offset _handleFlowCenter(LatticeEndpoint endpoint) {
+    final Map<String, LatticeNode> nodes =
+        _container.read(latticeDocumentProvider).nodes;
+    final LatticeNode? node = nodes[endpoint.nodeId];
+    if (node == null) return Offset.zero;
+    final Offset topLeft = latticeAbsoluteTopLeft(
+      nodes,
+      endpoint.nodeId,
+      defaultOrigin: Offset.zero,
+    );
+    LatticeHandle? handle = endpoint.handleId == null
+        ? null
+        : node.resolveHandles()[endpoint.handleId];
+    handle ??= _firstSourceHandle(node);
+    if (handle == null) {
+      return latticeAbsoluteRect(
+        nodes,
+        endpoint.nodeId,
+        defaultOrigin: Offset.zero,
+      ).center;
+    }
+    final LatticeHandle resolved = handle;
+    return topLeft +
+        resolved.position +
+        Offset(
+          resolved.size.width / 2,
+          resolved.size.height / 2,
+        );
+  }
+
+  /// First source-type handle in [node]'s resolved handles, or null.
+  LatticeHandle? _firstSourceHandle(LatticeNode node) {
+    for (final LatticeHandle handle in node.resolveHandles().values) {
+      if (handle.type == LatticeHandleType.source) return handle;
+    }
+    return null;
+  }
+
+  /// Next `edge_<n>` id absent from [doc]. Skips ids already present so
+  /// a loaded document can never be overwritten by a minted edge.
+  String _freshEdgeId(LatticeDocument doc) {
+    while (true) {
+      final String id = 'edge_${++_edgeCounter}';
+      if (!doc.edges.containsKey(id) && !doc.nodes.containsKey(id)) {
+        return id;
+      }
     }
   }
 
