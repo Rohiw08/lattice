@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lattice/src/v3/v3.dart';
@@ -223,6 +224,56 @@ void main() {
       controller.zoomOut();
       controller.fitView();
       expect(controller.container.read(latticeCameraProvider), equals(before));
+    });
+
+    testWidgets('locked secondary-button pan is swallowed; unlocked pans',
+        (tester) async {
+      final controller = LatticeController(
+        initialNodes: [_node('a', const Offset(100, 100))],
+      );
+      addTearDown(controller.dispose);
+
+      await _pumpCanvasWithControls(tester, controller);
+      final Matrix4 before =
+          controller.container.read(latticeCameraProvider);
+
+      Future<void> secondaryDragBy(Offset delta) async {
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await gesture.addPointer(location: const Offset(400, 300));
+        await gesture.down(const Offset(400, 300));
+        await tester.pump();
+        await gesture.moveBy(delta);
+        await tester.pump();
+        await gesture.up();
+        await gesture.removePointer();
+        await tester.pump();
+      }
+
+      controller.toggleLock();
+      expect(controller.isLocked, isTrue);
+      await tester.pump();
+
+      await secondaryDragBy(const Offset(100, 50));
+      expect(
+        controller.container.read(latticeCameraProvider),
+        equals(before),
+      );
+
+      controller.toggleLock();
+      expect(controller.isLocked, isFalse);
+      await tester.pump();
+
+      await secondaryDragBy(const Offset(100, 50));
+      final Matrix4 after =
+          controller.container.read(latticeCameraProvider);
+      expect(after, isNot(equals(before)));
+      final translation = after.getTranslation();
+      expect(translation.x, closeTo(100.0, 1e-9));
+      expect(translation.y, closeTo(50.0, 1e-9));
+      await _flushCameraSettle(tester);
     });
   });
 }
