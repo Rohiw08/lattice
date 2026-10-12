@@ -765,6 +765,129 @@ class LatticeController extends ChangeNotifier {
         );
   }
 
+  /// Starts a reconnect session for edge [edgeId]: the end flagged by
+  /// [sourceEnd] is the moving end; `from` is the NON-moving end and
+  /// `liveEnd` seeds at the moving end's handle flow center
+  /// ([_handleFlowCenter]). Unknown ids are a no-op: no drag state, no
+  /// history, no notification. Session-only: never notifies controller
+  /// listeners.
+  void beginReconnect(String edgeId, {required bool sourceEnd}) {
+    final LatticeEdge? edge = _container
+        .read(latticeDocumentProvider)
+        .edges[edgeId];
+    if (edge == null) return;
+    final LatticeEndpoint fixed = sourceEnd ? edge.target : edge.source;
+    final LatticeEndpoint moving = sourceEnd ? edge.source : edge.target;
+    _container.read(latticeDragProvider.notifier).set(
+          LatticeDragState.connect(
+            from: fixed,
+            liveEnd: _handleFlowCenter(moving),
+            reconnectEdgeId: edgeId,
+          ),
+        );
+  }
+
+  /// Advances the active reconnect session's `liveEnd` to [screenEnd]
+  /// converted to flow coordinates. Same as [updateConnect]. Session-only
+  /// (no document, no history, no notification). No-op unless a connect
+  /// is active.
+  void updateReconnect(Offset screenEnd) {
+    final LatticeDragState drag = _container.read(latticeDragProvider);
+    final LatticeEndpoint? from = drag.from;
+    if (!drag.isActive || from == null || drag.liveEnd == null) return;
+    _container.read(latticeDragProvider.notifier).set(
+          LatticeDragState.connect(
+            from: from,
+            liveEnd: screenToFlow(screenEnd),
+            reconnectEdgeId: drag.reconnectEdgeId,
+          ),
+        );
+  }
+
+  /// Ends the active reconnect session. A `null` target (or an inactive /
+  /// non-connect session, a non-reconnect session, or a session whose
+  /// edge vanished) cancels silently: no history, no notify (a null
+  /// target still resets the drag to idle; a non-reconnect session is
+  /// left untouched). Otherwise the moving end — the end opposite `from`
+  /// — is replaced by [target] and the NEW edge's (source, target)
+  /// validates via [latticeValidateConnection] (defaults): invalid
+  /// cancels silently, and a target equal to the old moving end
+  /// (same-as-old) cancels with no history entry. A valid change commits
+  /// as ONE undoable unit (one history push, one replace, one
+  /// notification) then resets the drag to idle.
+  void endReconnect(LatticeEndpoint? target) {
+    final LatticeDragState drag = _container.read(latticeDragProvider);
+    final LatticeEndpoint? from = drag.from;
+    final String? edgeId = drag.reconnectEdgeId;
+    if (!drag.isActive || from == null || drag.liveEnd == null) return;
+    if (edgeId == null) return;
+    if (target == null) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    final LatticeDocument current =
+        _container.read(latticeDocumentProvider);
+    final LatticeEdge? old = current.edges[edgeId];
+    if (old == null) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    final bool targetMoving;
+    if (from == old.source && from != old.target) {
+      targetMoving = true;
+    } else if (from == old.target && from != old.source) {
+      targetMoving = false;
+    } else if (from == old.source && from == old.target) {
+      // Self-loop edge: `from` matches both ends; keep the
+      // from-as-source convention and move the target end.
+      targetMoving = true;
+    } else {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    final LatticeEndpoint oldMoving = targetMoving ? old.target : old.source;
+    if (target == oldMoving) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    final LatticeEdge nextEdge = targetMoving
+        ? old.copyWith(target: target)
+        : old.copyWith(source: target);
+    if (!latticeValidateConnection(
+      source: nextEdge.source,
+      target: nextEdge.target,
+      doc: current,
+    )) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    final LatticeDocument next = current.copyWith(
+      edges: <String, LatticeEdge>{...current.edges, nextEdge.id: nextEdge},
+    );
+    if (next == current) {
+      _container.read(latticeDragProvider.notifier).set(
+            const LatticeDragState.idle(),
+          );
+      return;
+    }
+    _history.push(current);
+    _container.read(latticeDocumentProvider.notifier).replace(next);
+    _container.read(latticeDragProvider.notifier).set(
+          const LatticeDragState.idle(),
+        );
+    notifyListeners();
+  }
+
   /// Flow-space center of [endpoint]'s handle: node absolute top-left +
   /// handle rect center. A null `handleId` (default port) resolves to the
   /// first source-type handle's center, else the node rect center.
