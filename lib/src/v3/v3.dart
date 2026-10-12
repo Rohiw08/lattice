@@ -26,3 +26,5 @@ export 'lattice_clipboard.dart';
 export 'gesture_router.dart';
 export 'lattice_connection.dart';
 export 'handle_widget.dart';
+export 'minimap.dart';
+export 'canvas_background.dart';
