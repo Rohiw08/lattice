@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'edge_label_layer.dart';
 import 'edge_layer.dart';
 import 'gesture_router.dart';
 import 'lattice_controller.dart';
@@ -19,6 +20,7 @@ class LatticeCanvas extends StatefulWidget {
     required this.controller,
     this.overlays = const [],
     this.nodeBuilders = const {},
+    this.labelBuilders = const {},
   });
 
   final LatticeController controller;
@@ -29,6 +31,10 @@ class LatticeCanvas extends StatefulWidget {
   /// Per-type node body builders for the node layer. Unknown types fall
   /// back to a default bordered box.
   final Map<String, LatticeNodeBuilder> nodeBuilders;
+
+  /// Per-type edge label builders for the edge label layer. Edges whose
+  /// type has no builder render no label.
+  final Map<String, LatticeEdgeLabelBuilder> labelBuilders;
 
   @override
   State<LatticeCanvas> createState() => _LatticeCanvasState();
@@ -94,6 +100,9 @@ class _LatticeCanvasState extends State<LatticeCanvas> {
                 children: [
                   const SizedBox.expand(),
                   const LatticeEdgeLayer(),
+                  LatticeEdgeLabelLayer(
+                    labelBuilders: widget.labelBuilders,
+                  ),
                   LatticeNodeLayer(nodeBuilders: widget.nodeBuilders),
                   ...widget.overlays,
                 ],
