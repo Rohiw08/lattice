@@ -6,4 +6,6 @@ export 'lattice_edge.dart';
 export 'lattice_handle.dart';
 export 'lattice_node.dart';
 export 'lattice_layout.dart';
+export 'lattice_selection.dart';
 export 'lattice_viewport_value.dart';
+export 'session_providers.dart';
