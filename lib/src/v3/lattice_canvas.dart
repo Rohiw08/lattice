@@ -2,7 +2,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'lattice_controller.dart';
+import 'lattice_cull.dart';
 import 'lattice_scope.dart';
+import 'node_layer.dart';
 
 /// Mounts a [LatticeController] session as a widget.
 ///
@@ -14,18 +16,25 @@ class LatticeCanvas extends StatefulWidget {
     super.key,
     required this.controller,
     this.overlays = const [],
+    this.nodeBuilders = const {},
   });
 
   final LatticeController controller;
 
-  /// Widgets stacked above the lattice pane (nodes/edges land in V3-3).
+  /// Widgets stacked above the lattice pane (edges land in V3-4).
   final List<Widget> overlays;
+
+  /// Per-type node body builders for the node layer. Unknown types fall
+  /// back to a default bordered box.
+  final Map<String, LatticeNodeBuilder> nodeBuilders;
 
   @override
   State<LatticeCanvas> createState() => _LatticeCanvasState();
 }
 
 class _LatticeCanvasState extends State<LatticeCanvas> {
+  Size? _publishedSize;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +46,12 @@ class _LatticeCanvasState extends State<LatticeCanvas> {
       );
     }
     widget.controller.attach();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.controller.container
+          .read(latticeCullProvider.notifier)
+          .refresh(force: true);
+    });
   }
 
   @override
@@ -51,11 +66,32 @@ class _LatticeCanvasState extends State<LatticeCanvas> {
       container: widget.controller.container,
       child: LatticeScope(
         controller: widget.controller,
-        child: Stack(
-          children: [
-            const SizedBox.expand(key: ValueKey('latticePane')),
-            ...widget.overlays,
-          ],
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final Size size = Size(
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
+            if (size != _publishedSize &&
+                size.width.isFinite &&
+                size.height.isFinite) {
+              _publishedSize = size;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                widget.controller.container
+                    .read(latticePaneSizeProvider.notifier)
+                    .set(size);
+              });
+            }
+            return Stack(
+              key: const ValueKey<String>('latticePane'),
+              children: [
+                const SizedBox.expand(),
+                LatticeNodeLayer(nodeBuilders: widget.nodeBuilders),
+                ...widget.overlays,
+              ],
+            );
+          },
         ),
       ),
     );
