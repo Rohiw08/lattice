@@ -12,4 +12,5 @@ export 'lattice_controller.dart';
 export 'lattice_options.dart';
 export 'lattice_scope.dart';
 export 'lattice_canvas.dart';
+export 'lattice_camera.dart';
 export 'session_providers.dart';
