@@ -107,6 +107,20 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
   void _onPointerDown(PointerDownEvent event) {
     _pointers[event.pointer] = event.localPosition;
     if (event.buttons == kSecondaryMouseButton) {
+      // Mirror the two-finger path: commit any active single-finger
+      // gesture first, so a later up can't strand it behind the
+      // `_panning` early-return (stuck drag).
+      if (_nodeDragging) {
+        _nodeDragging = false;
+        _controller.endNodeDrag();
+      }
+      if (_marquee) {
+        _marquee = false;
+        _controller.endMarquee();
+      }
+      _primaryPointer = null;
+      _downPosition = null;
+      _downNodeId = null;
       _panning = true;
       _addRoute(event.pointer);
       return;
@@ -159,7 +173,10 @@ class _GestureRouterBodyState extends ConsumerState<_GestureRouterBody> {
       final String? id = _downNodeId;
       if (id != null) {
         _controller.beginNodeDrag(id);
-        _controller.updateNodeDrag(event.delta);
+        // Apply the TOTAL displacement from the down position (the
+        // controller converts screen→flow), not just this event's
+        // incremental delta, so pre-threshold travel isn't lost.
+        _controller.updateNodeDrag(position - down);
         _nodeDragging = true;
       } else {
         _controller.beginMarquee(down);

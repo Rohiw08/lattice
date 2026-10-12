@@ -143,6 +143,35 @@ void main() {
         isFalse,
       );
     });
+
+    testWidgets('drag in small moves keeps pre-threshold travel (exact 10px)',
+        (tester) async {
+      final controller = _seededController();
+      addTearDown(controller.dispose);
+
+      await _pumpCanvas(tester, controller);
+
+      final gesture = await tester.startGesture(const Offset(150, 120));
+      for (var i = 0; i < 5; i++) {
+        await gesture.moveBy(const Offset(2, 0));
+      }
+      await tester.pump();
+
+      final drag = controller.container.read(latticeDragProvider);
+      expect(drag.isActive, isTrue);
+      expect(drag.livePositions['a'], equals(const Offset(110, 100)));
+
+      await gesture.up();
+      await tester.pump();
+
+      expect(
+        controller.container
+            .read(latticeDocumentProvider)
+            .nodes['a']!
+            .position,
+        equals(const Offset(110, 100)),
+      );
+    });
   });
 
   group('controller drag/marquee verbs (no widgets)', () {
